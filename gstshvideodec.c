@@ -252,7 +252,12 @@ gst_shvideodec_sink_event (GstPad * pad, GstEvent * event)
     {
       GST_DEBUG_OBJECT (dec, "EOS gst event");
       gst_element_post_message((GstElement*)dec,gst_message_new_buffering((GstObject*)dec,100));      
-      // Nothing to do here
+
+      GST_DEBUG_OBJECT(dec,"We are done, calling finalize.");
+      shcodecs_decoder_finalize(dec->decoder);
+      GST_DEBUG_OBJECT(dec,"Stream finalized. Total decoded %d frames.",
+		       shcodecs_decoder_get_frame_count(dec->decoder));
+
       gst_element_post_message((GstElement*)dec,gst_message_new_eos((GstObject*)dec));
       break;
     }
