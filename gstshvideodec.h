@@ -73,7 +73,7 @@ struct _Gstshvideodec
   gboolean first_frame;
   
   /* Output */
-
+  int output_fd; /* Debug */
   gint dst_width;
   gint dst_height;
   gint dst_x;

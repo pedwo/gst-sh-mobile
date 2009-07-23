@@ -38,6 +38,9 @@
 #include <linux/fb.h>
 #include "vidix/sh_veu_vid.c"
 
+/* Debug */
+//const char *g_output_filename = NULL;
+const char *g_output_filename = "./output.raw";
 
 /**
  * Define capatibilities for the sink factory
@@ -172,6 +175,9 @@ gst_shvideodec_dispose (GObject * object)
   {
     GST_DEBUG_OBJECT (dec, "close decoder object %p", dec->decoder);
     shcodecs_decoder_close (dec->decoder);
+
+    if (dec->output_fd)
+      close(dec->output_fd);
   }
   sh_veu_destroy();
   G_OBJECT_CLASS (parent_class)->dispose (object);
@@ -214,6 +220,12 @@ gst_shvideodec_init (Gstshvideodec * dec, GstshvideodecClass * gklass)
   dec->decoder = NULL;
   dec->first_frame = TRUE;
   dec->pcache = NULL;
+
+  /* Debug */
+  if (g_output_filename != NULL)
+    dec->output_fd = open(g_output_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+  else
+    dec->output_fd = -1;
 }
 
 
@@ -478,6 +490,13 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
   Gstshvideodec *dec = (Gstshvideodec *) user_data;
 
   GST_DEBUG_OBJECT(dec,"Frame decoded");
+
+  /* Debug */
+  if (dec->output_fd != -1)
+  {
+    write(dec->output_fd, y_buf, y_size);
+    write(dec->output_fd, c_buf, c_size);
+  }
 
   // Zero copy: Set the playback address to VPU mem  
   sh_vidix.offset.y=(unsigned)y_buf;
