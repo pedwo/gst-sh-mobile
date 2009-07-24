@@ -128,11 +128,20 @@ then
   AC_MSG_ERROR([libshcodecs is required])
   AC_ERROR
 fi
-
 AC_SUBST(LIBSHCODECS_CFLAGS)
 AC_SUBST(LIBSHCODECS_LIBS)
 
 AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,"-lstdc++")
+
+
+PKG_CHECK_MODULES(SHVEU, shveu >= 0.5.0, HAVE_SHVEU="yes", HAVE_SHVEU="no")
+if test "x$HAVE_SHVEU" != "xyes" ; then
+  AC_MSG_ERROR([libshveu is required])
+  AC_ERROR
+fi
+AC_SUBST(SHVEU_CFLAGS)
+AC_SUBST(SHVEU_LIBS)
+
 
 dnl *** set variables based on configure arguments ***
 
