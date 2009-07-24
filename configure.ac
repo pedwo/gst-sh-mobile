@@ -131,7 +131,7 @@ fi
 AC_SUBST(LIBSHCODECS_CFLAGS)
 AC_SUBST(LIBSHCODECS_LIBS)
 
-AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,"-lstdc++")
+AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,[-lstdc++ -lavcbd -lm4vsd -lm4iph -lavcbe -lm4vse])
 
 
 PKG_CHECK_MODULES(SHVEU, shveu >= 0.5.0, HAVE_SHVEU="yes", HAVE_SHVEU="no")
