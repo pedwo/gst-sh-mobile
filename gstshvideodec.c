@@ -263,7 +263,6 @@ gst_shvideodec_sink_event (GstPad * pad, GstEvent * event)
     case GST_EVENT_EOS:
     {
       GST_DEBUG_OBJECT (dec, "EOS gst event");
-      gst_element_post_message((GstElement*)dec,gst_message_new_buffering((GstObject*)dec,100));      
 
       GST_DEBUG_OBJECT(dec,"We are done, calling finalize.");
       shcodecs_decoder_finalize(dec->decoder);
@@ -435,7 +434,6 @@ gst_shvideodec_chain (GstPad * pad, GstBuffer * _data)
       "Received new data of size %d, time %" GST_TIME_FORMAT,
       GST_BUFFER_SIZE (inbuf), GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (inbuf)));
 
-
   if (dec->pcache)
   {
     inbuf = gst_buffer_join(dec->pcache, inbuf);
@@ -447,35 +445,28 @@ gst_shvideodec_chain (GstPad * pad, GstBuffer * _data)
     dec->playback_played = 0;
   }
 
-  while (bused > 0)
+  bdata = GST_BUFFER_DATA(inbuf);
+  bsize = GST_BUFFER_SIZE(inbuf);
+
+  GST_DEBUG_OBJECT(dec,"Calling shcodecs_decode with %d bytes", bsize);
+  bused = shcodecs_decode(dec->decoder, bdata, bsize);
+  GST_DEBUG_OBJECT(dec,"shcodecs_decode returned %d", bused);
+
+  if (bused < 0)
   {
-    bdata = GST_BUFFER_DATA(inbuf);
-    bsize = GST_BUFFER_SIZE(inbuf);
-
-    GST_DEBUG_OBJECT(dec,"Calling shcodecs_decode with %d bytes", bsize);
-    bused = shcodecs_decode(dec->decoder, bdata, bsize);
-    GST_DEBUG_OBJECT(dec,"shcodecs_decode returned %d", bused);
-
-    if (bused < 0)
-    {
-      GST_ELEMENT_ERROR((GstElement*)dec,CORE,FAILED,("Decode error"), 
+    GST_ELEMENT_ERROR((GstElement*)dec,CORE,FAILED,("Decode error"), 
          ("%s failed (Error on shcodecs_decode)",__FUNCTION__));
-      return GST_FLOW_ERROR;
-    }
-
-    if (bused != bsize)
-    {
-      inbuf = gst_buffer_create_sub (inbuf, bused, (bsize-bused));
-    }
+    return GST_FLOW_ERROR;
   }
-
+ 
   if (bused != bsize)
   {
-    GST_DEBUG_OBJECT (dec, "Keeping %d bytes of data", (bsize-bused));
+    GST_DEBUG_OBJECT (dec, "Keeping %d bytes of data", bsize);
     dec->pcache = gst_buffer_create_sub (inbuf, bused, (bsize-bused));
   }
 
   gst_buffer_unref (inbuf);
+
   return ret;
 }
 
