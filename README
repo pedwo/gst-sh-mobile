@@ -23,6 +23,11 @@ Encode file to file:
 $ gst-launch filesrc location=source_video_to_encode ! gst-sh-mobile-enc \
 cntl_file=encoder_control_file.ctl ! filesink location=encoded_video_file
 
+Encode camera to file with LCD preview:
+
+$gst-launch -v gst-sh-mobile-camera-enc cntl_file=k264-v4l2.ctl preview=1\
+ ! video/x-h264,width=640,height=480,framerate=30/1 ! filesink location=encoded_video.h264
+
 Decode a file and playback on the screen:
 
 $ gst-launch filesrc location=video_file.avi  ! avidemux name=demux \

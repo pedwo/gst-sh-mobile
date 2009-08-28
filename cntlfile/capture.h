@@ -17,14 +17,30 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
  */
 
+
 #ifndef __CAPTURE_H__
 #define __CAPTURE_H__
 
-typedef void *sh_ceu;
-typedef void (*sh_process_callback) (sh_ceu * ceu, const unsigned char *frame_data,
-				     size_t length, void *user_data);
+typedef enum {
+        IO_METHOD_READ,
+        IO_METHOD_MMAP,
+        IO_METHOD_USERPTR,
+} io_method;
 
-sh_ceu *sh_ceu_open(const char *device_name, int width, int height);
+typedef struct _sh_ceu {
+	const char * dev_name;
+	int fd;
+    io_method io;
+	struct buffer * buffers;
+	unsigned int n_buffers;
+	int width;
+	int height;
+	unsigned int pixel_format;
+} sh_ceu;
+
+typedef void (*sh_process_callback)  (sh_ceu * ceu, const void * frame_data, size_t length, void * user_data, int buffer_number);
+
+sh_ceu * sh_ceu_open (const char * device_name, int width, int height, io_method io);
 
 void sh_ceu_close(sh_ceu * ceu);
 
@@ -32,9 +48,8 @@ void sh_ceu_start_capturing(sh_ceu * ceu);
 
 void sh_ceu_stop_capturing(sh_ceu * ceu);
 
-void sh_ceu_capture_frame(sh_ceu * ceu, sh_process_callback cb,
-			  void *user_data);
+void sh_ceu_capture_frame(sh_ceu * ceu, sh_process_callback cb, void * user_data);
 
 unsigned int sh_ceu_get_pixel_format(sh_ceu * ceu);
 
-#endif				/* __CAPTURE_H__ */
+#endif /* __CAPTURE_H__ */
