@@ -1,9 +1,22 @@
 plugin_LTLIBRARIES = libgstshvideodec.la libgstshvideodec2.la libgstshvideoenc.la libgstshvideocapenc.la
 
 EXTRA_DIST = \
-	depcomp autogen.sh 
+	depcomp autogen.sh \
+	cntlfile/avcbencsmp.h \
+	cntlfile/capture.c \
+	cntlfile/capture.h \
+	cntlfile/ControlFileUtil.c \
+	cntlfile/ControlFileUtil.h \
+	vidix/dha.h \
+	vidix/fourcc.h \
+	vidix/README \
+	vidix/README.dha \
+	vidix/sh_veu_vid.c \
+	vidix/vidix.h
 
 ACLOCAL_AMFLAGS = -I common/m4
+
+AM_CFLAGS = -I $(srcdir)
 
 libgstshvideodec_la_SOURCES = gstshvideodec.c
 libgstshvideodec2_la_SOURCES = gstshvideodec2.c
@@ -45,7 +58,11 @@ libgstshvideocapenc_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -O2 -lrt \
 	-lgstvideo-0.10 -lz -lstdc++ -lgstinterfaces-0.10 -lshcodecs -lshveu
 libgstshvideocapenc_la_LIBTOOLFLAGS = --tag=disable-static
 
-noinst_HEADERS = 
+noinst_HEADERS = \
+	gstshvideocapenc.h \
+	gstshvideodec2.h \
+	gstshvideodec.h \
+	gstshvideoenc.h
 
 check-valgrind:
 	@true
