@@ -79,6 +79,9 @@ AS="${CC}"
 dnl check if the compiler supports '-c' and '-o' options
 AM_PROG_CC_C_O
 
+# Check for pkg-config
+AC_CHECK_PROG(HAVE_PKG_CONFIG, pkg-config, yes)
+
 AC_PATH_PROG(VALGRIND_PATH, valgrind, no)
 AM_CONDITIONAL(HAVE_VALGRIND, test ! "x$VALGRIND_PATH" = "xno")
 
@@ -119,9 +122,36 @@ dnl AM_CONDITIONAL(HAVE_GST_CHECK, test "x$HAVE_GST_CHECK" = "xyes")
 AC_MSG_NOTICE(Using GStreamer Core Plugins in $GST_PLUGINS_DIR)
 AC_MSG_NOTICE(Using GStreamer Base Plugins in $GSTPB_PLUGINS_DIR)
 
-dnl liboil is required for cpu detection for libpostproc
-dnl FIXME : In theory we should be able to compile libpostproc with cpudetect
-dnl capabilities, which would enable us to get rid of this
+dnl
+dnl Check for libuiomux
+dnl
+
+HAVE_UIOMUX=no
+UIOMUX_SUPPORT=no
+
+if test "x$HAVE_PKG_CONFIG" = "xyes" ; then
+  PKG_CHECK_MODULES(UIOMUX, uiomux, HAVE_UIOMUX=yes, HAVE_UIOMUX=no)
+fi
+
+if test "x$HAVE_UIOMUX" = "xno" ; then
+  AC_CHECK_LIB(uiomux, uiomux_init, HAVE_UIOMUX="maybe", , [-l...])
+  if test "x$HAVE_UIOMUX" = xmaybe ; then
+    AC_CHECK_HEADER([uiomux/uiomux.h], HAVE_UIOMUX="yes", HAVE_UIOMUX="no")
+  fi
+  if test "x$HAVE_UIOMUX" = xyes ; then
+    UIOMUX_LIBS="-luiomux"
+  fi
+fi
+
+if test "x$HAVE_UIOMUX" != "xyes" ; then
+  AC_MSG_ERROR([libuiomux is required])
+  AC_ERROR
+fi
+
+dnl
+dnl Check for libshcodecs
+dnl
+
 PKG_CHECK_MODULES(LIBSHCODECS, shcodecs >= 0.9.5, HAVE_LIBSHCODECS=yes, HAVE_LIBSHCODECS=no)
 if test "x$HAVE_LIBSHCODECS" != "xyes"
 then
@@ -133,6 +163,9 @@ AC_SUBST(LIBSHCODECS_LIBS)
 
 AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,[-lstdc++ -lavcbd -lm4vsd -lm4iph -lavcbe -lm4vse])
 
+dnl
+dnl Check for libshveu
+dnl
 
 PKG_CHECK_MODULES(SHVEU, shveu >= 0.5.0, HAVE_SHVEU="yes", HAVE_SHVEU="no")
 if test "x$HAVE_SHVEU" != "xyes" ; then
