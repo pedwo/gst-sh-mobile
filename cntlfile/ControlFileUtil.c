@@ -2542,13 +2542,6 @@ int GetFromCtrlFtoEncParam(SHCodecs_Encoder * encoder,
 		appli_info->yuv_CbCr_format = (char) return_value;
 	}
 
-	return_value =
-	    GetValueFromCtrlFile(fp_in, "frame_number_to_encode",
-				 &status_flag);
-	if (status_flag == 1) {
-		shcodecs_encoder_set_frame_number_to_encode(encoder, return_value);
-	}
-
 	/*** avcbe_encoding_property ***/
 	GetFromCtrlFtoEncoding_property(fp_in, encoder);
 
