@@ -488,7 +488,7 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder *decoder,
     GstCaps *caps;
 	char *string;
 	GstBuffer *outbuf;
-    unsigned char *rgb_out;
+    unsigned long rgb_out;
 
 	GST_DEBUG_OBJECT(dec,"Frame decoded");
 
@@ -512,13 +512,13 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder *decoder,
 	gst_buffer_set_caps(outbuf, caps);
     gst_caps_unref(caps);
 
-	rgb_out = GST_BUFFER_DATA(outbuf);
+	rgb_out = (unsigned long)GST_BUFFER_DATA(outbuf);
 
 	/* Scale and color convert */
 	shveu_operation(
 		dec->veu,
-		y_buf,   c_buf, dec->width,     dec->height,     dec->width,      SHVEU_YCbCr420,
-		rgb_out, NULL,  dec->out_width, dec->out_height, dec->out_width,  SHVEU_RGB565,
+		(unsigned long)y_buf,   (unsigned long)c_buf, dec->width,     dec->height,     dec->width,      SHVEU_YCbCr420,
+		rgb_out, 0UL,  dec->out_width, dec->out_height, dec->out_width,  SHVEU_RGB565,
 		SHVEU_NO_ROT);
 
 	GST_LOG("pushing buffer to source pad with timestamp : %" 
