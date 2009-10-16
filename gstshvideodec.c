@@ -27,15 +27,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
-#include <string.h>
+#include <linux/fb.h>
 
 #include "gstshvideodec.h"
-#include <linux/fb.h>
+
 #include "vidix/sh_veu_vid.c"
 
 /* Debug */

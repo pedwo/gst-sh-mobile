@@ -32,10 +32,10 @@
 #include <sys/mman.h>
 #include <string.h>
 
-#include <shcodecs/shcodecs_decoder.h>
-#include "gstshvideodec2.h"
+#include <shcodecs/shcodecs.h>
 #include <shveu/shveu.h>
-#include <shveu/veu_colorspace.h>
+
+#include "gstshvideodec2.h"
 
 /**
  * Define Gstreamer SH Video Decoder structure

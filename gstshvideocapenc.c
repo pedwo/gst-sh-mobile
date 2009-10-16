@@ -32,13 +32,13 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <string.h>
+#include <linux/fb.h>
+#include <linux/videodev2.h>	/* For pixel formats */
 #include <uiomux/uiomux.h>
 #include <shveu/shveu.h>
-#include "gstshvideocapenc.h"
-#include <linux/fb.h>
-#include "cntlfile/capture.h"
-#include <linux/videodev2.h>	/* For pixel formats */
 
+#include "gstshvideocapenc.h"
+#include "cntlfile/capture.h"
 
 typedef enum
 {
