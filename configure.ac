@@ -152,16 +152,16 @@ dnl
 dnl Check for libshcodecs
 dnl
 
-PKG_CHECK_MODULES(LIBSHCODECS, shcodecs >= 0.9.5, HAVE_LIBSHCODECS=yes, HAVE_LIBSHCODECS=no)
-if test "x$HAVE_LIBSHCODECS" != "xyes"
+PKG_CHECK_MODULES(SHCODECS, shcodecs >= 0.9.5, HAVE_SHCODECS=yes, HAVE_SHCODECS=no)
+if test "x$HAVE_SHCODECS" != "xyes"
 then
   AC_MSG_ERROR([libshcodecs is required])
   AC_ERROR
 fi
-AC_SUBST(LIBSHCODECS_CFLAGS)
-AC_SUBST(LIBSHCODECS_LIBS)
+AC_SUBST(SHCODECS_CFLAGS)
+AC_SUBST(SHCODECS_LIBS)
 
-AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,[-lstdc++ -lavcbd -lm4vsd -lm4iph -lavcbe -lm4vse])
+AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,[$SHCODECS_LIBS])
 
 dnl
 dnl Check for libshveu

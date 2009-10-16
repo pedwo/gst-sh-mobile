@@ -24,38 +24,38 @@ libgstshvideoenc_la_SOURCES = gstshvideoenc.c cntlfile/ControlFileUtil.c
 libgstshvideocapenc_la_SOURCES = gstshvideocapenc.c cntlfile/ControlFileUtil.c cntlfile/capture.c
 
 libgstshvideodec_la_CFLAGS = $(GST_CFLAGS) $(GST_PLUGINS_BASE_CFLAGS) \
-	$(LIBSHCODECS_CFLAGS)
+	$(SHCODECS_CFLAGS)
 libgstshvideodec_la_LIBADD = $(GST_BASE_LIBS) $(GST_PLUGINS_BASE_LIBS) \
-        $(LIBSHCODECS_LIBS)
+        $(SHCODECS_LIBS)
 libgstshvideodec_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -O2 -lrt \
-	-lgstvideo-0.10 -lz -lstdc++ -lgstinterfaces-0.10 -lshcodecs
+	-lgstvideo-0.10 -lz -lstdc++ -lgstinterfaces-0.10 $(SHCODECS_LDFLAGS)
 libgstshvideodec_la_LIBTOOLFLAGS = --tag=disable-static
 
 
 libgstshvideodec2_la_CFLAGS = $(GST_CFLAGS) $(GST_PLUGINS_BASE_CFLAGS) \
-	$(LIBSHCODECS_CFLAGS) $(SHVEU_CFLAGS) $(UIOMUX_CFLAGS)
+	$(SHCODECS_CFLAGS) $(SHVEU_CFLAGS) $(UIOMUX_CFLAGS)
 libgstshvideodec2_la_LIBADD = $(GST_BASE_LIBS) $(GST_PLUGINS_BASE_LIBS) \
-        $(LIBSHCODECS_LIBS) $(SHVEU_LIBS) $(UIOMUX_LDFLAGS)
+        $(SHCODECS_LIBS) $(SHVEU_LIBS) $(UIOMUX_LDFLAGS)
 libgstshvideodec2_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -O2 -lrt \
-	-lgstvideo-0.10 -lz -lstdc++ -lgstinterfaces-0.10 -lshcodecs $(SHVEU_LDFLAGS) $(UIOMUX_LDFLAGS)
+	-lgstvideo-0.10 -lz -lstdc++ -lgstinterfaces-0.10 $(SHCODECS_LDFLAGS) $(SHVEU_LDFLAGS) $(UIOMUX_LDFLAGS)
 libgstshvideodec2_la_LIBTOOLFLAGS = --tag=disable-static
 
 
 libgstshvideoenc_la_CFLAGS = $(GST_CFLAGS) $(GST_PLUGINS_BASE_CFLAGS) \
-	$(LIBSHCODECS_CFLAGS)
+	$(SHCODECS_CFLAGS)
 libgstshvideoenc_la_LIBADD = $(GST_BASE_LIBS) $(GST_PLUGINS_BASE_LIBS) \
-        $(LIBSHCODECS_LIBS)
+        $(SHCODECS_LIBS)
 libgstshvideoenc_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -O2 -lrt \
-	-lgstvideo-0.10 -lz -lstdc++ -lgstinterfaces-0.10 -lshcodecs
+	-lgstvideo-0.10 -lz -lstdc++ -lgstinterfaces-0.10 $(SHCODECS_LDFLAGS)
 libgstshvideoenc_la_LIBTOOLFLAGS = --tag=disable-static
 
 
 libgstshvideocapenc_la_CFLAGS = $(GST_CFLAGS) $(GST_PLUGINS_BASE_CFLAGS) \
-	$(LIBSHCODECS_CFLAGS) $(SHVEU_CFLAGS) $(UIOMUX_CFLAGS)
+	$(SHCODECS_CFLAGS) $(SHVEU_CFLAGS) $(UIOMUX_CFLAGS)
 libgstshvideocapenc_la_LIBADD = $(GST_BASE_LIBS) $(GST_PLUGINS_BASE_LIBS) \
-        $(LIBSHCODECS_LIBS) $(SHVEU_LIBS) $(UIOMUX_LIBS)
+        $(SHCODECS_LIBS) $(SHVEU_LIBS) $(UIOMUX_LIBS)
 libgstshvideocapenc_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -O2 -lrt \
-	-lgstvideo-0.10 -lz -lstdc++ -lgstinterfaces-0.10 -lshcodecs $(SHVEU_LDFLAGS) $(UIOMUX_LDFLAGS)
+	-lgstvideo-0.10 -lz -lstdc++ -lgstinterfaces-0.10 $(SHCODECS_LDFLAGS) $(SHVEU_LDFLAGS) $(UIOMUX_LDFLAGS)
 libgstshvideocapenc_la_LIBTOOLFLAGS = --tag=disable-static
 
 noinst_HEADERS = \
