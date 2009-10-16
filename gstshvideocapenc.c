@@ -32,6 +32,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <string.h>
+#include <uiomux/uiomux.h>
 #include <shveu/shveu.h>
 #include "gstshvideocapenc.h"
 #include <linux/fb.h>
@@ -85,6 +86,8 @@ struct _GstshvideoEnc
   pthread_mutex_t blit_mutex;
   pthread_mutex_t blit_vpu_end_mutex;
   pthread_mutex_t output_mutex;
+
+  UIOMux * uiomux;
   int veu;
 
   int ceu_buf_size;
@@ -229,23 +232,38 @@ static void *capture_thread(void *data)
   }
 }
 
+//#define USE_UIOMUX_VIRT_TO_PHYS
 
 static void *blit_thread(void *data)
 {
   GstshvideoEnc *shvideoenc = (GstshvideoEnc *)data;
-  struct uio_map uio;
-  unsigned char *in_yaddr;
-  unsigned char *in_caddr;
+  unsigned long veu_base;
+  unsigned long in_yaddr;
+  unsigned long in_caddr;
 
-  shveu_get_memory_info(&uio);
+#ifndef USE_UIOMUX_VIRT_TO_PHYS
+  uiomux_get_mem (shvideoenc->uiomux, UIOMUX_SH_VEU, &veu_base, NULL, NULL);
+#endif
 
   while(1)
   {
     GST_LOG_OBJECT(shvideoenc,"%s called preview %d",__FUNCTION__, shvideoenc->preview);
     pthread_mutex_lock(&shvideoenc->blit_mutex); 
-    in_yaddr = (unsigned char *)(uio.address+shvideoenc->ceu_buf_size*shvideoenc->ceu_buf_num);
-    in_caddr = (unsigned char *)(in_yaddr+shvideoenc->ceu_buf_size/2);
+
+#ifdef USE_UIOMUX_VIRT_TO_PHYS 
+    veu_base = uiomux_virt_to_phys (shvideoenc->uiomux, UIOMUX_SH_VEU, shvideoenc->ceu_ubuf);
+    in_yaddr = veu_base;
+#else
+    in_yaddr = veu_base+shvideoenc->ceu_buf_size*shvideoenc->ceu_buf_num;
+#endif
+
+    in_caddr = in_yaddr+shvideoenc->ceu_buf_size/2;
     /* memory copy from ceu output buffer to vpu input buffer */
+
+#if 0
+    fprintf (stderr, "Resizing input data from %lu from size %ld x %ld to size %d x %d\n",
+             in_yaddr, shvideoenc->ainfo.xpic, shvideoenc->ainfo.ypic, shvideoenc->width, shvideoenc->height);
+#endif
 
     shveu_operation(
       shvideoenc->veu, 
@@ -255,11 +273,11 @@ static void *blit_thread(void *data)
       shvideoenc->ainfo.ypic,
       shvideoenc->ainfo.xpic,
       SHVEU_YCbCr420,
-	  (unsigned char *)shvideoenc->enc_in_yaddr,
-	  (unsigned char *)shvideoenc->enc_in_caddr,
-      shvideoenc->width,
-      shvideoenc->height,
-      shvideoenc->width,
+      shvideoenc->enc_in_yaddr,
+      shvideoenc->enc_in_caddr,
+      (long)shvideoenc->width,
+      (long)shvideoenc->height,
+      (long)shvideoenc->width,
       SHVEU_YCbCr420,
       SHVEU_NO_ROT);
     pthread_mutex_unlock(&shvideoenc->blit_vpu_end_mutex);
@@ -268,17 +286,17 @@ static void *blit_thread(void *data)
     {
       shveu_operation(
         shvideoenc->veu, 
-	    (unsigned char *)shvideoenc->enc_in_yaddr,
-        (unsigned char *)shvideoenc->enc_in_caddr,
-        shvideoenc->width,
-        shvideoenc->height,
-        shvideoenc->width,
+        shvideoenc->enc_in_yaddr,
+        shvideoenc->enc_in_caddr,
+        (long)shvideoenc->width,
+        (long)shvideoenc->height,
+        (long)shvideoenc->width,
         SHVEU_YCbCr420,
-	    (unsigned char *)shvideoenc->finfo.smem_start,
-        NULL,
-        shvideoenc->fbinfo.xres,
-        shvideoenc->fbinfo.yres,
-        shvideoenc->fbinfo.xres,
+        shvideoenc->finfo.smem_start,
+        0UL,
+        (long)shvideoenc->fbinfo.xres,
+        (long)shvideoenc->fbinfo.yres,
+        (long)shvideoenc->fbinfo.xres,
         SHVEU_RGB565,
         SHVEU_NO_ROT);
     }
@@ -355,6 +373,8 @@ gst_shvideo_enc_dispose (GObject * object)
   sh_ceu_stop_capturing(shvideoenc->ainfo.ceu);
   shveu_close();
   sh_ceu_close(shvideoenc->ainfo.ceu);
+
+  uiomux_close (shvideoenc->uiomux);
 
   pthread_mutex_destroy(&shvideoenc->capture_start_mutex);
   pthread_mutex_destroy(&shvideoenc->capture_end_mutex);
@@ -816,6 +836,9 @@ launch_camera_encoder_thread(void *data)
   snprintf(enc->ainfo.input_file_name_buf, 256, "%s/%s",
 		 enc->ainfo.buf_input_yuv_file_with_path,
 		 enc->ainfo.buf_input_yuv_file);
+
+  /* uiomux open */
+  enc->uiomux = uiomux_open ();
 
   /* veu oopen */
   enc->veu = shveu_open();

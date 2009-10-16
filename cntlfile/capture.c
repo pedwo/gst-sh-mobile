@@ -20,6 +20,7 @@
 #include <sys/time.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <uiomux/uiomux.h>
 #include <shveu/shveu.h>
 #include <asm/types.h>          /* for videodev2.h */
 
@@ -245,6 +246,7 @@ static void uninit_device(sh_ceu * ceu)
   case IO_METHOD_USERPTR:
     for (i = 0; i < ceu->n_buffers; ++i)
       //  free (ceu->buffers[i].start);//this is the VEU UIO memory, not stuff we malloc'ed
+      // uiomux_free (...);
       break;
   }
   free (ceu->buffers);
@@ -359,12 +361,21 @@ static void init_userp(sh_ceu * ceu, unsigned int buffer_size)
   }
 
   {
-    struct uio_map uio;
+    UIOMux * uiomux;
+    unsigned char * veu_virt_base;
+
+    fprintf (stderr, "Initializing for buffer size %u\n", buffer_size);
+
     // get veu's virtual address
-    shveu_get_memory_info(&uio);
+    // XXX: This capture.c isn't actually going to use the uiomux afterwards. This memory should
+    // be allocated with uiomux_malloc() and that ptr passed to the main gstshvideocapenc plugin.
+    uiomux = uiomux_open();
+    uiomux_get_mem (uiomux, UIOMUX_SH_VEU, NULL, NULL, (void *)&veu_virt_base);
+
     for (ceu->n_buffers = 0; ceu->n_buffers < req.count; ++ceu->n_buffers) {
       ceu->buffers[ceu->n_buffers].length = buffer_size;
-      ceu->buffers[ceu->n_buffers].start = (unsigned char *)((unsigned int)uio.iomem + (buffer_size*ceu->n_buffers));
+      ceu->buffers[ceu->n_buffers].start = (unsigned char *)(veu_virt_base + (buffer_size*ceu->n_buffers));
+      //ceu->buffers[ceu->n_buffers].start = uiomux_malloc (uiomux, UIOMUX_SH_VEU, buffer_size, 32);
       if (!ceu->buffers[ceu->n_buffers].start) {
         fprintf (stderr, "Out of memory\n");
         exit (EXIT_FAILURE);
@@ -446,11 +457,11 @@ static void init_device(sh_ceu * ceu)
   if (-1 == xioctl (ceu->fd, VIDIOC_S_FMT, &fmt)) {
    	fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
    	if (-1 == xioctl (ceu->fd, VIDIOC_S_FMT, &fmt)) {
-      fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB565;
-      if (-1 == xioctl (ceu->fd, VIDIOC_S_FMT, &fmt)) {
-      	errno_exit ("VIDIOC_S_FMT");
-      }
-    }
+          fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB565;
+          if (-1 == xioctl (ceu->fd, VIDIOC_S_FMT, &fmt)) {
+      	    errno_exit ("VIDIOC_S_FMT");
+          }
+        }
   }
 
   ceu->pixel_format = fmt.fmt.pix.pixelformat;
