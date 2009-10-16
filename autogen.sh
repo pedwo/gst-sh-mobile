@@ -56,10 +56,12 @@ die_check $DIE
 # if no arguments specified then this will be printed
 if test -z "$*"; then
   echo "+ checking for autogen.sh options"
-  echo "  This autogen script will automatically run ./configure as:"
-  echo "  ./configure $CONFIGURE_DEF_OPT"
-  echo "  To pass any additional options, please specify them on the $0"
-  echo "  command line."
+#  echo "  This autogen script will NOT automatically run ./configure"
+#  echo "  This autogen script will automatically run ./configure as:"
+#  echo "  This autogen script will automatically run ./configure as:"
+#  echo "  ./configure $CONFIGURE_DEF_OPT"
+#  echo "  To pass any additional options, please specify them on the $0"
+#  echo "  command line."
 fi
 
 toplevel_check $srcfile
