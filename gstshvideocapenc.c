@@ -119,13 +119,13 @@ static GstStaticPadTemplate src_factory =
 			   GST_PAD_SRC,
 			   GST_PAD_ALWAYS,
 			   GST_STATIC_CAPS ("video/mpeg,"
-					    "width = (int) [16, 720],"
+					    "width = (int) [16, 1280],"
 					    "height = (int) [16, 720],"
 					    "framerate = (fraction) [0, 30],"
 					    "mpegversion = (int) 4"
 					    "; "
 					    "video/x-h264,"
-					    "width = (int) [16, 720],"
+					    "width = (int) [16, 1280],"
 					    "height = (int) [16, 720],"
 					    "framerate = (fraction) [0, 30]"
 					    )
