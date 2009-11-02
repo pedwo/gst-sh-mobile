@@ -871,6 +871,11 @@ launch_camera_encoder_thread(void *data)
   {
     shcodecs_encoder_set_frame_rate(enc->encoder,
 				  (enc->fps_numerator/enc->fps_denominator)*10);
+
+    if(enc->format == SHCodecs_Format_H264)
+    {
+      shcodecs_encoder_set_h264_sps_frame_rate_info(enc->encoder, enc->fps_numerator, enc->fps_denominator);
+    }
   }
   shcodecs_encoder_set_xpic_size(enc->encoder,enc->width);
   shcodecs_encoder_set_ypic_size(enc->encoder,enc->height);
