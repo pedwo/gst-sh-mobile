@@ -222,7 +222,7 @@ static void *capture_thread(void *data)
   {
     GST_LOG_OBJECT(shvideoenc,"%s called",__FUNCTION__);
 
-    //This mutex is released by the VPU get_input call back, created unlocked
+    //This mutex is released by the VPU get_input call back, created locked
 	pthread_mutex_lock(&shvideoenc->capture_start_mutex); 
 
     sh_ceu_capture_frame(shvideoenc->ainfo.ceu, (sh_process_callback)capture_image_cb, shvideoenc);
