@@ -346,6 +346,8 @@ gst_shvideo_enc_dispose (GObject * object)
   void *iomem;
   GST_LOG("%s called",__FUNCTION__);
 
+  sh_ceu_stop_capturing(shvideoenc->ainfo.ceu);
+
   if (shvideoenc->encoder!=NULL)
   {
     shcodecs_encoder_close(shvideoenc->encoder);
@@ -370,11 +372,14 @@ gst_shvideo_enc_dispose (GObject * object)
     close (fd);
   }
 
-  sh_ceu_stop_capturing(shvideoenc->ainfo.ceu);
   shveu_close();
   sh_ceu_close(shvideoenc->ainfo.ceu);
 
   uiomux_close (shvideoenc->uiomux);
+
+  pthread_cancel (shvideoenc->enc_thread);
+  pthread_cancel (shvideoenc->capture_thread);
+  pthread_cancel (shvideoenc->blit_thread);
 
   pthread_mutex_destroy(&shvideoenc->capture_start_mutex);
   pthread_mutex_destroy(&shvideoenc->capture_end_mutex);
