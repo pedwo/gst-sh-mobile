@@ -21,8 +21,8 @@
  *
  */
 
-#ifndef  GSTSHVIDEOENC2_H
-#define  GSTSHVIDEOENC2_H
+#ifndef  GSTSHVIDEOCAPENC_H
+#define  GSTSHVIDEOCAPENC_H
 
 #include <gst/gst.h>
 #include <shcodecs/shcodecs_encoder.h>
