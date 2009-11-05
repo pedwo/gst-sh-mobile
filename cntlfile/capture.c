@@ -361,7 +361,6 @@ static void init_userp(sh_ceu * ceu, unsigned int buffer_size)
   }
 
   {
-    UIOMux * uiomux;
     unsigned char * veu_virt_base;
 
     fprintf (stderr, "Initializing for buffer size %u\n", buffer_size);
@@ -369,9 +368,7 @@ static void init_userp(sh_ceu * ceu, unsigned int buffer_size)
     // get veu's virtual address
     // XXX: This capture.c isn't actually going to use the uiomux afterwards. This memory should
     // be allocated with uiomux_malloc() and that ptr passed to the main gstshvideocapenc plugin.
-    uiomux = uiomux_open();
-    uiomux_get_mem (uiomux, UIOMUX_SH_VEU, NULL, NULL, (void *)&veu_virt_base);
-
+    uiomux_get_mem ((UIOMux *)ceu->uiomux, UIOMUX_SH_VEU, NULL, NULL, (void *)&veu_virt_base);
     for (ceu->n_buffers = 0; ceu->n_buffers < req.count; ++ceu->n_buffers) {
       ceu->buffers[ceu->n_buffers].length = buffer_size;
       ceu->buffers[ceu->n_buffers].start = (unsigned char *)(veu_virt_base + (buffer_size*ceu->n_buffers));
@@ -524,7 +521,7 @@ void sh_ceu_close (sh_ceu * ceu)
   free (ceu);
 }
 
-sh_ceu *sh_ceu_open(const char * device_name, int width, int height, io_method io)
+sh_ceu *sh_ceu_open(const char * device_name, int width, int height, io_method io, UIOMux * uiomux)
 {
   sh_ceu * ceu;
 
@@ -534,6 +531,7 @@ sh_ceu *sh_ceu_open(const char * device_name, int width, int height, io_method i
   ceu->dev_name = device_name;
   ceu->width = width;
   ceu->height = height;
+  ceu->uiomux = (void *)uiomux;
 
   open_device (ceu);
 

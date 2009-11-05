@@ -845,7 +845,8 @@ launch_camera_encoder_thread(void *data)
   enc->ainfo.ceu = sh_ceu_open(enc->ainfo.input_file_name_buf,
                             enc->ainfo.xpic,
                             enc->ainfo.ypic,
-                            IO_METHOD_USERPTR);
+                            IO_METHOD_USERPTR,
+                            enc->uiomux);
 
   enc->encoder = shcodecs_encoder_init(enc->width, 
 					      enc->height, 
