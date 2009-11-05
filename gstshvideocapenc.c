@@ -731,7 +731,6 @@ gst_shvideo_enc_src_query (GstPad * pad, GstQuery * query)
 static void
 gst_shvideo_enc_init_camera_encoder(GstshvideoEnc * shvideoenc)
 {
-  struct sched_param stSchePara;
   int fd;
   void *iomem;
   gint ret = 0;
@@ -775,13 +774,7 @@ gst_shvideo_enc_init_camera_encoder(GstshvideoEnc * shvideoenc)
     munmap(iomem, shvideoenc->finfo.smem_len);
     close (fd);
   }
-  stSchePara.sched_priority = sched_get_priority_max(SCHED_FIFO);
-  printf("Priority = %d\n",stSchePara.sched_priority);
 
-  if(sched_setscheduler(0, SCHED_RR, &stSchePara) != 0)
-  {
-    GST_ELEMENT_ERROR((GstElement*)shvideoenc,CORE,FAILED,("sched_setscheduler"), (NULL));
-  }
   //Initalise the mutexes;
   pthread_mutex_lock(&shvideoenc->capture_start_mutex);
   pthread_mutex_unlock(&shvideoenc->capture_end_mutex);
