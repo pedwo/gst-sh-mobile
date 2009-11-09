@@ -232,7 +232,7 @@ static void *capture_thread(void *data)
   }
 }
 
-//#define USE_UIOMUX_VIRT_TO_PHYS
+#define USE_UIOMUX_VIRT_TO_PHYS
 
 static void *blit_thread(void *data)
 {

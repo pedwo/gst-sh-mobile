@@ -360,8 +360,11 @@ static void init_userp(sh_ceu * ceu, unsigned int buffer_size)
     exit (EXIT_FAILURE);
   }
 
+#define USE_UIOMUX_MALLOC
   {
+#ifndef USE_UIOMUX_MALLOC
     unsigned char * veu_virt_base;
+#endif
 
     fprintf (stderr, "Initializing for buffer size %u\n", buffer_size);
 
@@ -376,7 +379,7 @@ static void init_userp(sh_ceu * ceu, unsigned int buffer_size)
 #ifndef USE_UIOMUX_MALLOC
       ceu->buffers[ceu->n_buffers].start = (unsigned char *)(veu_virt_base + (buffer_size*ceu->n_buffers));
 #else
-      ceu->buffers[ceu->n_buffers].start = uiomux_malloc (uiomux, UIOMUX_SH_VEU, buffer_size, 32);
+      ceu->buffers[ceu->n_buffers].start = uiomux_malloc (ceu->uiomux, UIOMUX_SH_VEU, buffer_size, 32);
 #endif
       if (!ceu->buffers[ceu->n_buffers].start) {
         fprintf (stderr, "Out of memory\n");
