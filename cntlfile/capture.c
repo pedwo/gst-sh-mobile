@@ -366,13 +366,18 @@ static void init_userp(sh_ceu * ceu, unsigned int buffer_size)
     fprintf (stderr, "Initializing for buffer size %u\n", buffer_size);
 
     // get veu's virtual address
+#ifndef USE_UIOMUX_MALLOC
     // XXX: This capture.c isn't actually going to use the uiomux afterwards. This memory should
     // be allocated with uiomux_malloc() and that ptr passed to the main gstshvideocapenc plugin.
     uiomux_get_mem ((UIOMux *)ceu->uiomux, UIOMUX_SH_VEU, NULL, NULL, (void *)&veu_virt_base);
+#endif
     for (ceu->n_buffers = 0; ceu->n_buffers < req.count; ++ceu->n_buffers) {
       ceu->buffers[ceu->n_buffers].length = buffer_size;
+#ifndef USE_UIOMUX_MALLOC
       ceu->buffers[ceu->n_buffers].start = (unsigned char *)(veu_virt_base + (buffer_size*ceu->n_buffers));
-      //ceu->buffers[ceu->n_buffers].start = uiomux_malloc (uiomux, UIOMUX_SH_VEU, buffer_size, 32);
+#else
+      ceu->buffers[ceu->n_buffers].start = uiomux_malloc (uiomux, UIOMUX_SH_VEU, buffer_size, 32);
+#endif
       if (!ceu->buffers[ceu->n_buffers].start) {
         fprintf (stderr, "Out of memory\n");
         exit (EXIT_FAILURE);
