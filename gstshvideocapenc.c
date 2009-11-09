@@ -232,30 +232,18 @@ static void *capture_thread(void *data)
   }
 }
 
-#define USE_UIOMUX_VIRT_TO_PHYS
-
 static void *blit_thread(void *data)
 {
   GstshvideoEnc *shvideoenc = (GstshvideoEnc *)data;
-  unsigned long veu_base;
   unsigned long in_yaddr;
   unsigned long in_caddr;
-
-#ifndef USE_UIOMUX_VIRT_TO_PHYS
-  uiomux_get_mem (shvideoenc->uiomux, UIOMUX_SH_VEU, &veu_base, NULL, NULL);
-#endif
 
   while(1)
   {
     GST_LOG_OBJECT(shvideoenc,"%s called preview %d",__FUNCTION__, shvideoenc->preview);
     pthread_mutex_lock(&shvideoenc->blit_mutex); 
 
-#ifdef USE_UIOMUX_VIRT_TO_PHYS 
-    veu_base = uiomux_virt_to_phys (shvideoenc->uiomux, UIOMUX_SH_VEU, shvideoenc->ceu_ubuf);
-    in_yaddr = veu_base;
-#else
-    in_yaddr = veu_base+shvideoenc->ceu_buf_size*shvideoenc->ceu_buf_num;
-#endif
+    in_yaddr = uiomux_virt_to_phys (shvideoenc->uiomux, UIOMUX_SH_VEU, shvideoenc->ceu_ubuf);
 
     in_caddr = in_yaddr+shvideoenc->ceu_buf_size/2;
     /* memory copy from ceu output buffer to vpu input buffer */
