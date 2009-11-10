@@ -51,8 +51,8 @@ static GstStaticPadTemplate sink_factory =
 			   GST_PAD_ALWAYS,
 			   GST_STATIC_CAPS ("video/x-raw-yuv, "
 					    "format = (fourcc) NV12,"
-					    "width = (int) [16, 720],"
-					    "height = (int) [16, 720]," 
+					    "width = (int) [48, 1280],"
+					    "height = (int) [48, 720]," 
 					    "framerate = (fraction) [0, 30]")
 			   );
 
@@ -66,14 +66,14 @@ static GstStaticPadTemplate src_factory =
 			   GST_PAD_SRC,
 			   GST_PAD_ALWAYS,
 			   GST_STATIC_CAPS ("video/mpeg,"
-					    "width = (int) [16, 720],"
-					    "height = (int) [16, 720],"
+					    "width = (int) [48, 1280],"
+					    "height = (int) [48, 720],"
 					    "framerate = (fraction) [0, 30],"
 					    "mpegversion = (int) 4"
 					    "; "
 					    "video/x-h264,"
-					    "width = (int) [16, 720],"
-					    "height = (int) [16, 720],"
+					    "width = (int) [48, 1280],"
+					    "height = (int) [48, 720],"
 					    "framerate = (fraction) [0, 30]"
 					    )
 			   );
