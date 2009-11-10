@@ -237,6 +237,29 @@ static void *blit_thread(void *data)
   GstshvideoEnc *shvideoenc = (GstshvideoEnc *)data;
   unsigned long in_yaddr;
   unsigned long in_caddr;
+  unsigned long fb_addr = 0;
+  double aspect,aspect_x,aspect_y;
+  long dst_w = 0;
+  long dst_h = 0;
+  int fd;
+  void *iomem;
+  static gboolean first = FALSE;
+
+  if(shvideoenc->preview == PREVIEW_ON)
+  {
+    aspect_x = (double)shvideoenc->fbinfo.xres/(double)shvideoenc->width;
+    aspect_y = (double)shvideoenc->fbinfo.yres/(double)shvideoenc->height;
+    if(aspect_x>aspect_y)
+    {
+      aspect =aspect_y;
+    } else {
+      aspect =aspect_x;
+    }
+    dst_w = GST_ROUND_DOWN_4((long)((double)shvideoenc->width * aspect));
+    dst_h = GST_ROUND_DOWN_4((long)((double)shvideoenc->height * aspect));
+    fb_addr = shvideoenc->finfo.smem_start + (shvideoenc->fbinfo.xres-dst_w) + 
+              shvideoenc->fbinfo.xres*(shvideoenc->fbinfo.yres-dst_h);
+  }
 
   while(1)
   {
@@ -272,6 +295,26 @@ static void *blit_thread(void *data)
 
     if(shvideoenc->preview == PREVIEW_ON)
     {
+      if(first == FALSE)
+      {
+        //Open the frame buffer device to clear frame buffer
+        fd = open("/dev/fb0", O_RDWR);
+        if (fd < 0)
+        {
+          GST_ELEMENT_ERROR((GstElement*)shvideoenc,CORE,FAILED,
+          ("Error opening fb device to get the resolution"), (NULL));
+        }
+        iomem = mmap(0, shvideoenc->finfo.smem_len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        if (iomem == MAP_FAILED) {
+          GST_ELEMENT_ERROR((GstElement*)shvideoenc,CORE,FAILED,("mmap"), (NULL));
+        }
+        /* clear framebuffer */
+        memset(iomem, 0, shvideoenc->finfo.line_length * shvideoenc->fbinfo.yres);
+        munmap(iomem, shvideoenc->finfo.smem_len);
+        close (fd);
+        first = TRUE;
+      }
+
       shveu_operation(
         shvideoenc->veu, 
         shvideoenc->enc_in_yaddr,
@@ -280,11 +323,11 @@ static void *blit_thread(void *data)
         (long)shvideoenc->height,
         (long)shvideoenc->width,
         SHVEU_YCbCr420,
-        shvideoenc->finfo.smem_start,
+        fb_addr,
         0UL,
-        (long)shvideoenc->fbinfo.xres,
-        (long)shvideoenc->fbinfo.yres,
-        (long)shvideoenc->fbinfo.xres,
+        dst_w,
+        dst_h,
+        shvideoenc->fbinfo.xres,
         SHVEU_RGB565,
         SHVEU_NO_ROT);
     }
