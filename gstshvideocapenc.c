@@ -230,6 +230,7 @@ static void *capture_thread(void *data)
     //This mutex releases the VEU copy to the VPU input buffer and the framebuffer
 	pthread_mutex_unlock(&shvideoenc->blit_mutex);
   }
+  return NULL;
 }
 
 static void *blit_thread(void *data)
@@ -333,6 +334,7 @@ static void *blit_thread(void *data)
     }
 	pthread_mutex_unlock(&shvideoenc->capture_end_mutex);
   }
+  return NULL;
 }
 
 /** Initialize shvideoenc class plugin event handler
