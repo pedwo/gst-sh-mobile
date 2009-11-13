@@ -98,6 +98,10 @@ struct _GstshvideoEnc
   GstCameraPreview preview;
 
   gboolean output_lock;
+  gboolean encoder_start;
+  gboolean libshcodecs_stop;
+  int cntl_flg;
+  int preview_flg;
 };
 
 
@@ -244,7 +248,7 @@ static void *blit_thread(void *data)
   long dst_h = 0;
   int fd;
   void *iomem;
-  static gboolean first = FALSE;
+  gboolean first = FALSE;
 
   if(shvideoenc->preview == PREVIEW_ON)
   {
@@ -379,6 +383,9 @@ gst_shvideo_enc_dispose (GObject * object)
   void *iomem;
   GST_LOG("%s called",__FUNCTION__);
 
+   while(shvideoenc->encoder_start == TRUE)
+     usleep(10);
+
   sh_ceu_stop_capturing(shvideoenc->ainfo.ceu);
 
   if (shvideoenc->encoder!=NULL)
@@ -505,6 +512,8 @@ gst_shvideo_enc_init (GstshvideoEnc * shvideoenc,
 
   shvideoenc->encoder=NULL;
   shvideoenc->caps_set=FALSE;
+  shvideoenc->encoder_start=FALSE;
+  shvideoenc->libshcodecs_stop=FALSE;
   shvideoenc->enc_thread = 0;
   shvideoenc->buffer_yuv = NULL;
   shvideoenc->buffer_cbcr = NULL;
@@ -524,6 +533,9 @@ gst_shvideo_enc_init (GstshvideoEnc * shvideoenc,
   shvideoenc->frame_number = 0;
   shvideoenc->preview = PREVIEW_NONE;
   shvideoenc->output_lock = TRUE;
+  shvideoenc->cntl_flg = 0;
+  shvideoenc->preview_flg = 0;
+
 }
 
 
@@ -560,6 +572,7 @@ gst_shvideo_enc_change_state (GstElement * element, GstStateChange transition)
       break;
     case GST_STATE_CHANGE_READY_TO_NULL:
       GST_DEBUG_OBJECT(shvideoenc,"GST_STATE_CHANGE_READY_TO_NULL");
+      shvideoenc->libshcodecs_stop= TRUE;
       shvideoenc->output_lock = TRUE;
       break;
     default:
@@ -608,8 +621,6 @@ static void
 gst_shvideo_enc_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
 {
-  static int cntl = 0;
-  static int preview = 0;
   GstshvideoEnc *shvideoenc = GST_SHVIDEOENC (object);
   
   GST_LOG("%s called",__FUNCTION__);
@@ -618,13 +629,13 @@ gst_shvideo_enc_set_property (GObject * object, guint prop_id,
     case PROP_CNTL_FILE:
     {
       strcpy(shvideoenc->ainfo.ctrl_file_name_buf,g_value_get_string(value));
-      cntl = 1;
+      shvideoenc->cntl_flg = 1;
       break;
     }
     case PROP_PREVIEW:
     {
       shvideoenc->preview = g_value_get_enum(value);
-      preview = 1;
+      shvideoenc->preview_flg = 1;
       break;
     }
     default:
@@ -633,7 +644,7 @@ gst_shvideo_enc_set_property (GObject * object, guint prop_id,
       break;
     }
   }
-  if((cntl==1) && (preview==1))
+  if((shvideoenc->cntl_flg==1) && (shvideoenc->preview_flg==1))
     gst_shvideo_enc_init_camera_encoder(shvideoenc);
 }
 
@@ -682,7 +693,9 @@ gst_shvideo_enc_get_input(SHCodecs_Encoder * encoder, void *user_data)
   pthread_mutex_unlock(&shvideoenc->capture_start_mutex); //Start the next capture, then return to the Encoder	
   pthread_mutex_lock(&shvideoenc->blit_vpu_end_mutex); //wait untill the VEU has copied the data to the VPU input buffer
   GST_LOG_OBJECT(shvideoenc,"%s end",__FUNCTION__);
-
+  
+  if(shvideoenc->libshcodecs_stop == TRUE)
+     return -1;
   return 0;
 }
 
@@ -820,6 +833,9 @@ gst_shvideo_enc_init_camera_encoder(GstshvideoEnc * shvideoenc)
        a separate thread to keep the pipeline running */
     pthread_create( &shvideoenc->enc_thread, NULL, launch_camera_encoder_thread, shvideoenc);
   }
+
+  shvideoenc->encoder_start= TRUE;
+
 }
 
 /** Launches the encoder in an own thread
@@ -833,7 +849,8 @@ launch_camera_encoder_thread(void *data)
 
   GST_LOG_OBJECT(enc,"%s called",__FUNCTION__);
 
-
+  if(enc->libshcodecs_stop== TRUE)
+    return NULL;
 #if 0
   while(gst_pad_get_peer (enc->srcpad) == NULL)
   {
@@ -939,6 +956,8 @@ launch_camera_encoder_thread(void *data)
   GST_DEBUG_OBJECT (enc,"shcodecs_encoder_run returned %d\n",ret);
 
   gst_pad_push_event(enc->srcpad,gst_event_new_eos ());
+
+  enc->encoder_start= FALSE;
 
   return NULL;
 }
