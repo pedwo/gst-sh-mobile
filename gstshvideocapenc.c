@@ -269,7 +269,7 @@ static void *blit_thread(void *data)
 
     in_yaddr = uiomux_virt_to_phys (shvideoenc->uiomux, UIOMUX_SH_VEU, shvideoenc->ceu_ubuf);
 
-    in_caddr = in_yaddr+shvideoenc->ceu_buf_size/2;
+    in_caddr = in_yaddr + (shvideoenc->ainfo.xpic * shvideoenc->ainfo.ypic);
     /* memory copy from ceu output buffer to vpu input buffer */
 
 #if 0
