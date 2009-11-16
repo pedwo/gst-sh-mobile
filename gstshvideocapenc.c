@@ -86,6 +86,7 @@ struct _GstshvideoEnc
   pthread_mutex_t blit_mutex;
   pthread_mutex_t blit_vpu_end_mutex;
   pthread_mutex_t output_mutex;
+  pthread_mutex_t launch_mutex;
 
   UIOMux * uiomux;
   int veu;
@@ -98,7 +99,6 @@ struct _GstshvideoEnc
   GstCameraPreview preview;
 
   gboolean output_lock;
-  gboolean encoder_start;
   gboolean libshcodecs_stop;
   int cntl_flg;
   int preview_flg;
@@ -383,8 +383,7 @@ gst_shvideo_enc_dispose (GObject * object)
   void *iomem;
   GST_LOG("%s called",__FUNCTION__);
 
-   while(shvideoenc->encoder_start == TRUE)
-     usleep(10);
+  pthread_mutex_lock(&shvideoenc->launch_mutex);
 
   sh_ceu_stop_capturing(shvideoenc->ainfo.ceu);
 
@@ -426,6 +425,7 @@ gst_shvideo_enc_dispose (GObject * object)
   pthread_mutex_destroy(&shvideoenc->blit_mutex);
   pthread_mutex_destroy(&shvideoenc->blit_vpu_end_mutex);
   pthread_mutex_destroy(&shvideoenc->output_mutex);
+  pthread_mutex_destroy(&shvideoenc->launch_mutex);
 
   G_OBJECT_CLASS (parent_class)->dispose (object);
 }
@@ -512,12 +512,12 @@ gst_shvideo_enc_init (GstshvideoEnc * shvideoenc,
 
   shvideoenc->encoder=NULL;
   shvideoenc->caps_set=FALSE;
-  shvideoenc->encoder_start=FALSE;
   shvideoenc->libshcodecs_stop=FALSE;
   shvideoenc->enc_thread = 0;
   shvideoenc->buffer_yuv = NULL;
   shvideoenc->buffer_cbcr = NULL;
 
+  pthread_mutex_init(&shvideoenc->launch_mutex, NULL);
   pthread_mutex_init (&shvideoenc->capture_start_mutex, NULL);
   pthread_mutex_init (&shvideoenc->capture_end_mutex, NULL);
   pthread_mutex_init(&shvideoenc->blit_mutex, NULL);
@@ -826,6 +826,7 @@ gst_shvideo_enc_init_camera_encoder(GstshvideoEnc * shvideoenc)
   pthread_mutex_unlock(&shvideoenc->capture_end_mutex);
   pthread_mutex_lock(&shvideoenc->blit_mutex);
   pthread_mutex_lock(&shvideoenc->blit_vpu_end_mutex);
+  pthread_mutex_lock(&shvideoenc->launch_mutex);
 
   if(!shvideoenc->enc_thread)
   {
@@ -833,9 +834,6 @@ gst_shvideo_enc_init_camera_encoder(GstshvideoEnc * shvideoenc)
        a separate thread to keep the pipeline running */
     pthread_create( &shvideoenc->enc_thread, NULL, launch_camera_encoder_thread, shvideoenc);
   }
-
-  shvideoenc->encoder_start= TRUE;
-
 }
 
 /** Launches the encoder in an own thread
@@ -957,7 +955,7 @@ launch_camera_encoder_thread(void *data)
 
   gst_pad_push_event(enc->srcpad,gst_event_new_eos ());
 
-  enc->encoder_start= FALSE;
+  pthread_mutex_unlock(&enc->launch_mutex);
 
   return NULL;
 }
