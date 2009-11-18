@@ -385,7 +385,6 @@ static void init_device(sh_ceu * ceu)
   struct v4l2_cropcap cropcap;
   struct v4l2_crop crop;
   struct v4l2_format fmt;
-  unsigned int min;
 
   if (-1 == xioctl (ceu->fd, VIDIOC_QUERYCAP, &cap)) {
     if (EINVAL == errno) {
