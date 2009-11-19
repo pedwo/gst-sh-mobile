@@ -30,7 +30,6 @@
 #include <linux/fb.h>
 
 G_BEGIN_DECLS
-
 #define GST_TYPE_SHFBDEVSINK \
   (gst_shfbdevsink_get_type())
 #define GST_SHFBDEVSINK(obj) \
@@ -41,40 +40,38 @@ G_BEGIN_DECLS
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_SHFBDEVSINK))
 #define GST_IS_SHFBDEVSINK_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_SHFBDEVSINK))
+    typedef enum {
+	GST_SHFBDEVSINK_OPEN = (GST_ELEMENT_FLAG_LAST << 0),
 
-typedef enum {
-  GST_SHFBDEVSINK_OPEN      = (GST_ELEMENT_FLAG_LAST << 0),
-
-  GST_SHFBDEVSINK_FLAG_LAST = (GST_ELEMENT_FLAG_LAST << 2),
+	GST_SHFBDEVSINK_FLAG_LAST = (GST_ELEMENT_FLAG_LAST << 2),
 } GstSHFBDEVSinkFlags;
 
 typedef struct _GstSHFBDEVSink GstSHFBDEVSink;
 typedef struct _GstSHFBDEVSinkClass GstSHFBDEVSinkClass;
 
 struct _GstSHFBDEVSink {
-  GstVideoSink videosink;
+	GstVideoSink videosink;
 
-  struct fb_fix_screeninfo fixinfo;
-  struct fb_var_screeninfo varinfo;
+	struct fb_fix_screeninfo fixinfo;
+	struct fb_var_screeninfo varinfo;
 
-  int fd;
-  unsigned char *framebuffer;
+	int fd;
+	unsigned char *framebuffer;
 
-  char *device;
+	char *device;
 
-  int width, height;
-  int cx, cy, linelen, lines, bytespp;
+	int width, height;
+	int cx, cy, linelen, lines, bytespp;
 
-  int fps_n, fps_d;
+	int fps_n, fps_d;
 };
 
 struct _GstSHFBDEVSinkClass {
-  GstBaseSinkClass parent_class;
-
+	GstBaseSinkClass parent_class;
 };
 
 GType gst_shfbdevsink_get_type(void);
 
 G_END_DECLS
+#endif				/* __GST_SHFBDEVSINK_H__ */
 
-#endif /* __GST_SHFBDEVSINK_H__ */
