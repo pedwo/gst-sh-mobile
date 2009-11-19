@@ -40,8 +40,8 @@
 #include "vidix/sh_veu_vid.c"
 
 /* Debug */
-//const char *g_output_filename = NULL;
-const char *g_output_filename = "./output.raw";
+const char *g_output_filename = NULL;
+//const char *g_output_filename = "./output.raw";
 
 /**
  * Define capatibilities for the sink factory
