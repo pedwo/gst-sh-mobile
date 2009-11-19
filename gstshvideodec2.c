@@ -705,3 +705,4 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
 		  "gst-sh-mobile",
 		  gst_shm_videodec_plugin_init,
 		  VERSION, "LGPL", GST_PACKAGE_NAME, GST_PACKAGE_ORIGIN)
+

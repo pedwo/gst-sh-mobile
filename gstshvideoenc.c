@@ -21,7 +21,6 @@
  *
  */
 
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -717,3 +716,4 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
 		  "gst-sh-mobile",
 		  gst_shvideo_enc_plugin_init,
 		  VERSION, "LGPL", GST_PACKAGE_NAME, GST_PACKAGE_ORIGIN)
+

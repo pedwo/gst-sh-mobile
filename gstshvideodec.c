@@ -46,7 +46,6 @@ const char *g_output_filename = "./output.raw";
 /**
  * Define capatibilities for the sink factory
  */
-
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE("sink",
 								   GST_PAD_SINK,
 								   GST_PAD_ALWAYS,
@@ -86,7 +85,6 @@ GST_DEBUG_CATEGORY_STATIC(gst_sh_mobile_debug);
 /**
  * Define decoder properties
  */
-
 enum {
 	PROP_0,
 	PROP_LAST
@@ -235,8 +233,7 @@ static gboolean gst_shvideodec_sink_event(GstPad * pad, GstEvent * event)
 					 shcodecs_decoder_get_frame_count(dec->decoder));
 
 			gst_element_post_message((GstElement *) dec,
-						 gst_message_new_eos((GstObject *)
-									 dec));
+						 gst_message_new_eos((GstObject *) dec));
 			break;
 		}
 	default:
@@ -406,8 +403,7 @@ static GstFlowReturn gst_shvideodec_chain(GstPad * pad, GstBuffer * _data)
 
 	if (bused < 0) {
 		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
-				  ("Decode error"), ("%s failed (Error on shcodecs_decode)",
-							 __func__));
+				  ("Decode error"), ("%s failed (Error on shcodecs_decode)", __func__));
 		return GST_FLOW_ERROR;
 	}
 
@@ -473,7 +469,6 @@ gst_shcodecs_decoded_callback(SHCodecs_Decoder * decoder,
 
 gboolean gst_shvideo_dec_plugin_init(GstPlugin * plugin)
 {
-
 	GST_LOG_OBJECT("%s called\n", __func__);
 
 	if (!gst_element_register
@@ -488,3 +483,4 @@ GST_PLUGIN_DEFINE(GST_VERSION_MAJOR,
 		  "gst-sh-mobile",
 		  gst_shvideo_dec_plugin_init,
 		  VERSION, "LGPL", GST_PACKAGE_NAME, GST_PACKAGE_ORIGIN)
+
