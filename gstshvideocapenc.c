@@ -52,9 +52,7 @@ typedef enum {
  */
 struct _GstshvideoEnc {
 	GstElement element;
-	GstPad *sinkpad, *srcpad;
-	GstBuffer *buffer_yuv;
-	GstBuffer *buffer_cbcr;
+	GstPad *srcpad;
 
 	gint offset;
 	SHCodecs_Format format;
@@ -498,8 +496,6 @@ static void gst_shvideo_enc_init(GstshvideoEnc * shvideoenc, GstshvideoEncClass 
 	shvideoenc->caps_set = FALSE;
 	shvideoenc->libshcodecs_stop = FALSE;
 	shvideoenc->enc_thread = 0;
-	shvideoenc->buffer_yuv = NULL;
-	shvideoenc->buffer_cbcr = NULL;
 
 	pthread_mutex_init(&shvideoenc->launch_mutex, NULL);
 	pthread_mutex_init(&shvideoenc->capture_start_mutex, NULL);
