@@ -93,6 +93,8 @@ struct _GstshvideoEnc
 
   int ceu_buf_size;
   int ceu_buf_num;
+  int cap_w;
+  int cap_h;
   unsigned char *ceu_ubuf;
   unsigned int enc_in_yaddr;
   unsigned int enc_in_caddr;
@@ -273,21 +275,21 @@ static void *blit_thread(void *data)
 
     in_yaddr = uiomux_virt_to_phys (shvideoenc->uiomux, UIOMUX_SH_VEU, shvideoenc->ceu_ubuf);
 
-    in_caddr = in_yaddr + (shvideoenc->ainfo.xpic * shvideoenc->ainfo.ypic);
+    in_caddr = in_yaddr + (shvideoenc->cap_w * shvideoenc->cap_h);
     /* memory copy from ceu output buffer to vpu input buffer */
 
 #if 0
     fprintf (stderr, "Resizing input data from %lu from size %ld x %ld to size %d x %d\n",
-             in_yaddr, shvideoenc->ainfo.xpic, shvideoenc->ainfo.ypic, shvideoenc->width, shvideoenc->height);
+             in_yaddr, shvideoenc->cap_w, shvideoenc->cap_h, shvideoenc->width, shvideoenc->height);
 #endif
 
     shveu_operation(
       shvideoenc->veu, 
       in_yaddr,
       in_caddr,
-      shvideoenc->ainfo.xpic,
-      shvideoenc->ainfo.ypic,
-      shvideoenc->ainfo.xpic,
+      shvideoenc->cap_w,
+      shvideoenc->cap_h,
+      shvideoenc->cap_w,
       SHVEU_YCbCr420,
       shvideoenc->enc_in_yaddr,
       shvideoenc->enc_in_caddr,
@@ -895,6 +897,9 @@ launch_camera_encoder_thread(void *data)
                             enc->ainfo.ypic,
                             IO_METHOD_USERPTR,
                             enc->uiomux);
+  enc->cap_w = sh_ceu_get_width(enc->ainfo.ceu);
+  enc->cap_h = sh_ceu_get_height(enc->ainfo.ceu);
+  GST_DEBUG_OBJECT(enc,"Capturing at %dx%d\n", enc->cap_w, enc->cap_h);
 
   enc->encoder = shcodecs_encoder_init(enc->width, 
 					      enc->height, 

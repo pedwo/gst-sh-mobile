@@ -337,8 +337,7 @@ static void init_userp(sh_ceu * ceu, unsigned int buffer_size)
 
   CLEAR (req);
 
-//        req.count               = 4;
-  req.count               = 3;
+  req.count               = 2;
   req.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
   req.memory              = V4L2_MEMORY_USERPTR;
 
@@ -385,6 +384,7 @@ static void init_device(sh_ceu * ceu)
   struct v4l2_cropcap cropcap;
   struct v4l2_crop crop;
   struct v4l2_format fmt;
+  int min;
 
   if (-1 == xioctl (ceu->fd, VIDIOC_QUERYCAP, &cap)) {
     if (EINVAL == errno) {
@@ -447,13 +447,30 @@ static void init_device(sh_ceu * ceu)
   fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_NV12;
   fmt.fmt.pix.field       = V4L2_FIELD_ANY;
 
-  if (-1 == xioctl (ceu->fd, VIDIOC_S_FMT, &fmt)) {
-    errno_exit ("VIDIOC_S_FMT");
-  }
-  ceu->pixel_format = fmt.fmt.pix.pixelformat;
+	if (-1 == xioctl(ceu->fd, VIDIOC_S_FMT, &fmt)) {
+		fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_UYVY;
+		if (-1 == xioctl(ceu->fd, VIDIOC_S_FMT, &fmt)) {
+			fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB565;
+			if (-1 == xioctl(ceu->fd, VIDIOC_S_FMT, &fmt)) {
+       			errno_exit("VIDIOC_S_FMT");
+			}
+		}
+	}
+	ceu->pixel_format = fmt.fmt.pix.pixelformat;
+	/* Note VIDIOC_S_FMT may change width and height. */
+	ceu->width = fmt.fmt.pix.width;
+	ceu->height = fmt.fmt.pix.height;
 
-  /* TODO Work around the kernel - it sets the buffer size incorrectly */
-  fmt.fmt.pix.sizeimage =  PAGE_ALIGN(fmt.fmt.pix.sizeimage);
+	/* Buggy driver paranoia. */
+	min = fmt.fmt.pix.width * 2;
+	if (fmt.fmt.pix.bytesperline < min)
+		fmt.fmt.pix.bytesperline = min;
+	min = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
+	if (fmt.fmt.pix.sizeimage < min)
+		fmt.fmt.pix.sizeimage = min;
+
+	/* TODO Work around the kernel - it sets the buffer size incorrectly */
+	fmt.fmt.pix.sizeimage = PAGE_ALIGN(fmt.fmt.pix.sizeimage);
 
   switch (ceu->io) {
   case IO_METHOD_READ:
@@ -517,10 +534,19 @@ sh_ceu *sh_ceu_open(const char * device_name, int width, int height, io_method i
   ceu->uiomux = (void *)uiomux;
 
   open_device (ceu);
-
   init_device (ceu);
 
   return ceu;
+}
+
+int sh_ceu_get_width(sh_ceu * ceu)
+{
+	return ceu->width;
+}
+
+int sh_ceu_get_height(sh_ceu * ceu)
+{
+	return ceu->height;
 }
 
 unsigned int sh_ceu_get_pixel_format(sh_ceu * ceu)
