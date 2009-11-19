@@ -91,8 +91,6 @@ struct _GstshvideoEnc
   UIOMux * uiomux;
   int veu;
 
-  int ceu_buf_size;
-  int ceu_buf_num;
   int cap_w;
   int cap_h;
   unsigned char *ceu_ubuf;
@@ -157,8 +155,8 @@ static void gst_shvideo_enc_init_camera_encoder(GstshvideoEnc * shvideoenc);
 static void *launch_camera_encoder_thread(void *data);
 static void *capture_thread(void *data);
 static void *blit_thread(void *data);
-static void capture_image_cb(sh_ceu * ceu, const unsigned char *frame_data, 
-                             size_t length, void *user_data, int buffer_number);
+static void capture_image_cb(sh_ceu * ceu, const void *frame_data, 
+                             size_t length, void *user_data);
 static GType gst_camera_preview_get_type (void);
 static gboolean gst_shvideoenc_src_event (GstPad *pad, GstEvent *event);
 static GstStateChangeReturn gst_shvideo_enc_change_state (GstElement * element, GstStateChange transition);
@@ -200,11 +198,10 @@ gst_camera_preview_get_type (void)
     @param frame_data output buffer pointer
     @param length buffer size
     @param user_data user pointer
-    @param buffer_number current buffer number
 */
 static void
-capture_image_cb(sh_ceu * ceu, const unsigned char *frame_data, size_t length,
-		 void *user_data, int buffer_number)
+capture_image_cb(sh_ceu * ceu, const void *frame_data, size_t length,
+		 void *user_data)
 {
   GstshvideoEnc *shvideoenc = (GstshvideoEnc *)user_data;
   unsigned int pixel_format;
@@ -212,8 +209,6 @@ capture_image_cb(sh_ceu * ceu, const unsigned char *frame_data, size_t length,
   pixel_format = sh_ceu_get_pixel_format (ceu);
 
   if (pixel_format == V4L2_PIX_FMT_NV12) {
-    shvideoenc->ceu_buf_size = length;
-    shvideoenc->ceu_buf_num = buffer_number;
     shvideoenc->ceu_ubuf = (unsigned char *)frame_data;
     shcodecs_encoder_get_input_physical_addr (shvideoenc->encoder, 
              (unsigned int *)&shvideoenc->enc_in_yaddr, (unsigned int *)&shvideoenc->enc_in_caddr);    
@@ -231,7 +226,7 @@ static void *capture_thread(void *data)
     //This mutex is released by the VPU get_input call back, created locked
 	pthread_mutex_lock(&shvideoenc->capture_start_mutex); 
 
-    sh_ceu_capture_frame(shvideoenc->ainfo.ceu, (sh_process_callback)capture_image_cb, shvideoenc);
+    sh_ceu_capture_frame(shvideoenc->ainfo.ceu, capture_image_cb, shvideoenc);
 
     //This mutex releases the VEU copy to the VPU input buffer and the framebuffer
 	pthread_mutex_unlock(&shvideoenc->blit_mutex);

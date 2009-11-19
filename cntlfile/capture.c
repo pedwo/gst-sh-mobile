@@ -75,7 +75,7 @@ static int read_frame(sh_ceu * ceu, sh_process_callback cb, void * user_data)
       }
     }
     //process_image (buffers[0].start);
-	cb(ceu, ceu->buffers[0].start,ceu->buffers[0].length, user_data, 0);
+	cb(ceu, ceu->buffers[0].start,ceu->buffers[0].length, user_data);
     break;
 
   case IO_METHOD_MMAP:
@@ -96,7 +96,7 @@ static int read_frame(sh_ceu * ceu, sh_process_callback cb, void * user_data)
       }
     }
     assert(buf.index < ceu->n_buffers);
-    cb(ceu, ceu->buffers[buf.index].start, ceu->buffers[buf.index].length, user_data, 0);
+    cb(ceu, ceu->buffers[buf.index].start, ceu->buffers[buf.index].length, user_data);
     if (-1 == xioctl (ceu->fd, VIDIOC_QBUF, &buf))
       errno_exit ("VIDIOC_QBUF");
     break;
@@ -127,7 +127,7 @@ static int read_frame(sh_ceu * ceu, sh_process_callback cb, void * user_data)
         break;
     }
     assert(i < ceu->n_buffers);
-    cb(ceu, (void *) buf.m.userptr, buf.length,user_data, i);
+    cb(ceu, (void *) buf.m.userptr, buf.length,user_data);
     if (-1 == xioctl (ceu->fd, VIDIOC_QBUF, &buf))
       errno_exit ("VIDIOC_QBUF");
     break;

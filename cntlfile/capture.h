@@ -39,7 +39,7 @@ typedef struct _sh_ceu {
     void * uiomux;
 } sh_ceu;
 
-typedef void (*sh_process_callback)  (sh_ceu * ceu, const void * frame_data, size_t length, void * user_data, int buffer_number);
+typedef void (*sh_process_callback)  (sh_ceu * ceu, const void * frame_data, size_t length, void * user_data);
 
 sh_ceu * sh_ceu_open (const char * device_name, int width, int height, io_method io, void * uiomux);
 
