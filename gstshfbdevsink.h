@@ -26,6 +26,7 @@
 #include <gst/gst.h>
 #include <gst/video/gstvideosink.h>
 #include <gst/video/video.h>
+#include <pthread.h>
 
 #include <linux/fb.h>
 
@@ -64,6 +65,13 @@ struct _GstSHFBDEVSink {
 	int cx, cy, linelen, lines, bytespp;
 
 	int fps_n, fps_d;
+
+	GstBuffer *buf;
+	int shveu;
+	pthread_t rendar_thread;
+	pthread_mutex_t rendar_mutex;
+	int count;
+	gboolean pan_ioctl_present;
 };
 
 struct _GstSHFBDEVSinkClass {

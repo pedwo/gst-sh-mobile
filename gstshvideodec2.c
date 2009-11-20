@@ -34,7 +34,6 @@
 #include <linux/fb.h>
 
 #include <shcodecs/shcodecs.h>
-#include <shveu/shveu.h>
 
 #include "gstshvideodec2.h"
 
@@ -208,7 +207,6 @@ static void gst_shvideodec_dispose(GObject * object)
 		GST_DEBUG_OBJECT(dec, "close decoder object %p", dec->decoder);
 		shcodecs_decoder_close(dec->decoder);
 	}
-	shveu_close();
 	G_OBJECT_CLASS(parent_class)->dispose(object);
 }
 
@@ -266,7 +264,6 @@ static void gst_shvideodec_init(Gstshvideodec * dec, GstshvideodecClass * g_clas
 
 	dec->timestamp = 0;
 
-	dec->veu = shveu_open();
 	dec->out_width = -1;
 	dec->out_height = -1;
 
@@ -607,24 +604,9 @@ gst_shcodecs_decoded_callback(SHCodecs_Decoder * decoder,
 				  unsigned char *y_buf, int y_size,
 				  unsigned char *c_buf, int c_size, void *user_data)
 {
-	unsigned char *fb_screenMem = NULL;
 	Gstshvideodec *dec = (Gstshvideodec *) user_data;
 	GstCaps *caps = NULL;
 	GstBuffer *outbuf;
-	// Point to the back buffer
-	if (dec->buffer == 0) {
-		fb_screenMem = (unsigned char *) dec->fb_fix.smem_start;
-	} else {
-		fb_screenMem =
-			(unsigned char *) dec->fb_fix.smem_start +
-			(dec->fb_var.yres * dec->fb_var.xres * (dec->fb_var.bits_per_pixel / 8));
-	}
-
-	shveu_operation(dec->veu,
-			(unsigned long) y_buf, (unsigned long) c_buf,
-			dec->width, dec->height, dec->width, SHVEU_YCbCr420,
-			(unsigned long) fb_screenMem, 0, dec->fb_var.xres,
-			dec->fb_var.yres, dec->fb_var.xres, SHVEU_RGB565, SHVEU_NO_ROT);
 
 	caps = gst_caps_new_simple("video/x-raw-rgb",
 				   "bpp", G_TYPE_INT, 16,
@@ -637,8 +619,8 @@ gst_shcodecs_decoded_callback(SHCodecs_Decoder * decoder,
 
 	outbuf = gst_buffer_new();	//allocate a new emtpy buffer
 	gst_buffer_set_caps(outbuf, caps);
-	outbuf->offset = dec->buffer;
-	dec->buffer = (dec->buffer + 1) & 1;
+	outbuf->data = y_buf;
+    outbuf->offset = (unsigned int)c_buf;
 
 	gst_caps_unref(caps);
 

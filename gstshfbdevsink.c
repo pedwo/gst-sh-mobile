@@ -33,6 +33,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <shveu/shveu.h>
 
 #include "gstshfbdevsink.h"
 
@@ -232,24 +233,59 @@ static gboolean gst_shfbdevsink_setcaps(GstBaseSink * bsink, GstCaps * vscapslis
 	return TRUE;
 }
 
+static void *launch_render_thread(void *data)
+{
+	GstSHFBDEVSink *fbdevsink = (GstSHFBDEVSink *)data;
+	unsigned char *fb_screenMem = NULL;
+
+	while(1)
+	{
+		pthread_mutex_lock(&fbdevsink->rendar_mutex);
+		if (fbdevsink->pan_ioctl_present == TRUE)
+		{
+			if (fbdevsink->varinfo.yoffset == fbdevsink->varinfo.yres) {
+				fb_screenMem = (unsigned char *)fbdevsink->fixinfo.smem_start;
+				fbdevsink->varinfo.xoffset = 0;
+				fbdevsink->varinfo.yoffset = 0;
+			} else {
+				fbdevsink->varinfo.xoffset = 0;
+				fbdevsink->varinfo.yoffset = fbdevsink->varinfo.yres;
+				fb_screenMem = (unsigned char *)fbdevsink->fixinfo.smem_start + 
+		            (fbdevsink->varinfo.yres * fbdevsink->varinfo.xres * (fbdevsink->varinfo.bits_per_pixel / 8));
+				fbdevsink->varinfo.yoffset = fbdevsink->varinfo.yres;
+			}
+			shveu_operation(  fbdevsink->shveu,
+				  (unsigned long)fbdevsink->buf->data, (unsigned long)fbdevsink->buf->offset, fbdevsink->width, 
+	    	      fbdevsink->height, fbdevsink->width, SHVEU_YCbCr420,
+				  (unsigned long)fb_screenMem, 0, fbdevsink->varinfo.xres, fbdevsink->varinfo.yres, 
+	    	      fbdevsink->varinfo.xres, SHVEU_RGB565, SHVEU_NO_ROT);
+
+			if (-1 == ioctl(fbdevsink->fd, FBIOPAN_DISPLAY, &fbdevsink->varinfo))
+			{
+				printf("FBDEV: ioctl failed\n");
+		        fbdevsink->count--;
+				return NULL;
+			}
+		}
+		fbdevsink->count--;
+	}
+	return NULL;
+}
+
 static GstFlowReturn gst_shfbdevsink_render(GstBaseSink * bsink, GstBuffer * buf)
 {
 	GstSHFBDEVSink *fbdevsink;
 
-	fbdevsink = GST_SHFBDEVSINK(bsink);
+	fbdevsink = GST_SHFBDEVSINK (bsink);
+	fbdevsink->buf = buf; 
 
-	//fsync(fbdevsink->fd);
-	if (buf->offset == 0) {
-		fbdevsink->varinfo.xoffset = 0;
-		fbdevsink->varinfo.yoffset = fbdevsink->varinfo.yres;
-	} else {
-		fbdevsink->varinfo.xoffset = 0;
-		fbdevsink->varinfo.yoffset = 0;
+	while(fbdevsink->count > 0)
+	{
+		usleep(1000);
 	}
-	if (-1 == ioctl(fbdevsink->fd, FBIOPAN_DISPLAY, &fbdevsink->varinfo)) {
-		printf("FBDEV: ioctl failed\n");
-		return 0;
-	}
+	pthread_mutex_unlock(&fbdevsink->rendar_mutex);
+
+	fbdevsink->count++;
 
 	return GST_FLOW_OK;
 }
@@ -277,11 +313,20 @@ static gboolean gst_shfbdevsink_start(GstBaseSink * bsink)
 	if (ioctl(fbdevsink->fd, FBIOGET_VSCREENINFO, &fbdevsink->varinfo))
 		return FALSE;
 
-	/* map the framebuffer */
-	fbdevsink->framebuffer = mmap(0, fbdevsink->fixinfo.smem_len,
-					  PROT_WRITE, MAP_SHARED, fbdevsink->fd, 0);
-	if (fbdevsink->framebuffer == MAP_FAILED)
-		return FALSE;
+	fbdevsink->count = 0;
+
+	fbdevsink->shveu = shveu_open();
+
+/* Check to see if the LCDC driver has the PAN IOCTL */
+	fbdevsink->pan_ioctl_present = TRUE;
+	if (-1 == ioctl(fbdevsink->fd, FBIOPAN_DISPLAY, &fbdevsink->varinfo)) {
+		printf("fbdev PAN ioctl not present\n");
+		fbdevsink->pan_ioctl_present = FALSE;
+	}
+
+	pthread_mutex_init(&fbdevsink->rendar_mutex, NULL);
+	pthread_mutex_lock(&fbdevsink->rendar_mutex);
+	pthread_create(&fbdevsink->rendar_thread, NULL, launch_render_thread, fbdevsink);
 
 	return TRUE;
 }
@@ -291,9 +336,6 @@ static gboolean gst_shfbdevsink_stop(GstBaseSink * bsink)
 	GstSHFBDEVSink *fbdevsink;
 
 	fbdevsink = GST_SHFBDEVSINK(bsink);
-
-	if (munmap(fbdevsink->framebuffer, fbdevsink->fixinfo.smem_len))
-		return FALSE;
 
 	fbdevsink->varinfo.xoffset = 0;
 	fbdevsink->varinfo.yoffset = 0;
@@ -305,6 +347,10 @@ static gboolean gst_shfbdevsink_stop(GstBaseSink * bsink)
 
 	if (close(fbdevsink->fd))
 		return FALSE;
+
+	shveu_close();
+	pthread_cancel(fbdevsink->rendar_thread);
+	pthread_mutex_destroy(&fbdevsink->rendar_mutex);
 
 	return TRUE;
 }
