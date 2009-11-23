@@ -44,58 +44,41 @@ GST_ELEMENT_DETAILS("fbdev video sink for SH-Mobile",
 			"A linux framebuffer videosink for SH-Mobile",
 			"Takashi Namiki <takashi.namiki@renesas.com>");
 
-enum {
-	ARG_0,
-	ARG_DEVICE,
-};
+static GstStaticPadTemplate gst_shfbdevsink_template_factory =
+GST_STATIC_PAD_TEMPLATE ("sink",
+		GST_PAD_SINK,
+		GST_PAD_ALWAYS,
+		GST_STATIC_CAPS (
+				 "video/x-raw-yuv, "
+				 "format = (fourcc) NV12,"
+				 "framerate = (fraction) [0, 30],"
+				 "width = (int) [48, 1280],"
+				 "height = (int) [48, 720]" 
+				 ));
+
+GST_DEBUG_CATEGORY_STATIC (gst_sh_video_sink_debug);
+#define GST_CAT_DEFAULT gst_sh_video_sink_debug
+
 
 static void gst_shfbdevsink_base_init(gpointer g_class);
 static void gst_shfbdevsink_class_init(GstSHFBDEVSinkClass * klass);
 static void gst_shfbdevsink_get_times(GstBaseSink * basesink,
 					  GstBuffer * buffer, GstClockTime * start, GstClockTime * end);
-
 static gboolean gst_shfbdevsink_setcaps(GstBaseSink * bsink, GstCaps * caps);
-
 static GstFlowReturn gst_shfbdevsink_render(GstBaseSink * bsink, GstBuffer * buff);
 static gboolean gst_shfbdevsink_start(GstBaseSink * bsink);
 static gboolean gst_shfbdevsink_stop(GstBaseSink * bsink);
-
 static void gst_shfbdevsink_finalize(GObject * object);
-static void gst_shfbdevsink_set_property(GObject * object,
-					 guint prop_id, const GValue * value, GParamSpec * pspec);
-static void gst_shfbdevsink_get_property(GObject * object, guint prop_id,
-					 GValue * value, GParamSpec * pspec);
-static GstStateChangeReturn gst_shfbdevsink_change_state(GstElement *
-							 element, GstStateChange transition);
-
 static GstCaps *gst_shfbdevsink_getcaps(GstBaseSink * bsink);
-
 static GstVideoSinkClass *parent_class = NULL;
-
-#define GST_SHFBDEV_TEMPLATE_CAPS \
-	 GST_VIDEO_CAPS_RGB_15 \
- ";" GST_VIDEO_CAPS_RGB_16 \
- ";" GST_VIDEO_CAPS_BGR \
- ";" GST_VIDEO_CAPS_BGRx \
- ";" GST_VIDEO_CAPS_xBGR \
- ";" GST_VIDEO_CAPS_RGB \
- ";" GST_VIDEO_CAPS_RGBx \
- ";" GST_VIDEO_CAPS_xRGB \
 
 static void gst_shfbdevsink_base_init(gpointer g_class)
 {
 	GstElementClass *element_class = GST_ELEMENT_CLASS(g_class);
 
-	static GstStaticPadTemplate sink_template = GST_STATIC_PAD_TEMPLATE("sink",
-										GST_PAD_SINK,
-										GST_PAD_ALWAYS,
-										GST_STATIC_CAPS
-										(GST_SHFBDEV_TEMPLATE_CAPS)
-		);
-
 	gst_element_class_set_details(element_class, &gst_shfbdevsink_details);
 	gst_element_class_add_pad_template(element_class,
-					   gst_static_pad_template_get(&sink_template));
+					   gst_static_pad_template_get(&gst_shfbdevsink_template_factory));
 }
 
 static void
@@ -120,78 +103,9 @@ gst_shfbdevsink_get_times(GstBaseSink * basesink, GstBuffer * buffer,
 	}
 }
 
-static uint32_t swapendian(uint32_t val)
-{
-	return (val & 0xff) << 24 | (val & 0xff00) << 8
-		| (val & 0xff0000) >> 8 | (val & 0xff000000) >> 24;
-}
-
 static GstCaps *gst_shfbdevsink_getcaps(GstBaseSink * bsink)
 {
-	GstSHFBDEVSink *fbdevsink;
-	GstCaps *caps;
-	uint32_t rmask;
-	uint32_t gmask;
-	uint32_t bmask;
-	int endianness;
-
-	fbdevsink = GST_SHFBDEVSINK(bsink);
-
-	if (!fbdevsink->framebuffer)
-		return gst_caps_from_string(GST_SHFBDEV_TEMPLATE_CAPS);
-
-	rmask = ((1 << fbdevsink->varinfo.red.length) - 1)
-		<< fbdevsink->varinfo.red.offset;
-	gmask = ((1 << fbdevsink->varinfo.green.length) - 1)
-		<< fbdevsink->varinfo.green.offset;
-	bmask = ((1 << fbdevsink->varinfo.blue.length) - 1)
-		<< fbdevsink->varinfo.blue.offset;
-
-	endianness = 0;
-
-	switch (fbdevsink->varinfo.bits_per_pixel) {
-	case 32:
-		/* swap endian of masks */
-		rmask = swapendian(rmask);
-		gmask = swapendian(gmask);
-		bmask = swapendian(bmask);
-		endianness = 4321;
-		break;
-	case 24:{
-			/* swap red and blue masks */
-			uint32_t t = rmask;
-
-			rmask = bmask;
-			bmask = t;
-			endianness = 4321;
-			break;
-		}
-	case 15:
-	case 16:
-		endianness = 1234;
-		break;
-	default:
-		/* other bit depths are not supported */
-		g_warning("unsupported bit depth: %d\n", fbdevsink->varinfo.bits_per_pixel);
-		return NULL;
-	}
-
-	/* replace all but width, height, and framerate */
-	caps = gst_caps_from_string(GST_VIDEO_CAPS_RGB_15);
-	gst_caps_set_simple(caps,
-				"bpp", G_TYPE_INT, fbdevsink->varinfo.bits_per_pixel,
-				"depth", G_TYPE_INT,
-					fbdevsink->varinfo.red.length +
-					fbdevsink->varinfo.green.length +
-					fbdevsink->varinfo.blue.length +
-					fbdevsink->varinfo.transp.length,
-				"endianness", G_TYPE_INT, endianness,
-				"red_mask", G_TYPE_INT, rmask,
-				"green_mask", G_TYPE_INT, gmask,
-				"blue_mask", G_TYPE_INT, bmask,
-				NULL);
-
-	return caps;
+	return gst_caps_copy (gst_pad_get_pad_template_caps (bsink->sinkpad));
 }
 
 static gboolean gst_shfbdevsink_setcaps(GstBaseSink * bsink, GstCaps * vscapslist)
@@ -254,12 +168,18 @@ static void *launch_render_thread(void *data)
 		            (fbdevsink->varinfo.yres * fbdevsink->varinfo.xres * (fbdevsink->varinfo.bits_per_pixel / 8));
 				fbdevsink->varinfo.yoffset = fbdevsink->varinfo.yres;
 			}
-			shveu_operation(  fbdevsink->shveu,
-				  (unsigned long)fbdevsink->buf->data, (unsigned long)fbdevsink->buf->offset, fbdevsink->width, 
-	    	      fbdevsink->height, fbdevsink->width, SHVEU_YCbCr420,
-				  (unsigned long)fb_screenMem, 0, fbdevsink->varinfo.xres, fbdevsink->varinfo.yres, 
-	    	      fbdevsink->varinfo.xres, SHVEU_RGB565, SHVEU_NO_ROT);
+		} else {
+			fb_screenMem = (unsigned char *)fbdevsink->fixinfo.smem_start;
+		}
 
+		shveu_operation(  fbdevsink->shveu,
+			  (unsigned long)fbdevsink->buf->data, (unsigned long)fbdevsink->buf->offset, fbdevsink->width, 
+	          fbdevsink->height, fbdevsink->width, SHVEU_YCbCr420,
+			  (unsigned long)fb_screenMem, 0, fbdevsink->varinfo.xres, fbdevsink->varinfo.yres, 
+	          fbdevsink->varinfo.xres, SHVEU_RGB565, SHVEU_NO_ROT);
+
+		if (fbdevsink->pan_ioctl_present == TRUE)
+		{
 			if (-1 == ioctl(fbdevsink->fd, FBIOPAN_DISPLAY, &fbdevsink->varinfo))
 			{
 				printf("FBDEV: ioctl failed\n");
@@ -355,61 +275,6 @@ static gboolean gst_shfbdevsink_stop(GstBaseSink * bsink)
 	return TRUE;
 }
 
-static void
-gst_shfbdevsink_set_property(GObject * object, guint prop_id,
-				 const GValue * value, GParamSpec * pspec)
-{
-	GstSHFBDEVSink *fbdevsink;
-
-	fbdevsink = GST_SHFBDEVSINK(object);
-
-	switch (prop_id) {
-	case ARG_DEVICE:{
-			g_free(fbdevsink->device);
-			fbdevsink->device = g_value_dup_string(value);
-			break;
-		}
-	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-		break;
-	}
-}
-
-static void
-gst_shfbdevsink_get_property(GObject * object, guint prop_id, GValue * value, GParamSpec * pspec)
-{
-	GstSHFBDEVSink *fbdevsink;
-
-	fbdevsink = GST_SHFBDEVSINK(object);
-
-	switch (prop_id) {
-	case ARG_DEVICE:{
-			g_value_set_string(value, fbdevsink->device);
-			break;
-		}
-	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-		break;
-	}
-}
-
-static GstStateChangeReturn
-gst_shfbdevsink_change_state(GstElement * element, GstStateChange transition)
-{
-	GstSHFBDEVSink *fbdevsink;
-	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
-
-	g_return_val_if_fail(GST_IS_SHFBDEVSINK(element), GST_STATE_CHANGE_FAILURE);
-	fbdevsink = GST_SHFBDEVSINK(element);
-
-	ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
-
-	switch (transition) {
-	default:
-		break;
-	}
-	return ret;
-}
 
 static gboolean plugin_init(GstPlugin * plugin)
 {
@@ -429,18 +294,13 @@ static void gst_shfbdevsink_class_init(GstSHFBDEVSinkClass * klass)
 	gstelement_class = (GstElementClass *) klass;
 	gstvs_class = (GstBaseSinkClass *) klass;
 
+	GST_DEBUG_CATEGORY_INIT (gst_sh_video_sink_debug, 
+				 "shfbdevsink",
+				 0, "SH framebuffer sink");
+
 	parent_class = g_type_class_peek_parent(klass);
 
-	gobject_class->set_property = gst_shfbdevsink_set_property;
-	gobject_class->get_property = gst_shfbdevsink_get_property;
 	gobject_class->finalize = gst_shfbdevsink_finalize;
-
-	gstelement_class->change_state = GST_DEBUG_FUNCPTR(gst_shfbdevsink_change_state);
-
-	g_object_class_install_property(G_OBJECT_CLASS(klass), ARG_DEVICE,
-					g_param_spec_string("device", "device",
-								"The framebuffer device eg: /dev/fb0",
-								NULL, G_PARAM_READWRITE));
 
 	gstvs_class->set_caps = GST_DEBUG_FUNCPTR(gst_shfbdevsink_setcaps);
 	gstvs_class->get_caps = GST_DEBUG_FUNCPTR(gst_shfbdevsink_getcaps);
@@ -479,8 +339,7 @@ GType gst_shfbdevsink_get_type(void)
 		};
 
 		fbdevsink_type =
-			g_type_register_static(GST_TYPE_BASE_SINK, "GstSHFBDEVSink", &fbdevsink_info,
-					   0);
+			g_type_register_static(GST_TYPE_BASE_SINK, "GstSHFBDEVSink", &fbdevsink_info,0);
 	}
 	return fbdevsink_type;
 }

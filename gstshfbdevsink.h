@@ -57,7 +57,6 @@ struct _GstSHFBDEVSink {
 	struct fb_var_screeninfo varinfo;
 
 	int fd;
-	unsigned char *framebuffer;
 
 	char *device;
 

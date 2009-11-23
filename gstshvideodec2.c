@@ -120,11 +120,11 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE("src",
 								  GST_PAD_SRC,
 								  GST_PAD_ALWAYS,
 								  GST_STATIC_CAPS
-								  ("video/x-raw-rgb, "
-								   "bpp = (int) 16, "
-								   "depth = (int) 16, "
-								   "width = (int) [48, MAX], "
-								   "height = (int) [48, MAX]")
+								  ("video/x-raw-yuv, "
+								   "format = (fourcc) NV12,"
+								   "framerate = (fraction) [0, 30],"
+								   "width = (int) [48, 1280],"
+								   "height = (int) [48, 720]")
 	);
 
 
@@ -608,9 +608,8 @@ gst_shcodecs_decoded_callback(SHCodecs_Decoder * decoder,
 	GstCaps *caps = NULL;
 	GstBuffer *outbuf;
 
-	caps = gst_caps_new_simple("video/x-raw-rgb",
-				   "bpp", G_TYPE_INT, 16,
-				   "depth", G_TYPE_INT, 16,
+	caps = gst_caps_new_simple("video/x-raw-yuv",
+				   "format" , GST_TYPE_FOURCC, GST_MAKE_FOURCC ('N', 'V', '1', '2'),
 				   "framerate", GST_TYPE_FRACTION,
 				   dec->fps_numerator, dec->fps_denominator,
 				   "width", G_TYPE_INT, dec->out_width,
