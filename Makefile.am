@@ -21,7 +21,7 @@ AM_CFLAGS = -I $(srcdir)
 libgstshvideodec_la_SOURCES = gstshvideodec.c
 libgstshvideodec2_la_SOURCES = gstshvideodec2.c
 libgstshvideoenc_la_SOURCES = gstshvideoenc.c cntlfile/ControlFileUtil.c
-libgstshvideocapenc_la_SOURCES = gstshvideocapenc.c cntlfile/ControlFileUtil.c cntlfile/capture.c
+libgstshvideocapenc_la_SOURCES = gstshvideocapenc.c cntlfile/ControlFileUtil.c cntlfile/capture.c display.c
 libgstshfbdevsink_la_SOURCES = gstshfbdevsink.c
 
 libgstshvideodec_la_CFLAGS = $(GST_CFLAGS) $(GST_PLUGINS_BASE_CFLAGS) \
@@ -73,7 +73,8 @@ noinst_HEADERS = \
 	gstshvideocapenc.h \
 	gstshvideodec2.h \
 	gstshvideodec.h \
-	gstshvideoenc.h
+	gstshvideoenc.h \
+	display.h
 
 check-valgrind:
 	@true

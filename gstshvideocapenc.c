@@ -39,6 +39,7 @@
 
 #include "gstshvideocapenc.h"
 #include "cntlfile/capture.h"
+#include "display.h"
 
 typedef enum {
 	PREVIEW_OFF,
@@ -75,8 +76,7 @@ struct _GstshvideoEnc {
 	pthread_t capture_thread;
 	pthread_t blit_thread;
 
-	struct fb_var_screeninfo fbinfo;
-	struct fb_fix_screeninfo finfo;
+	void *p_display;
 	pthread_mutex_t capture_start_mutex;
 	pthread_mutex_t capture_end_mutex;
 	pthread_mutex_t blit_mutex;
@@ -233,28 +233,6 @@ static void *blit_thread(void *data)
 	GstshvideoEnc *shvideoenc = (GstshvideoEnc *) data;
 	unsigned long in_yaddr;
 	unsigned long in_caddr;
-	unsigned long fb_addr = 0;
-	double aspect, aspect_x, aspect_y;
-	long dst_w = 0;
-	long dst_h = 0;
-	int fd;
-	void *iomem;
-	gboolean first = FALSE;
-
-	if (shvideoenc->preview == PREVIEW_ON) {
-		aspect_x = (double) shvideoenc->fbinfo.xres / (double) shvideoenc->width;
-		aspect_y = (double) shvideoenc->fbinfo.yres / (double) shvideoenc->height;
-		if (aspect_x > aspect_y) {
-			aspect = aspect_y;
-		} else {
-			aspect = aspect_x;
-		}
-		dst_w = GST_ROUND_DOWN_4((long) ((double) shvideoenc->width * aspect));
-		dst_h = GST_ROUND_DOWN_4((long)
-					 ((double) shvideoenc->height * aspect));
-		fb_addr = shvideoenc->finfo.smem_start + (shvideoenc->fbinfo.xres - dst_w)
-			+ (shvideoenc->fbinfo.yres - dst_h) * shvideoenc->fbinfo.xres;
-	}
 
 	while (1) {
 		GST_LOG_OBJECT(shvideoenc, "%s called preview %d", __func__,
@@ -289,40 +267,13 @@ static void *blit_thread(void *data)
 		pthread_mutex_unlock(&shvideoenc->blit_vpu_end_mutex);
 
 		if (shvideoenc->preview == PREVIEW_ON) {
-			if (first == FALSE) {
-				/* Open the frame buffer device to clear frame buffer */
-				fd = open("/dev/fb0", O_RDWR);
-				if (fd < 0) {
-					GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE,
-							  FAILED,
-							  ("Error opening fb device to get the resolution"),
-							  (NULL));
-				}
-				iomem =
-					mmap(0, shvideoenc->finfo.smem_len, PROT_READ | PROT_WRITE,
-					 MAP_SHARED, fd, 0);
-				if (iomem == MAP_FAILED) {
-					GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, FAILED,
-							  ("mmap"), (NULL));
-				}
-				/* clear framebuffer */
-				memset(iomem, 0,
-					   shvideoenc->finfo.line_length * shvideoenc->fbinfo.yres);
-				munmap(iomem, shvideoenc->finfo.smem_len);
-				close(fd);
-				first = TRUE;
-			}
-
-			shveu_operation(shvideoenc->veu,
+			display_update(shvideoenc->p_display,
 					shvideoenc->enc_in_yaddr,
 					shvideoenc->enc_in_caddr,
-					(long) shvideoenc->width,
-					(long) shvideoenc->height,
-					(long) shvideoenc->width,
-					SHVEU_YCbCr420,
-					fb_addr,
-					0UL, dst_w, dst_h, shvideoenc->fbinfo.xres, SHVEU_RGB565,
-					SHVEU_NO_ROT);
+					shvideoenc->width,
+					shvideoenc->height,
+					shvideoenc->width,
+					V4L2_PIX_FMT_NV12);
 		}
 		pthread_mutex_unlock(&shvideoenc->capture_end_mutex);
 	}
@@ -364,8 +315,6 @@ static void gst_shvideo_enc_base_init(gpointer klass)
 static void gst_shvideo_enc_dispose(GObject * object)
 {
 	GstshvideoEnc *shvideoenc = GST_SHVIDEOENC(object);
-	int fd;
-	void *iomem;
 	GST_LOG("%s called", __func__);
 
 	pthread_mutex_lock(&shvideoenc->launch_mutex);
@@ -378,23 +327,7 @@ static void gst_shvideo_enc_dispose(GObject * object)
 	}
 
 	if (shvideoenc->preview == PREVIEW_ON) {
-		/* Open the frame buffer device to clear frame buffer */
-		fd = open("/dev/fb0", O_RDWR);
-		if (fd < 0) {
-			GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, FAILED,
-					  ("Error opening fb device to get the resolution"),
-					  (NULL));
-		}
-		iomem =
-			mmap(0, shvideoenc->finfo.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-		if (iomem == MAP_FAILED) {
-			GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, FAILED, ("mmap"),
-					  (NULL));
-		}
-		/* clear framebuffer */
-		memset(iomem, 0, shvideoenc->finfo.line_length * shvideoenc->fbinfo.yres);
-		munmap(iomem, shvideoenc->finfo.smem_len);
-		close(fd);
+		display_close(shvideoenc->p_display);
 	}
 
 	shveu_close();
@@ -753,8 +686,6 @@ static gboolean gst_shvideo_enc_src_query(GstPad * pad, GstQuery * query)
 */
 static void gst_shvideo_enc_init_camera_encoder(GstshvideoEnc * shvideoenc)
 {
-	int fd;
-	void *iomem;
 	gint ret = 0;
 	glong fmt = 0;
 
@@ -767,34 +698,6 @@ static void gst_shvideo_enc_init_camera_encoder(GstshvideoEnc * shvideoenc)
 				  ("Error reading control file."), (NULL));
 	}
 
-	if (shvideoenc->preview == PREVIEW_ON) {
-		/* Open the frame buffer device /dev/fb0 and find out the resolution,
-		   used to centre the image on the display, and the framebuffer address */
-		fd = open("/dev/fb0", O_RDWR);
-		if (fd < 0) {
-			GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, FAILED,
-					  ("Error opening fb device to get the resolution"),
-					  (NULL));
-		}
-		if (ioctl(fd, FBIOGET_VSCREENINFO, &shvideoenc->fbinfo) == -1) {
-			GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, FAILED,
-					  ("ioctl(FBIOGET_VSCREENINFO)"), (NULL));
-		}
-		if (ioctl(fd, FBIOGET_FSCREENINFO, &shvideoenc->finfo) == -1) {
-			GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, FAILED,
-					  ("ioctl(FBIOGET_FSCREENINFO)"), (NULL));
-		}
-		iomem =
-			mmap(0, shvideoenc->finfo.smem_len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-		if (iomem == MAP_FAILED) {
-			GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, FAILED, ("mmap"),
-					  (NULL));
-		}
-		/* clear framebuffer */
-		memset(iomem, 0, shvideoenc->finfo.line_length * shvideoenc->fbinfo.yres);
-		munmap(iomem, shvideoenc->finfo.smem_len);
-		close(fd);
-	}
 	/* Initalise the mutexes */
 	pthread_mutex_lock(&shvideoenc->capture_start_mutex);
 	pthread_mutex_unlock(&shvideoenc->capture_end_mutex);
@@ -857,6 +760,15 @@ static void *launch_camera_encoder_thread(void *data)
 
 	/* veu open */
 	enc->veu = shveu_open();
+
+	/* Display output */
+	if (enc->preview == PREVIEW_ON) {
+		enc->p_display = display_open(enc->veu);
+		if (!enc->p_display) {
+			GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+					  ("Error opening fb device"), (NULL));
+		}
+	}
 
 	/* ceu open */
 	enc->ainfo.ceu = sh_ceu_open(enc->ainfo.input_file_name_buf,
