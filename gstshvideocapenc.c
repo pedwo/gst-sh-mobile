@@ -26,13 +26,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <poll.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
 #include <string.h>
-#include <linux/fb.h>
 #include <linux/videodev2.h>	/* For pixel formats */
 #include <uiomux/uiomux.h>
 #include <shveu/shveu.h>
@@ -43,8 +38,7 @@
 
 typedef enum {
 	PREVIEW_OFF,
-	PREVIEW_ON,
-	PREVIEW_NONE
+	PREVIEW_ON
 } GstCameraPreview;
 
 
@@ -178,7 +172,6 @@ static GType gst_camera_preview_get_type(void)
 	static const GEnumValue preview_method[] = {
 		{PREVIEW_OFF, "No camera preview", "off"},
 		{PREVIEW_ON, "Camera preview", "on"},
-		{PREVIEW_NONE, "Camera preview is not specified", "none"},
 		{0, NULL, NULL},
 	};
 
@@ -402,7 +395,7 @@ static void gst_shvideo_enc_class_init(GstshvideoEncClass * klass)
 							  "Camera preview",
 							  "camera preview",
 							  GST_TYPE_CAMERA_PREVIEW,
-							  PREVIEW_NONE, G_PARAM_READWRITE));
+							  PREVIEW_OFF, G_PARAM_READWRITE));
 }
 
 /** Initialize the encoder
@@ -444,7 +437,7 @@ static void gst_shvideo_enc_init(GstshvideoEnc * shvideoenc, GstshvideoEncClass 
 	shvideoenc->fps_numerator = 25;
 	shvideoenc->fps_denominator = 1;
 	shvideoenc->frame_number = 0;
-	shvideoenc->preview = PREVIEW_NONE;
+	shvideoenc->preview = PREVIEW_OFF;
 	shvideoenc->output_lock = TRUE;
 	shvideoenc->cntl_flg = 0;
 	shvideoenc->preview_flg = 0;
