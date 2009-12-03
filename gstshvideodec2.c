@@ -24,17 +24,8 @@
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <poll.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
 #include <string.h>
-#include <linux/fb.h>
-
 #include <shcodecs/shcodecs.h>
-
 #include "gstshvideodec2.h"
 
 /**
@@ -59,11 +50,6 @@ struct _Gstshvideodec {
 	/* Buffer for input data that hasn't been consumed yet */
 	GstBuffer *pcache;
 
-	/* VEU handle */
-	int veu;
-	gint out_width;
-	gint out_height;
-
 	/* Timestamp info to pass from the input buffer to the output buffer */
 	GstClockTime timestamp;
 	GstClockTime duration;
@@ -77,9 +63,6 @@ struct _Gstshvideodec {
 	guint num_pps;
 	guint pps_size;
 	GstBuffer *codec_data_pps_buf;
-	gint buffer;
-	struct fb_fix_screeninfo fb_fix;
-	struct fb_var_screeninfo fb_var;
 };
 
 
@@ -216,7 +199,6 @@ static void gst_shvideodec_dispose(GObject * object)
  */
 static void gst_shvideodec_init(Gstshvideodec * dec, GstshvideodecClass * g_class)
 {
-	int fb;
 	GstElementClass *kclass = GST_ELEMENT_GET_CLASS(dec);
 
 	GST_LOG_OBJECT(dec, "%s called", __func__);
@@ -236,36 +218,7 @@ static void gst_shvideodec_init(Gstshvideodec * dec, GstshvideodecClass * g_clas
 	gst_element_add_pad(GST_ELEMENT(dec), dec->sinkpad);
 	gst_element_add_pad(GST_ELEMENT(dec), dec->srcpad);
 
-	dec->buffer = 0;	//for the FB flip
-	/* get current settings */
-	if (-1 == (fb = open("/dev/fb0", O_RDWR))) {
-		fprintf(stderr, "Open %s: %s.\n", "/dev/fb0", strerror(errno));
-	}
-	if (-1 == ioctl(fb, FBIOGET_FSCREENINFO, &dec->fb_fix)) {
-		fprintf(stderr, "Ioctl FBIOGET_FSCREENINFO error.\n");
-	}
-	if (-1 == ioctl(fb, FBIOGET_VSCREENINFO, &dec->fb_var)) {
-		fprintf(stderr, "Ioctl FBIOGET_VSCREENINFO error.\n");
-	}
-	if (dec->fb_fix.type != FB_TYPE_PACKED_PIXELS) {
-		fprintf(stderr, "This test can handle only packed pixel frame buffers.\n");
-
-	}
-	dec->fb_var.xoffset = 0;
-	dec->fb_var.yoffset = 0;
-
-
-	/* make sure the frame buffers are set up properly */
-	if (-1 == ioctl(fb, FBIOPAN_DISPLAY, &dec->fb_var)) {
-	}
-
-	close(fb);
-	/* end of the stuff for the framebuffer flip */
-
 	dec->timestamp = 0;
-
-	dec->out_width = -1;
-	dec->out_height = -1;
 
 	dec->caps_set = FALSE;
 	dec->decoder = NULL;
@@ -446,12 +399,6 @@ static gboolean gst_shvideodec_set_sink_caps(GstPad * pad, GstCaps * caps)
 	shcodecs_decoder_set_decoded_callback(dec->decoder,
 						  gst_shcodecs_decoded_callback, (void *) dec);
 
-	/* If nothing has been set, use the natural size */
-	if (dec->out_width == -1) {
-		dec->out_width = dec->width;
-		dec->out_height = dec->height;
-	}
-
 	dec->caps_set = TRUE;
 
 	GST_LOG_OBJECT(dec, "%s ok", __func__);
@@ -469,15 +416,6 @@ static gboolean gst_shvideodec_set_src_caps(GstPad * pad, GstCaps * caps)
 	GST_LOG_OBJECT(dec, "%s called", __func__);
 
 	structure = gst_caps_get_structure(caps, 0);
-
-	if (gst_structure_get_int(structure, "width", &dec->out_width)
-		&& gst_structure_get_int(structure, "height", &dec->out_height)) {
-		GST_DEBUG_OBJECT(dec, "%s output size = %dx%d", __func__,
-				 dec->out_width, dec->out_height);
-	} else {
-		GST_DEBUG_OBJECT(dec, "%s failed (no width/height)", __func__);
-		return FALSE;
-	}
 
 	GST_LOG_OBJECT(dec, "%s ok", __func__);
 	return TRUE;
@@ -612,8 +550,8 @@ gst_shcodecs_decoded_callback(SHCodecs_Decoder * decoder,
 				   "format" , GST_TYPE_FOURCC, GST_MAKE_FOURCC ('N', 'V', '1', '2'),
 				   "framerate", GST_TYPE_FRACTION,
 				   dec->fps_numerator, dec->fps_denominator,
-				   "width", G_TYPE_INT, dec->out_width,
-				   "height", G_TYPE_INT, dec->out_height, NULL);
+				   "width", G_TYPE_INT, dec->width,
+				   "height", G_TYPE_INT, dec->height, NULL);
 	gst_pad_set_caps(dec->srcpad, caps);
 
 	outbuf = gst_buffer_new();	//allocate a new emtpy buffer
