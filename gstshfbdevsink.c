@@ -28,14 +28,32 @@
 #include <sys/time.h>
 #include <stdlib.h>
 
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
 #include <unistd.h>
-#include <stdint.h>
+#include <pthread.h>
+#include <linux/videodev2.h>	/* For pixel formats */
 #include <shveu/shveu.h>
 
 #include "gstshfbdevsink.h"
+#include "display.h"
+
+struct _GstSHFBDEVSink {
+	GstVideoSink videosink;
+
+	void *p_display;
+
+	char *device;
+
+	int width, height;
+
+	int fps_n, fps_d;
+
+	GstBuffer *buf;
+	int shveu;
+	pthread_t rendar_thread;
+	pthread_mutex_t rendar_mutex;
+	int count;
+};
+
 
 /* elementfactory information */
 static const GstElementDetails gst_shfbdevsink_details =
@@ -125,68 +143,25 @@ static gboolean gst_shfbdevsink_setcaps(GstBaseSink * bsink, GstCaps * vscapslis
 	gst_structure_get_int(structure, "width", &fbdevsink->width);
 	gst_structure_get_int(structure, "height", &fbdevsink->height);
 
-	/* calculate centering and scanlengths for the video */
-	fbdevsink->bytespp = fbdevsink->fixinfo.line_length / fbdevsink->varinfo.xres;
-
-	fbdevsink->cx = ((int) fbdevsink->varinfo.xres - fbdevsink->width) / 2;
-	if (fbdevsink->cx < 0)
-		fbdevsink->cx = 0;
-
-	fbdevsink->cy = ((int) fbdevsink->varinfo.yres - fbdevsink->height) / 2;
-	if (fbdevsink->cy < 0)
-		fbdevsink->cy = 0;
-
-	fbdevsink->linelen = fbdevsink->width * fbdevsink->bytespp;
-	if (fbdevsink->linelen > fbdevsink->fixinfo.line_length)
-		fbdevsink->linelen = fbdevsink->fixinfo.line_length;
-
-	fbdevsink->lines = fbdevsink->height;
-	if (fbdevsink->lines > fbdevsink->varinfo.yres)
-		fbdevsink->lines = fbdevsink->varinfo.yres;
-
 	return TRUE;
 }
 
 static void *launch_render_thread(void *data)
 {
 	GstSHFBDEVSink *fbdevsink = (GstSHFBDEVSink *)data;
-	unsigned char *fb_screenMem = NULL;
 
 	while(1)
 	{
 		pthread_mutex_lock(&fbdevsink->rendar_mutex);
-		if (fbdevsink->pan_ioctl_present == TRUE)
-		{
-			if (fbdevsink->varinfo.yoffset == fbdevsink->varinfo.yres) {
-				fb_screenMem = (unsigned char *)fbdevsink->fixinfo.smem_start;
-				fbdevsink->varinfo.xoffset = 0;
-				fbdevsink->varinfo.yoffset = 0;
-			} else {
-				fbdevsink->varinfo.xoffset = 0;
-				fbdevsink->varinfo.yoffset = fbdevsink->varinfo.yres;
-				fb_screenMem = (unsigned char *)fbdevsink->fixinfo.smem_start + 
-		            (fbdevsink->varinfo.yres * fbdevsink->varinfo.xres * (fbdevsink->varinfo.bits_per_pixel / 8));
-				fbdevsink->varinfo.yoffset = fbdevsink->varinfo.yres;
-			}
-		} else {
-			fb_screenMem = (unsigned char *)fbdevsink->fixinfo.smem_start;
-		}
 
-		shveu_operation(  fbdevsink->shveu,
-			  (unsigned long)fbdevsink->buf->data, (unsigned long)fbdevsink->buf->offset, fbdevsink->width, 
-	          fbdevsink->height, fbdevsink->width, SHVEU_YCbCr420,
-			  (unsigned long)fb_screenMem, 0, fbdevsink->varinfo.xres, fbdevsink->varinfo.yres, 
-	          fbdevsink->varinfo.xres, SHVEU_RGB565, SHVEU_NO_ROT);
+		display_update(fbdevsink->p_display,
+				(unsigned long)fbdevsink->buf->data,
+				(unsigned long)fbdevsink->buf->offset,
+				fbdevsink->width,
+				fbdevsink->height,
+				fbdevsink->width,
+				V4L2_PIX_FMT_NV12);
 
-		if (fbdevsink->pan_ioctl_present == TRUE)
-		{
-			if (-1 == ioctl(fbdevsink->fd, FBIOPAN_DISPLAY, &fbdevsink->varinfo))
-			{
-				printf("FBDEV: ioctl failed\n");
-		        fbdevsink->count--;
-				return NULL;
-			}
-		}
 		fbdevsink->count--;
 	}
 	return NULL;
@@ -216,32 +191,14 @@ static gboolean gst_shfbdevsink_start(GstBaseSink * bsink)
 
 	fbdevsink = GST_SHFBDEVSINK(bsink);
 
-	if (!fbdevsink->device) {
-		fbdevsink->device = g_strdup("/dev/fb0");
-	}
-
-	fbdevsink->fd = open(fbdevsink->device, O_RDWR);
-
-	if (fbdevsink->fd == -1)
-		return FALSE;
-
-	/* get the fixed screen info */
-	if (ioctl(fbdevsink->fd, FBIOGET_FSCREENINFO, &fbdevsink->fixinfo))
-		return FALSE;
-
-	/* get the variable screen info */
-	if (ioctl(fbdevsink->fd, FBIOGET_VSCREENINFO, &fbdevsink->varinfo))
-		return FALSE;
-
 	fbdevsink->count = 0;
 
 	fbdevsink->shveu = shveu_open();
 
-/* Check to see if the LCDC driver has the PAN IOCTL */
-	fbdevsink->pan_ioctl_present = TRUE;
-	if (-1 == ioctl(fbdevsink->fd, FBIOPAN_DISPLAY, &fbdevsink->varinfo)) {
-		printf("fbdev PAN ioctl not present\n");
-		fbdevsink->pan_ioctl_present = FALSE;
+	fbdevsink->p_display = display_open(fbdevsink->shveu);
+	if (!fbdevsink->p_display) {
+		GST_ELEMENT_ERROR((GstElement *) fbdevsink, CORE, FAILED,
+				  ("Error opening fb device"), (NULL));
 	}
 
 	pthread_mutex_init(&fbdevsink->rendar_mutex, NULL);
@@ -257,17 +214,7 @@ static gboolean gst_shfbdevsink_stop(GstBaseSink * bsink)
 
 	fbdevsink = GST_SHFBDEVSINK(bsink);
 
-	fbdevsink->varinfo.xoffset = 0;
-	fbdevsink->varinfo.yoffset = 0;
-
-	/* Restore the framebuffer to the front buffer */
-	if (-1 == ioctl(fbdevsink->fd, FBIOPAN_DISPLAY, &fbdevsink->varinfo)) {
-
-	}
-
-	if (close(fbdevsink->fd))
-		return FALSE;
-
+	display_close(fbdevsink->p_display);
 	shveu_close();
 	pthread_cancel(fbdevsink->rendar_thread);
 	pthread_mutex_destroy(&fbdevsink->rendar_mutex);

@@ -22,7 +22,7 @@ libgstshvideodec_la_SOURCES = gstshvideodec.c
 libgstshvideodec2_la_SOURCES = gstshvideodec2.c
 libgstshvideoenc_la_SOURCES = gstshvideoenc.c cntlfile/ControlFileUtil.c
 libgstshvideocapenc_la_SOURCES = gstshvideocapenc.c cntlfile/ControlFileUtil.c cntlfile/capture.c display.c
-libgstshfbdevsink_la_SOURCES = gstshfbdevsink.c
+libgstshfbdevsink_la_SOURCES = gstshfbdevsink.c display.c
 
 libgstshvideodec_la_CFLAGS = $(GST_CFLAGS) $(GST_PLUGINS_BASE_CFLAGS) \
 	$(SHCODECS_CFLAGS)

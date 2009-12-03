@@ -26,9 +26,7 @@
 #include <gst/gst.h>
 #include <gst/video/gstvideosink.h>
 #include <gst/video/video.h>
-#include <pthread.h>
 
-#include <linux/fb.h>
 
 G_BEGIN_DECLS
 #define GST_TYPE_SHFBDEVSINK \
@@ -49,29 +47,6 @@ G_BEGIN_DECLS
 
 typedef struct _GstSHFBDEVSink GstSHFBDEVSink;
 typedef struct _GstSHFBDEVSinkClass GstSHFBDEVSinkClass;
-
-struct _GstSHFBDEVSink {
-	GstVideoSink videosink;
-
-	struct fb_fix_screeninfo fixinfo;
-	struct fb_var_screeninfo varinfo;
-
-	int fd;
-
-	char *device;
-
-	int width, height;
-	int cx, cy, linelen, lines, bytespp;
-
-	int fps_n, fps_d;
-
-	GstBuffer *buf;
-	int shveu;
-	pthread_t rendar_thread;
-	pthread_mutex_t rendar_mutex;
-	int count;
-	gboolean pan_ioctl_present;
-};
 
 struct _GstSHFBDEVSinkClass {
 	GstBaseSinkClass parent_class;
