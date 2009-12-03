@@ -694,30 +694,37 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data\n", __func__, length);
 
 	if (length) {
+		int frm_delta;
 
 		buf = gst_buffer_new();
 		gst_buffer_set_data(buf, data, length);
 
-		time_now = gst_clock_get_time(enc->clock);
-		if (first_set == FALSE) {
-			enc->start_time = time_now;
-			first_set = TRUE;
-		}
-		time_diff = GST_TIME_AS_MSECONDS(GST_CLOCK_DIFF(enc->start_time, time_now));
-		stamp_diff = enc->frame_number * (1000 * enc->fps_denominator / enc->fps_numerator);
+		frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
 
-		GST_DEBUG_OBJECT(enc,
-				 "Frame number: %d time from start: %llu stamp diff: %llu",
-				 enc->frame_number, time_diff, stamp_diff);
-		if (stamp_diff > time_diff) {
-			sleep_time = stamp_diff - time_diff;
-			GST_DEBUG_OBJECT(enc, "sleeping for: %llums", sleep_time);
-			usleep(sleep_time * 1000);
+		if (frm_delta > 0) {
+
+			time_now = gst_clock_get_time(enc->clock);
+			if (first_set == FALSE) {
+				enc->start_time = time_now;
+				first_set = TRUE;
+			}
+			time_diff = GST_TIME_AS_MSECONDS(GST_CLOCK_DIFF(enc->start_time, time_now));
+			stamp_diff = enc->frame_number * (1000 * enc->fps_denominator / enc->fps_numerator);
+
+			GST_DEBUG_OBJECT(enc,
+					 "Frame number: %d time from start: %llu stamp diff: %llu",
+					 enc->frame_number, time_diff, stamp_diff);
+			if (stamp_diff > time_diff) {
+				sleep_time = stamp_diff - time_diff;
+				GST_DEBUG_OBJECT(enc, "sleeping for: %llums", sleep_time);
+				usleep(sleep_time * 1000);
+			}
+			GST_BUFFER_DURATION(buf) =
+				enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
 		}
-		GST_BUFFER_DURATION(buf) =
-			enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
+
 		GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
-		enc->frame_number++;
+		enc->frame_number += frm_delta;
 
 		ret = gst_pad_push(enc->srcpad, buf);
 
