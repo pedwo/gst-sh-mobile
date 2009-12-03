@@ -162,6 +162,7 @@ AC_SUBST(SHCODECS_CFLAGS)
 AC_SUBST(SHCODECS_LIBS)
 
 AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,[$SHCODECS_LIBS])
+AC_CHECK_LIB(shcodecs,shcodecs_encoder_get_frame_num_delta,,AC_ERROR,[$SHCODECS_LIBS])
 
 dnl
 dnl Check for libshveu
