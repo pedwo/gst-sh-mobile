@@ -18,18 +18,18 @@ ACLOCAL_AMFLAGS = -I common/m4
 
 AM_CFLAGS = -I $(srcdir)
 
-libgstshvideodec_la_SOURCES = gstshvideodec.c
+libgstshvideodec_la_SOURCES = gstshvideodec.c display.c
 libgstshvideodec2_la_SOURCES = gstshvideodec2.c
 libgstshvideoenc_la_SOURCES = gstshvideoenc.c cntlfile/ControlFileUtil.c
 libgstshvideocapenc_la_SOURCES = gstshvideocapenc.c cntlfile/ControlFileUtil.c cntlfile/capture.c display.c
 libgstshfbdevsink_la_SOURCES = gstshfbdevsink.c display.c
 
 libgstshvideodec_la_CFLAGS = $(GST_CFLAGS) $(GST_PLUGINS_BASE_CFLAGS) \
-	$(SHCODECS_CFLAGS)
+	$(SHCODECS_CFLAGS) $(SHVEU_CFLAGS)
 libgstshvideodec_la_LIBADD = $(GST_BASE_LIBS) $(GST_PLUGINS_BASE_LIBS) \
-	$(SHCODECS_LIBS)
+	$(SHCODECS_LIBS) $(SHVEU_LIBS)
 libgstshvideodec_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) \
-	$(SHCODECS_LDFLAGS)
+	$(SHCODECS_LDFLAGS) $(SHVEU_LDFLAGS)
 libgstshvideodec_la_LIBTOOLFLAGS = --tag=disable-static
 
 

@@ -71,10 +71,8 @@ struct _Gstshvideodec {
 	gboolean first_frame;
 
 	/* Output */
-	gint dst_width;
-	gint dst_height;
-	gint dst_x;
-	gint dst_y;
+	int veu;
+	void *p_display;
 
 	/* Buffer for data that hasn't been consumed yet */
 	GstBuffer *pcache;

@@ -28,16 +28,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <poll.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <linux/fb.h>
 
+#include <linux/videodev2.h>	/* For pixel formats */
+#include <shveu/shveu.h>
 #include "gstshvideodec.h"
-
-#include "vidix/sh_veu_vid.c"
+#include "display.h"
 
 /**
  * Define capatibilities for the sink factory
@@ -72,8 +68,6 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE("sink",
 	);
 
 static GstElementClass *parent_class = NULL;
-vidix_capability_t sh_capability;
-vidix_playback_t sh_vidix;
 
 GST_DEBUG_CATEGORY_STATIC(gst_sh_mobile_debug);
 #define GST_CAT_DEFAULT gst_sh_mobile_debug
@@ -142,7 +136,10 @@ static void gst_shvideodec_dispose(GObject * object)
 		GST_DEBUG_OBJECT(dec, "close decoder object %p", dec->decoder);
 		shcodecs_decoder_close(dec->decoder);
 	}
-	sh_veu_destroy();
+	if (dec->p_display) {
+		display_close(dec->p_display);
+	}
+	shveu_close();
 	G_OBJECT_CLASS(parent_class)->dispose(object);
 }
 
@@ -294,54 +291,12 @@ static gboolean gst_shvideodec_setcaps(GstPad * pad, GstCaps * caps)
 	/* Use physical addresses for playback */
 	shcodecs_decoder_set_use_physical(dec->decoder, 1);
 
-	/* Let's try to init video output. First we probe, then init */
-	if (sh_veu_probe(0, 0) < 0) {
+	/* Display output */
+	dec->veu = shveu_open();
+	dec->p_display = display_open(dec->veu);
+	if (!dec->p_display) {
 		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
-				  ("Error on SH VEU probe."),
-				  ("%s failed (Error on SH VEU probe)", __func__));
-		return FALSE;
-	}
-
-	if (sh_veu_init() < 0) {
-		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
-				  ("Error on SH VEU init."),
-				  ("%s failed (Error on SH VEU init)", __func__));
-		return FALSE;
-	}
-
-	if (sh_veu_get_caps(&sh_capability) < 0) {
-		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
-				  ("Error on SH VEU caps."),
-				  ("%s failed (Error on SH VEU caps)", __func__));
-		return FALSE;
-	}
-
-	/* let's config playback */
-	if (get_fb_info("/dev/fb0", &fbi) < 0) {
-		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
-				  ("Error on getting frame buffer info."),
-				  ("%s failed (Error on getting frame buffer info.)",
-				   __func__));
-		return FALSE;
-	}
-
-	memset(&sh_vidix, 0, sizeof(vidix_playback_t));
-
-	sh_vidix.src.w = dec->width;
-	sh_vidix.src.h = dec->height;
-	sh_vidix.dest.x = dec->dst_x;
-	sh_vidix.dest.y = dec->dst_y;
-	sh_vidix.dest.w = fbi.width;
-	sh_vidix.dest.h = fbi.height;
-	sh_vidix.num_frames = 1;
-	sh_vidix.capability = sh_capability.flags;
-	sh_vidix.fourcc = IMGFMT_NV12;
-
-	if (sh_veu_config_playback(&sh_vidix) < 0) {
-		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
-				  ("Error on SH VEU config playback."),
-				  ("%s failed (Error on SH VEU config playback)", __func__));
-		return FALSE;
+				  ("Error opening fb device"), (NULL));
 	}
 
 	shcodecs_decoder_set_decoded_callback(dec->decoder,
@@ -415,10 +370,6 @@ gst_shcodecs_decoded_callback(SHCodecs_Decoder * decoder,
 
 	GST_DEBUG_OBJECT(dec, "Frame decoded");
 
-	// Zero copy: Set the playback address to VPU mem  
-	sh_vidix.offset.y = (unsigned) y_buf;
-	sh_vidix.offset.u = (unsigned) c_buf;
-
 	time_now = gst_clock_get_time(dec->clock);
 
 	if (dec->first_frame) {
@@ -441,9 +392,14 @@ gst_shcodecs_decoded_callback(SHCodecs_Decoder * decoder,
 		GST_DEBUG_OBJECT(dec, "sleeping for: %llums", sleep_time);
 		usleep(sleep_time * 1000);
 	}
-	// Blit and then wait.
-	sh_veu_blit(&sh_vidix, 0);
-	sh_veu_wait_irq(&sh_vidix);
+
+	display_update(dec->p_display,
+			(unsigned) y_buf,
+			(unsigned) c_buf,
+			dec->width,
+			dec->height,
+			dec->width,
+			V4L2_PIX_FMT_NV12);
 
 	dec->playback_played++;
 	return 1;
