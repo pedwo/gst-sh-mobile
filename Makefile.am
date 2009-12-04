@@ -6,13 +6,7 @@ EXTRA_DIST = \
 	cntlfile/capture.c \
 	cntlfile/capture.h \
 	cntlfile/ControlFileUtil.c \
-	cntlfile/ControlFileUtil.h \
-	vidix/dha.h \
-	vidix/fourcc.h \
-	vidix/README \
-	vidix/README.dha \
-	vidix/sh_veu_vid.c \
-	vidix/vidix.h
+	cntlfile/ControlFileUtil.h
 
 ACLOCAL_AMFLAGS = -I common/m4
 
