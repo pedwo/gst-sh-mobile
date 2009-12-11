@@ -645,9 +645,10 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 				GST_DEBUG_OBJECT(enc, "sleeping for: %llums", sleep_time);
 				usleep(sleep_time * 1000);
 			}
-			GST_BUFFER_DURATION(buf) =
-				enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
 		}
+
+		GST_BUFFER_DURATION(buf) =
+			frm_delta * enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
 
 		GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
 		enc->frame_number += frm_delta;
