@@ -64,6 +64,7 @@ struct _GstshvideoEnc {
 	glong frame_number;
 
 	GstClock *clock;
+	gboolean start_time_set;
 	GstClockTime start_time;
 
 	pthread_t enc_thread;
@@ -205,18 +206,41 @@ static void capture_image_cb(sh_ceu * ceu, const void *frame_data, size_t length
 
 static void *capture_thread(void *data)
 {
-	GstshvideoEnc *shvideoenc = (GstshvideoEnc *) data;
+	GstshvideoEnc *enc = (GstshvideoEnc *) data;
+	long long unsigned int time_diff, stamp_diff, sleep_time;
+	GstClockTime time_now;
 
 	while (1) {
-		GST_LOG_OBJECT(shvideoenc, "%s called", __func__);
+		GST_LOG_OBJECT(enc, "%s called", __func__);
 
 		/* This mutex is released by the VPU get_input call back, created locked */
-		pthread_mutex_lock(&shvideoenc->capture_start_mutex);
+		pthread_mutex_lock(&enc->capture_start_mutex);
 
-		sh_ceu_capture_frame(shvideoenc->ainfo.ceu, capture_image_cb, shvideoenc);
+		/* Camera sensors cannot always be set to the required frame rate. The v4l
+		   camera driver attempts to set to the requested frame rate, but if not
+		   possible it attempts to set a higher frame rate, therefore we wait... */
+		time_now = gst_clock_get_time(enc->clock);
+		if (enc->start_time_set == FALSE) {
+			enc->start_time = time_now;
+			enc->start_time_set = TRUE;
+		}
+		time_diff = GST_TIME_AS_MSECONDS(GST_CLOCK_DIFF(enc->start_time, time_now));
+		stamp_diff = 1000 * enc->fps_denominator / enc->fps_numerator;
+		enc->start_time = time_now;
+
+		if (stamp_diff > time_diff) {
+			sleep_time = stamp_diff - time_diff;
+			GST_DEBUG_OBJECT(enc, "Capture: waiting " GST_TIME_FORMAT "ms", sleep_time);
+			usleep(sleep_time * 1000);
+		} else {
+			GST_DEBUG_OBJECT(enc, "Capture: late by " GST_TIME_FORMAT "ms", time_diff-stamp_diff);
+		}
+
+
+		sh_ceu_capture_frame(enc->ainfo.ceu, capture_image_cb, enc);
 
 		/* This mutex releases the VEU copy to the VPU input buffer and the framebuffer */
-		pthread_mutex_unlock(&shvideoenc->blit_mutex);
+		pthread_mutex_unlock(&enc->blit_mutex);
 	}
 	return NULL;
 }
@@ -441,7 +465,7 @@ static void gst_shvideo_enc_init(GstshvideoEnc * shvideoenc, GstshvideoEncClass 
 	shvideoenc->output_lock = TRUE;
 	shvideoenc->cntl_flg = 0;
 	shvideoenc->preview_flg = 0;
-
+	shvideoenc->start_time_set = FALSE;
 }
 
 
@@ -613,9 +637,6 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 	GstshvideoEnc *enc = (GstshvideoEnc *) user_data;
 	GstBuffer *buf = NULL;
 	gint ret = 0;
-	static gboolean first_set = FALSE;
-	long long unsigned int time_diff, stamp_diff, sleep_time;
-	GstClockTime time_now;
 
 	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data\n", __func__, length);
 
@@ -626,26 +647,6 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 		gst_buffer_set_data(buf, data, length);
 
 		frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
-
-		if (frm_delta > 0) {
-
-			time_now = gst_clock_get_time(enc->clock);
-			if (first_set == FALSE) {
-				enc->start_time = time_now;
-				first_set = TRUE;
-			}
-			time_diff = GST_TIME_AS_MSECONDS(GST_CLOCK_DIFF(enc->start_time, time_now));
-			stamp_diff = enc->frame_number * (1000 * enc->fps_denominator / enc->fps_numerator);
-
-			GST_DEBUG_OBJECT(enc,
-					 "Frame number: %d time from start: %llu stamp diff: %llu",
-					 enc->frame_number, time_diff, stamp_diff);
-			if (stamp_diff > time_diff) {
-				sleep_time = stamp_diff - time_diff;
-				GST_DEBUG_OBJECT(enc, "sleeping for: %llums", sleep_time);
-				usleep(sleep_time * 1000);
-			}
-		}
 
 		GST_BUFFER_DURATION(buf) =
 			frm_delta * enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
