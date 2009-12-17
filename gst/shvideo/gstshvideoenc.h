@@ -28,7 +28,7 @@
 #include <shcodecs/shcodecs_encoder.h>
 #include <pthread.h>
 
-#include "cntlfile/ControlFileUtil.h"
+#include "ControlFileUtil.h"
 
 G_BEGIN_DECLS
 #define GST_TYPE_SHVIDEOENC \

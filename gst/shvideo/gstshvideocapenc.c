@@ -33,7 +33,7 @@
 #include <shveu/shveu.h>
 
 #include "gstshvideocapenc.h"
-#include "cntlfile/capture.h"
+#include "capture.h"
 #include "display.h"
 
 typedef enum {

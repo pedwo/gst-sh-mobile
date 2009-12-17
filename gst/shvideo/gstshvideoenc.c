@@ -38,7 +38,7 @@
 #include <gst/gst.h>
 
 #include "gstshvideoenc.h"
-#include "cntlfile/ControlFileUtil.h"
+#include "ControlFileUtil.h"
 
 /**
  * Define capatibilities for the sink factory

@@ -28,8 +28,8 @@
 #include <shcodecs/shcodecs_encoder.h>
 #include <pthread.h>
 
-#include "cntlfile/ControlFileUtil.h"
-#include "cntlfile/capture.h"
+#include "ControlFileUtil.h"
+#include "capture.h"
 
 G_BEGIN_DECLS
 #define GST_TYPE_SHVIDEOENC \
