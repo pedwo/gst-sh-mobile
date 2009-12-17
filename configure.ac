@@ -236,6 +236,8 @@ AC_SUBST(GST_PLUGIN_LDFLAGS)
 
 AC_CONFIG_FILES(
 Makefile
+gst/Makefile
+gst/shvideo/Makefile
 )
 AC_OUTPUT
 
