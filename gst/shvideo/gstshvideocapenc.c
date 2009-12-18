@@ -35,6 +35,7 @@
 #include "gstshvideocapenc.h"
 #include "capture.h"
 #include "display.h"
+#include "framerate.h"
 
 typedef enum {
 	PREVIEW_OFF,
@@ -66,6 +67,8 @@ struct _GstshvideoEnc {
 	GstClock *clock;
 	gboolean start_time_set;
 	GstClockTime start_time;
+
+	struct framerate * enc_framerate;
 
 	pthread_t enc_thread;
 	pthread_t capture_thread;
@@ -332,9 +335,18 @@ static void gst_shvideo_enc_base_init(gpointer klass)
 static void gst_shvideo_enc_dispose(GObject * object)
 {
 	GstshvideoEnc *shvideoenc = GST_SHVIDEOENC(object);
+	double time;
+
 	GST_LOG("%s called", __func__);
 
 	pthread_mutex_lock(&shvideoenc->launch_mutex);
+
+	time = framerate_elapsed_time (shvideoenc->enc_framerate);
+	fprintf(stderr, "Elapsed time (encode): %0.3g s\n", time);
+	fprintf(stderr, "Encoded %d frames (%.2f fps)\n",
+		shvideoenc->enc_framerate->nr_handled,
+		framerate_mean_fps (shvideoenc->enc_framerate));
+	framerate_destroy (shvideoenc->enc_framerate);
 
 	sh_ceu_stop_capturing(shvideoenc->ainfo.ceu);
 
@@ -614,6 +626,11 @@ static int gst_shvideo_enc_get_input(SHCodecs_Encoder * encoder, void *user_data
 	GST_LOG_OBJECT(shvideoenc, "%s called", __func__);
 
 	pthread_mutex_lock(&shvideoenc->capture_end_mutex);	//This mutex is created unlocked, so the first time it falls through
+
+	/* Initialize the encode framerate measurer */
+	if (shvideoenc->enc_framerate == NULL)
+		shvideoenc->enc_framerate = framerate_new_measurer();
+
 	pthread_mutex_unlock(&shvideoenc->capture_start_mutex);	//Start the next capture, then return to the Encoder  
 	pthread_mutex_lock(&shvideoenc->blit_vpu_end_mutex);	//wait until the VEU has copied the data to the VPU input buffer
 	GST_LOG_OBJECT(shvideoenc, "%s end", __func__);
@@ -647,6 +664,17 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 		gst_buffer_set_data(buf, data, length);
 
 		frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
+
+		if (frm_delta > 0 && enc->enc_framerate != NULL) {
+			double ifps, mfps;
+
+			framerate_mark (enc->enc_framerate);
+			ifps = framerate_instantaneous_fps (enc->enc_framerate);
+			mfps = framerate_mean_fps (enc->enc_framerate);
+			if (enc->enc_framerate->nr_handled % 10 == 0) {
+				fprintf (stderr, "  Encoding @ %4.2f fps \t(avg %4.2f fps)\r", ifps, mfps);
+			}
+		}
 
 		GST_BUFFER_DURATION(buf) =
 			frm_delta * enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;

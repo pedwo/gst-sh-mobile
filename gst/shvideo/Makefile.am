@@ -5,7 +5,7 @@ AM_CFLAGS = -I $(srcdir)
 libgstshvideodec_la_SOURCES = gstshvideodec.c display.c
 libgstshvideodec2_la_SOURCES = gstshvideodec2.c
 libgstshvideoenc_la_SOURCES = gstshvideoenc.c ControlFileUtil.c
-libgstshvideocapenc_la_SOURCES = gstshvideocapenc.c ControlFileUtil.c capture.c display.c
+libgstshvideocapenc_la_SOURCES = gstshvideocapenc.c ControlFileUtil.c capture.c display.c framerate.c
 libgstshfbdevsink_la_SOURCES = gstshfbdevsink.c display.c
 
 libgstshvideodec_la_CFLAGS = $(GST_CFLAGS) $(GST_PLUGINS_BASE_CFLAGS) \
