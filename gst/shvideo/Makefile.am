@@ -56,6 +56,7 @@ noinst_HEADERS = \
 	avcbencsmp.h \
 	capture.h \
 	ControlFileUtil.h \
+	framerate.h \
 	gstshfbdevsink.h \
 	gstshvideocapenc.h \
 	gstshvideodec2.h \
