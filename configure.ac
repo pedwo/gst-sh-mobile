@@ -19,7 +19,7 @@ dnl check if this is a release version
 AS_NANO(GST_CVS="no", GST_CVS="yes")
 
 dnl can autoconf find the source ?
-AC_CONFIG_SRCDIR([gstshvideodec.c])
+AC_CONFIG_SRCDIR([gst/shvideo/gstshvideodec.c])
 
 dnl define the output header for config
 AM_CONFIG_HEADER([config.h])
