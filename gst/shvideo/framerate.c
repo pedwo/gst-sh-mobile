@@ -101,8 +101,6 @@ double framerate_elapsed_time (struct framerate * framerate)
 
 double framerate_mean_fps (struct framerate * framerate)
 {
-	double elapsed = framerate_elapsed_time (framerate);
-
 	return (double)framerate->nr_handled/framerate->total_elapsed;
 }
 
