@@ -636,6 +636,7 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 {
 	GstshvideoEnc *enc = (GstshvideoEnc *) user_data;
 	GstBuffer *buf = NULL;
+	static GstBuffer *old_buf = NULL;
 	gint ret = 0;
 
 	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data\n", __func__, length);
@@ -646,19 +647,25 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 		buf = gst_buffer_new();
 		gst_buffer_set_data(buf, data, length);
 
+		if(old_buf != NULL){		
+			buf = gst_buffer_join(old_buf, buf);
+			old_buf = NULL;
+		}
 		frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
 
-		GST_BUFFER_DURATION(buf) =
+		if(frm_delta){
+			GST_BUFFER_DURATION(buf) =
 			frm_delta * enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
-
-		GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
-		enc->frame_number += frm_delta;
-
-		ret = gst_pad_push(enc->srcpad, buf);
-
-		if (ret != GST_FLOW_OK) {
-			GST_DEBUG_OBJECT(enc, "pad_push failed: %s", gst_flow_get_name(ret));
-			return -1;
+			GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
+			GST_BUFFER_OFFSET(buf) = enc->frame_number;
+			enc->frame_number += frm_delta;
+			ret = gst_pad_push(enc->srcpad, buf);
+			if (ret != GST_FLOW_OK) {
+				GST_DEBUG_OBJECT(enc, "pad_push failed: %s", gst_flow_get_name(ret));
+				return -1;
+			}
+		} else {
+			old_buf = buf;
 		}
 	}
 	return 0;
