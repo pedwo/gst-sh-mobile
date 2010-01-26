@@ -1,5 +1,5 @@
 /**
- * gst-sh-mobile-enc
+ * gst-sh-mobile-camera-enc
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,38 +25,27 @@
 #define  GSTSHVIDEOCAPENC_H
 
 #include <gst/gst.h>
-#include <shcodecs/shcodecs_encoder.h>
-#include <pthread.h>
-
-#include "ControlFileUtil.h"
-#include "capture.h"
 
 G_BEGIN_DECLS
-#define GST_TYPE_SHVIDEOENC \
-  (gst_shvideo_enc_get_type())
-#define GST_SHVIDEOENC(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_SHVIDEOENC,GstshvideoEnc))
-#define GST_SHVIDEOENC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_SHVIDEOENC,GstshvideoEnc))
-#define GST_IS_SHVIDEOENC(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_SHVIDEOENC))
-#define GST_IS_SHVIDEOENC_CLASS(obj) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_SHVIDEOENC))
-typedef struct _GstshvideoEnc GstshvideoEnc;
-typedef struct _GstshvideoEncClass GstshvideoEncClass;
+#define GST_TYPE_SH_VIDEO_CAPENC \
+  (gst_shvideo_capenc_get_type())
+#define GST_SH_VIDEO_CAPENC(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_SH_VIDEO_CAPENC,GstSHVideoCapEnc))
+#define GST_SH_VIDEO_CAPENC_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_SH_VIDEO_CAPENC,GstSHVideoCapEnc))
+#define GST_IS_SH_VIDEO_CAPENC(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_SH_VIDEO_CAPENC))
+#define GST_IS_SH_VIDEO_CAPENC_CLASS(obj) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_SH_VIDEO_CAPENC))
+typedef struct _GstSHVideoCapEnc GstSHVideoCapEnc;
+typedef struct _GstSHVideoCapEncClass GstSHVideoCapEncClass;
 
 
 
-/** Get gst-sh-mobile-enc object type
+/** Get gst-sh-mobile-camera-enc object type
     @return object type
 */
-GType gst_shvideo_enc_get_type(void);
-
-/** Initialize the encoder plugin 
-    @param plugin Gstreamer plugin
-    @return returns true if the plugin initialized and registered gst-sh-mobile-enc, else false
-*/
-gboolean gst_shvideo_camera_enc_plugin_init(GstPlugin * plugin);
+GType gst_shvideo_capenc_get_type(void);
 
 G_END_DECLS
 #endif
