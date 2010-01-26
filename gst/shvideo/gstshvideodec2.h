@@ -22,7 +22,6 @@
  *
  */
 
-
 #ifndef  GSTSHVIDEODEC_H
 #define  GSTSHVIDEODEC_H
 
@@ -53,22 +52,22 @@ typedef struct _GstshvideodecClass GstshvideodecClass;
 /**
  * Define Gstreamer SH Video Decoder Class structure
  */
-struct _GstshvideodecClass
-{
-  GstElementClass parent;
+struct _GstshvideodecClass {
+	GstElementClass parent;
 };
 
 
 /** Get gst-sh-mobile-video-dec object type
     @return object type
 */
-GType gst_shm_videodec_get_type (void);
+GType gst_shm_videodec_get_type(void);
 
 /** Initialize the plugin, see GstPluginInitFunc.
     @param plugin Gstreamer plugin
     @return returns true if plugin initialized, else false
 */
-gboolean gst_shm_videodec_plugin_init (GstPlugin *plugin);
+gboolean gst_shm_videodec_plugin_init(GstPlugin * plugin);
 
 G_END_DECLS
 #endif
+

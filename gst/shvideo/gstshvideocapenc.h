@@ -28,8 +28,8 @@
 #include <shcodecs/shcodecs_encoder.h>
 #include <pthread.h>
 
-#include "cntlfile/ControlFileUtil.h"
-#include "cntlfile/capture.h"
+#include "ControlFileUtil.h"
+#include "capture.h"
 
 G_BEGIN_DECLS
 #define GST_TYPE_SHVIDEOENC \
@@ -50,13 +50,14 @@ typedef struct _GstshvideoEncClass GstshvideoEncClass;
 /** Get gst-sh-mobile-enc object type
     @return object type
 */
-GType gst_shvideo_enc_get_type (void);
+GType gst_shvideo_enc_get_type(void);
 
 /** Initialize the encoder plugin 
     @param plugin Gstreamer plugin
     @return returns true if the plugin initialized and registered gst-sh-mobile-enc, else false
 */
-gboolean gst_shvideo_camera_enc_plugin_init (GstPlugin *plugin);
+gboolean gst_shvideo_camera_enc_plugin_init(GstPlugin * plugin);
 
 G_END_DECLS
 #endif
+

@@ -28,7 +28,7 @@
 #include <shcodecs/shcodecs_encoder.h>
 #include <pthread.h>
 
-#include "cntlfile/ControlFileUtil.h"
+#include "ControlFileUtil.h"
 
 G_BEGIN_DECLS
 #define GST_TYPE_SHVIDEOENC \
@@ -48,41 +48,39 @@ typedef struct _GstshvideoEncClass GstshvideoEncClass;
  * Define Gstreamer SH Video Encoder structure
  */
 
-struct _GstshvideoEnc
-{
-  GstElement element;
-  GstPad *sinkpad, *srcpad;
-  GstBuffer *buffer_yuv;
-  GstBuffer *buffer_cbcr;
+struct _GstshvideoEnc {
+	GstElement element;
+	GstPad *sinkpad, *srcpad;
+	GstBuffer *buffer_yuv;
+	GstBuffer *buffer_cbcr;
 
-  gint offset;
-  SHCodecs_Format format;  
-  SHCodecs_Encoder* encoder;
-  gint width;
-  gint height;
-  gint fps_numerator;
-  gint fps_denominator;
+	gint offset;
+	SHCodecs_Format format;
+	SHCodecs_Encoder *encoder;
+	gint width;
+	gint height;
+	gint fps_numerator;
+	gint fps_denominator;
 
-  APPLI_INFO ainfo;
-  
-  GstCaps* out_caps;
-  gboolean caps_set;
-  glong frame_number;
-  GstClockTime timestamp_offset;
+	APPLI_INFO ainfo;
 
-  pthread_t enc_thread;
-  pthread_mutex_t mutex;
-  pthread_mutex_t cond_mutex;
-  pthread_cond_t  thread_condition;
+	GstCaps *out_caps;
+	gboolean caps_set;
+	glong frame_number;
+	GstClockTime timestamp_offset;
+
+	pthread_t enc_thread;
+	pthread_mutex_t mutex;
+	pthread_mutex_t cond_mutex;
+	pthread_cond_t thread_condition;
 };
 
 /**
  * Define Gstreamer SH Video Encoder Class structure
  */
 
-struct _GstshvideoEncClass
-{
-  GstElementClass parent;
+struct _GstshvideoEncClass {
+	GstElementClass parent;
 };
 
 /** Initialize shvideoenc class plugin event handler
@@ -90,39 +88,38 @@ struct _GstshvideoEncClass
     @param data user data pointer, unused in the function
 */
 
-static void gst_shvideo_enc_init_class (gpointer g_class, gpointer data);
+static void gst_shvideo_enc_init_class(gpointer g_class, gpointer data);
 
 /** Get gst-sh-mobile-enc object type
     @return object type
 */
 
-GType gst_shvideo_enc_get_type (void);
+GType gst_shvideo_enc_get_type(void);
 
 /** Initialize SH hardware video encoder
     @param klass Gstreamer element class
 */
 
-static void gst_shvideo_enc_base_init (gpointer klass);
- 
+static void gst_shvideo_enc_base_init(gpointer klass);
+
 /** Dispose encoder
     @param object Gstreamer element class
 */
 
-static void gst_shvideo_enc_dispose (GObject * object);
+static void gst_shvideo_enc_dispose(GObject * object);
 
 /** Initialize the class for encoder
     @param klass Gstreamer SH video encoder class
 */
 
-static void gst_shvideo_enc_class_init (GstshvideoEncClass *klass);
+static void gst_shvideo_enc_class_init(GstshvideoEncClass * klass);
 
 /** Initialize the encoder
     @param shvideoenc Gstreamer SH video element
     @param gklass Gstreamer SH video encode class
 */
 
-static void gst_shvideo_enc_init (GstshvideoEnc *shvideoenc,
-				  GstshvideoEncClass *gklass);
+static void gst_shvideo_enc_init(GstshvideoEnc * shvideoenc, GstshvideoEncClass * gklass);
 
 /** Event handler for encoder sink events
     @param pad Gstreamer sink pad
@@ -130,7 +127,7 @@ static void gst_shvideo_enc_init (GstshvideoEnc *shvideoenc,
     @return returns true if the event can be handled, else false
 */
 
-static gboolean gst_shvideo_enc_sink_event (GstPad * pad, GstEvent * event);
+static gboolean gst_shvideo_enc_sink_event(GstPad * pad, GstEvent * event);
 
 /** Initialize the encoder sink pad 
     @param pad Gstreamer sink pad
@@ -138,21 +135,21 @@ static gboolean gst_shvideo_enc_sink_event (GstPad * pad, GstEvent * event);
     @return returns true if the video capatilies are supported and the video can be decoded, else false
 */
 
-static gboolean gst_shvideoenc_setcaps (GstPad * pad, GstCaps * caps);
+static gboolean gst_shvideoenc_setcaps(GstPad * pad, GstCaps * caps);
 
 /** Initialize the encoder plugin 
     @param plugin Gstreamer plugin
     @return returns true if the plugin initialized and registered gst-sh-mobile-enc, else false
 */
 
-gboolean gst_shvideo_enc_plugin_init (GstPlugin *plugin);
+gboolean gst_shvideo_enc_plugin_init(GstPlugin * plugin);
 
 /** Encoder active event and checks is this pull or push event 
     @param pad Gstreamer sink pad
     @return returns true if the event handled with out errors, else false
 */
 
-static gboolean	gst_shvideo_enc_activate (GstPad *pad);
+static gboolean gst_shvideo_enc_activate(GstPad * pad);
 
 /** Function to start the pad task
     @param pad Gstreamer sink pad
@@ -160,7 +157,7 @@ static gboolean	gst_shvideo_enc_activate (GstPad *pad);
     @return returns true if the event handled with out errors, else false
 */
 
-static gboolean	gst_shvideo_enc_activate_pull (GstPad *pad, gboolean active);
+static gboolean gst_shvideo_enc_activate_pull(GstPad * pad, gboolean active);
 
 /** The encoder function and launches the thread if needed
     @param pad Gstreamer sink pad
@@ -168,13 +165,13 @@ static gboolean	gst_shvideo_enc_activate_pull (GstPad *pad, gboolean active);
     @return returns GST_FLOW_OK if the function with out errors
 */
 
-static GstFlowReturn gst_shvideo_enc_chain (GstPad *pad, GstBuffer *buffer);
+static GstFlowReturn gst_shvideo_enc_chain(GstPad * pad, GstBuffer * buffer);
 
 /** The encoder sink pad task
     @param enc Gstreamer SH video encoder
 */
 
-static void gst_shvideo_enc_loop (GstshvideoEnc *enc);
+static void gst_shvideo_enc_loop(GstshvideoEnc * enc);
 
 /** The function will set the user defined control file name value for decoder
     @param object The object where to get Gstreamer SH video Encoder object
@@ -183,9 +180,8 @@ static void gst_shvideo_enc_loop (GstshvideoEnc *enc);
     @param pspec not used in fuction
 */
 
-static void gst_shvideo_enc_set_property (GObject *object, 
-					  guint prop_id, const GValue *value, 
-					  GParamSpec * pspec);
+static void gst_shvideo_enc_set_property(GObject * object,
+					 guint prop_id, const GValue * value, GParamSpec * pspec);
 
 /** The function will return the control file name from decoder to value
     @param object The object where to get Gstreamer SH video Encoder object
@@ -194,8 +190,8 @@ static void gst_shvideo_enc_set_property (GObject *object,
     @param pspec not used in fuction
 */
 
-static void gst_shvideo_enc_get_property (GObject * object, guint prop_id,
-					  GValue * value, GParamSpec * pspec);
+static void gst_shvideo_enc_get_property(GObject * object, guint prop_id,
+					 GValue * value, GParamSpec * pspec);
 
 /** The encoder sink event handler and calls sink pad push event
     @param pad Gstreamer sink pad
@@ -203,7 +199,7 @@ static void gst_shvideo_enc_get_property (GObject * object, guint prop_id,
     @returns Returns the value of gst_pad_push_event()
 */
 
-static gboolean gst_shvideo_enc_sink_event (GstPad * pad, GstEvent * event);
+static gboolean gst_shvideo_enc_sink_event(GstPad * pad, GstEvent * event);
 
 /** Initializes the SH Hardware encoder
     @param shvideoenc encoder object
@@ -217,7 +213,7 @@ void gst_shvideo_enc_init_encoder(GstshvideoEnc * shvideoenc);
     @returns Returns the value of gst_pad_query_default
 */
 
-static gboolean gst_shvideo_enc_src_query (GstPad * pad, GstQuery * query);
+static gboolean gst_shvideo_enc_src_query(GstPad * pad, GstQuery * query);
 
 /** Reads the capabilities of the peer element behind source pad
     @param shvideoenc encoder object
@@ -255,7 +251,8 @@ static int gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
     @param data encoder object
 */
 
-void* launch_encoder_thread(void *data);
+void *launch_encoder_thread(void *data);
 
 G_END_DECLS
 #endif
+

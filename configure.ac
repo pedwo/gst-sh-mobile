@@ -19,7 +19,7 @@ dnl check if this is a release version
 AS_NANO(GST_CVS="no", GST_CVS="yes")
 
 dnl can autoconf find the source ?
-AC_CONFIG_SRCDIR([gstshvideodec.c])
+AC_CONFIG_SRCDIR([gst/shvideo/gstshvideodec.c])
 
 dnl define the output header for config
 AM_CONFIG_HEADER([config.h])
@@ -162,6 +162,7 @@ AC_SUBST(SHCODECS_CFLAGS)
 AC_SUBST(SHCODECS_LIBS)
 
 AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,[$SHCODECS_LIBS])
+AC_CHECK_LIB(shcodecs,shcodecs_encoder_get_frame_num_delta,,AC_ERROR,[$SHCODECS_LIBS])
 
 dnl
 dnl Check for libshveu
@@ -235,6 +236,8 @@ AC_SUBST(GST_PLUGIN_LDFLAGS)
 
 AC_CONFIG_FILES(
 Makefile
+gst/Makefile
+gst/shvideo/Makefile
 )
 AC_OUTPUT
 
