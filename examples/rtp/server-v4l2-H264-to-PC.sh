@@ -39,7 +39,8 @@
 
 # change this to send the RTP data and RTCP to another host
 #DEST=127.0.0.1
-DEST=192.168.10.30
+#DEST=192.168.10.30
+DEST=10.0.0.1
 
 # tuning parameters to make the sender send the streams out of sync. Can be used
 # ot test the client RTCP synchronisation. 
@@ -47,14 +48,14 @@ DEST=192.168.10.30
 VOFFSET=0
 AOFFSET=0
 
-VSOURCE="gst-sh-mobile-camera-enc cntl_file=/usr/sh4_fpu_local/share/libshcodecs/k264-v4l2.ctl preview=1 ! video/x-h264,width=640,height=480,framerate=30/1 ! rtph264pay"
+VSOURCE="gst-sh-mobile-camera-enc cntl_file=/usr/share/libshcodecs/k264-v4l2-720p-stream.ctl preview=1 ! video/x-h264,width=640,height=480,framerate=30/1 ! rtph264pay"
 
 VRTPSINK="udpsink port=5000 host=$DEST ts-offset=$VOFFSET name=vrtpsink"
 VRTCPSINK="udpsink port=5001 host=$DEST sync=false async=false name=vrtcpsink"
 VRTCPSRC="udpsrc port=5005 name=vrtpsrc"
 
 
-/usr/sh4_fpu_local/bin/gst-launch   gstrtpbin name=rtpbin \
+gst-launch   gstrtpbin name=rtpbin \
     $VSOURCE ! rtpbin.send_rtp_sink_0                                             \
         rtpbin.send_rtp_src_0 ! $VRTPSINK                                                 \
         rtpbin.send_rtcp_src_0 ! $VRTCPSINK                                               \
