@@ -1,0 +1,1 @@
+- make gst-sh-video-cap send NEWSEGMENT events.

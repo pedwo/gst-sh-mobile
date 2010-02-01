@@ -50,7 +50,7 @@ AOFFSET=0
 
 VSOURCE="gst-sh-mobile-camera-enc cntl_file=/usr/share/libshcodecs/k264-v4l2-720p-stream.ctl preview=1 ! video/x-h264,width=640,height=480,framerate=30/1 ! rtph264pay"
 
-VRTPSINK="udpsink port=5000 host=$DEST ts-offset=$VOFFSET name=vrtpsink"
+VRTPSINK="udpsink port=5000 host=$DEST ts-offset=$VOFFSET name=vrtpsink sync=false"
 VRTCPSINK="udpsink port=5001 host=$DEST sync=false async=false name=vrtcpsink"
 VRTCPSRC="udpsrc port=5005 name=vrtpsrc"
 
