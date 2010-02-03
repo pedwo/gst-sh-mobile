@@ -1,1 +1,3 @@
 - make gst-sh-video-cap send NEWSEGMENT events.
+- video-cap doesn't have the frame_num_delta patch (capenc does)
+- rtsp server only works for the first connection

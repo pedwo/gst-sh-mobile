@@ -477,8 +477,6 @@ gst_shvideo_enc_change_state(GstElement * element, GstStateChange transition)
 
 	GST_DEBUG_OBJECT(shvideoenc, "%s called", __func__);
 
-	ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
-
 	switch (transition) {
 	case GST_STATE_CHANGE_NULL_TO_READY:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_NULL_TO_READY");
@@ -487,11 +485,21 @@ gst_shvideo_enc_change_state(GstElement * element, GstStateChange transition)
 	case GST_STATE_CHANGE_READY_TO_PAUSED:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_READY_TO_PAUSED");
 		shvideoenc->output_lock = FALSE;
+		gst_shvideo_enc_init_camera_encoder(shvideoenc);
 		break;
 	case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_PAUSED_TO_PLAYING");
 		shvideoenc->output_lock = FALSE;
 		break;
+	default:
+		break;
+	}
+
+	ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
+	if (ret == GST_STATE_CHANGE_FAILURE)
+		return ret;
+
+	switch (transition) {
 	case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_PLAYING_TO_PAUSED");
 		shvideoenc->output_lock = TRUE;
@@ -571,8 +579,6 @@ gst_shvideo_enc_set_property(GObject * object, guint prop_id,
 			break;
 		}
 	}
-	if ((shvideoenc->cntl_flg == 1) && (shvideoenc->preview_flg == 1))
-		gst_shvideo_enc_init_camera_encoder(shvideoenc);
 }
 
 /** The function will return the control file name from decoder to value
