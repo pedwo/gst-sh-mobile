@@ -1,6 +1,4 @@
 /**
- * gst-sh-mobile-dec-sink
- *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
@@ -15,11 +13,12 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
  *
- * @author Pablo Virolainen <pablo.virolainen@nomovok.com>
- * @author Johannes Lahti <johannes.lahti@nomovok.com>
- * @author Aki Honkasuo <aki.honkasuo@nomovok.com>
+ * \author Pablo Virolainen <pablo.virolainen@nomovok.com>
+ * \author Johannes Lahti <johannes.lahti@nomovok.com>
+ * \author Aki Honkasuo <aki.honkasuo@nomovok.com>
  *
  */
+
 
 #ifndef  GSTSHVIDEODEC_H
 #define  GSTSHVIDEODEC_H
@@ -28,170 +27,90 @@
 #include <gst/video/gstvideosink.h>
 #include <gst/gstelement.h>
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
-
 G_BEGIN_DECLS
-#define GST_TYPE_SHVIDEODEC \
-  (gst_shvideodec_get_type())
-#define GST_SHVIDEODEC(obj) \
-  (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_SHVIDEODEC,Gstshvideodec))
-#define GST_SHVIDEODEC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_SHVIDEODEC,Gstshvideodec))
-#define GST_IS_SHVIDEODEC(obj) \
-  (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_SHVIDEODEC))
-#define GST_IS_SHVIDEODEC_CLASS(obj) \
-  (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_SHVIDEODEC))
-typedef struct _Gstshvideodec Gstshvideodec;
-typedef struct _GstshvideodecClass GstshvideodecClass;
+#define GST_TYPE_SH_VIDEO_DEC \
+	(gst_sh_video_dec_get_type())
+#define GST_SH_VIDEO_DEC(obj) \
+	(G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_SH_VIDEO_DEC,GstSHVideoDec))
+#define GST_SH_VIDEO_DEC_CLASS(klass) \
+	(G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_SH_VIDEO_DEC,GstSHVideoDec))
+#define GST_IS_SH_VIDEO_DEC(obj) \
+	(G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_SH_VIDEO_DEC))
+#define GST_IS_SH_VIDEO_DEC_CLASS(obj) \
+	(G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_SH_VIDEO_DEC))
+typedef struct _GstSHVideoDec GstSHVideoDec;
+typedef struct _GstSHVideoDecClass GstSHVideoDecClass;
 
 #include <shcodecs/shcodecs_decoder.h>
 
 /**
- * Define Gstreamer SH Video Decoder structure
+ * \struct _GstSHVideoDec gstshvideodec.h
+ * \var element GstElement object
+ * \var sinkpad Pointer to our sink pad
+ * \var srcpad Pointer to our src pad
+ * \var format Stream type. Possible values: 0(none), 1(MPEG4) and 2 (H264)
+ * \var width Width of the video
+ * \var height Height of the video
+ * \var fps_numerator Numerator of the framerate fraction
+ * \var fps_denominator Denominator of the framerate fraction
+ * \var decoder pointer to the SHCodecs decoder object
+ * \var caps_set A flag indicating whether the caps has been set for the pads
+ * \var running A flag indicating that the decoding thread should be running
+ * \var use_physical HW buffer usage setting
+ * \var buffer Pointer to the cache buffer
+ * \var buffer_size Size of the cache buffer
+ * \var dec_thread Decoder thread
+ * \var mutex Mutex for the common data
+ * \var cond_mutex Mutex for the conditional variable of the decoder thread
+ * \var thread_condition Conditional variable of the decoder thread
  */
-
-struct _Gstshvideodec {
+struct _GstSHVideoDec
+{
 	GstElement element;
 
 	GstPad *sinkpad;
+	GstPad *srcpad;
 
-	/* Input stream */
 	SHCodecs_Format format;
 	gint width;
 	gint height;
 	gint fps_numerator;
 	gint fps_denominator;
-	SHCodecs_Decoder *decoder;
+	SHCodecs_Decoder * decoder;
 
-	/* Needed? */
 	gboolean caps_set;
-	gboolean first_frame;
+	gboolean running;
+	
+	gint use_physical;  
 
-	/* Output */
-	int veu;
-	void *p_display;
+	GstBuffer* buffer;
+	guint32 buffer_size;
 
-	/* Buffer for data that hasn't been consumed yet */
-	GstBuffer *pcache;
-
-	GstClockTime playback_timestamp;
-	gint playback_played;
-
-	GstClock *clock;
-	GstClockTime first_timestamp;
-	GstClockTime current_timestamp;
-	GstClockTime start_time;
+	pthread_t dec_thread;
+	pthread_mutex_t mutex;
+	pthread_mutex_t cond_mutex;
+	pthread_cond_t  thread_condition;
 };
 
 /**
- * Define Gstreamer SH Video Decoder Class structure
+ * GstSHVideoDecClass
+ * \struct _GstSHVideoDecClass
+ * \var parent Parent class
  */
-
-struct _GstshvideodecClass {
+struct _GstSHVideoDecClass
+{
 	GstElementClass parent;
 };
 
-
-/** Initialize shvideodec class plugin event handler
-    @param g_class Gclass
-    @param data user data pointer, unused in the function
-*/
-
-static void gst_shvideodec_init_class(gpointer g_class, gpointer data);
-
 /** Get gst-sh-mobile-dec-sink object type
-    @return object type
+* \var return object type
 */
-
-GType gst_shvideodec_get_type(void);
-
-/** Initialize SH hardware video decoder & sink
-    @param klass Gstreamer element class
-*/
-
-static void gst_shvideodec_base_init(gpointer klass);
-
-/** Dispose decoder
-    @param object Gstreamer element class
-*/
-
-static void gst_shvideodec_dispose(GObject * object);
-
-/** Initialize the class for decoder and player
-    @param klass Gstreamer SH video decodes class
-*/
-
-static void gst_shvideodec_class_init(GstshvideodecClass * klass);
-
-/** Initialize the decoder
-    @param dec Gstreamer SH video element
-    @param gklass Gstreamer SH video decode class
-*/
-
-static void gst_shvideodec_init(Gstshvideodec * dec, GstshvideodecClass * gklass);
-
-
-/** Sets the clock for the element
-    @param element GStreamer element
-    @param clock the used clock. If NULL we use system clock
-    @return Returns true if clock was accepted
-*/
-static gboolean gst_shvideodec_set_clock(GstElement * element, GstClock * clock);
-
-/** Event handler for decoder sink events
-    @param pad Gstreamer sink pad
-    @param event The Gstreamer event
-    @return returns true if the event can be handled, else false
-*/
-
-static gboolean gst_shvideodec_sink_event(GstPad * pad, GstEvent * event);
-
-/** Initialize the decoder sink pad 
-    @param pad Gstreamer sink pad
-    @param caps The capabilities of the video to decode
-    @return returns true if the video capatilies are supported and the video can be decoded, else false
-*/
-
-static gboolean gst_shvideodec_setcaps(GstPad * pad, GstCaps * caps);
-
-/** GStreamer buffer handling function
-    @param pad Gstreamer sink pad
-    @param inbuffer The input buffer
-    @return returns GST_FLOW_OK if buffer handling was successful. Otherwise GST_FLOW_UNEXPECTED
-*/
-
-static GstFlowReturn gst_shvideodec_chain(GstPad * pad, GstBuffer * inbuffer);
+GType gst_sh_video_dec_get_type (void);
 
 /** The video input buffer decode function
-    @param data decoder object
+* \var param data decoder object
 */
-
-void *gst_shvideodec_decode(void *data);
-
-/** Initialize the decoder sink
-    @param plugin Gstreamer plugin
-    @return returns true if plugin initialized, else false
-*/
-
-gboolean gst_shvideo_dec_plugin_init(GstPlugin * plugin);
-
-/** Event handler for the video frame is decoded and can be shown on screen
-    @param decoder SHCodecs Decoder, unused in the function
-    @param y_buf Userland address to the Y buffer
-    @param y_size Size of the Y buffer
-    @param c_buf Userland address to teh C buffer
-    @param c_size Size of the C buffer
-    @param user_data Contains Gstshvideodec
-    @return The result of passing data to a pad
-*/
-
-static int gst_shcodecs_decoded_callback(SHCodecs_Decoder * decoder,
-					 unsigned char *y_buf, int y_size,
-					 unsigned char *c_buf, int c_size, void *user_data);
+void* gst_sh_video_dec_decode (void *data);
 
 G_END_DECLS
 #endif
-

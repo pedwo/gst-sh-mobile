@@ -1,15 +1,7 @@
 #!/bin/sh
 # Run this to generate all the initial makefiles, etc.
 
-echo THIS AUTOGEN.SH STILL NEEDS SOME TUNING!
-
-#echo Make sure we have common
-#if test ! -f common/gst-autogen.sh;
-#then
-#  echo "+ Setting up common submodule"
-#  git submodule init
-#fi
-#git submodule update
+echo "Currently this autogen.sh should be run outside the scratchbox."
 
 echo source helper functions
 if test ! -f common/gst-autogen.sh;
@@ -19,14 +11,6 @@ then
   exit 1
 fi
 . common/gst-autogen.sh
-
-#echo install pre-commit hook fordoing clean commits
-#if test ! \( -x .git/hooks/pre-commit -a -L .git/hooks/pre-commit \);
-#then
-#    rm -f .git/hooks/pre-commit
-#    ln -s ../../common/hooks/pre-commit.hook .git/hooks/pre-commit
-#fi
-
 
 CONFIGURE_DEF_OPT='--enable-maintainer-mode'
 
@@ -102,21 +86,4 @@ if test -f disable; then
   done
 fi
 
-#test -n "$NOCONFIGURE" && {
-  echo "+ skipping configure stage for package $package, as requested."
-  echo "+ autogen.sh done."
-  exit 0
-#}
-
-echo "+ running configure ... "
-test ! -z "$CONFIGURE_DEF_OPT" && echo "  ./configure default flags: $CONFIGURE_DEF_OPT"
-test ! -z "$CONFIGURE_EXT_OPT" && echo "  ./configure external flags: $CONFIGURE_EXT_OPT"
-test ! -z "$CONFIGURE_FILE_OPT" && echo "  ./configure enable/disable flags: $CONFIGURE_FILE_OPT"
-echo
-
-./configure $CONFIGURE_DEF_OPT $CONFIGURE_EXT_OPT $CONFIGURE_FILE_OPT || {
-        echo "  configure failed"
-        exit 1
-}
-
-echo "Now type 'make' to compile $package."
+echo "Now type run ./configure inside scratchbox."
