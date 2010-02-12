@@ -28,7 +28,7 @@
 #include <gst/gst.h>
 #include <gst/video/gstvideosink.h>
 #include <gst/gstelement.h>
-#include "gstshioutils.h"
+#include <uiomux/uiomux.h>
 
 G_BEGIN_DECLS
 #define GST_TYPE_SH_VIDEO_SINK \
@@ -57,8 +57,9 @@ typedef struct _GstSHVideoSinkClass GstSHVideoSinkClass;
  * \var dst_x X-ccordinate of the output
  * \var dst_y Y-coordinate of the output
  * \var zoom_factor Zoom -setting. (See properties)
- * \var fb Framebuffer
- * \var veu VEU (Video Engine Unit)
+ * \var display Helper module for display on framebuffer
+ * \var uiomux Memory functions that the VEU can use
+ * \var shveu VEU (Video Engine Unit)
  */
 struct _GstSHVideoSink
 {
@@ -68,15 +69,18 @@ struct _GstSHVideoSink
 	gint fps_denominator;
 
 	gboolean caps_set;
-	
+
 	gint dst_width;
 	gint dst_height;
 	gint dst_x;
 	gint dst_y;
 	gint zoom_factor;
-	
-	framebuffer fb;
-	uio_module veu;
+
+	void *display;
+	UIOMux *uiomux;
+	int shveu;
+	void *veu_mem_user;
+	unsigned long veu_mem_phys;
 };
 
 /**
