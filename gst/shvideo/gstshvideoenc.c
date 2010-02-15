@@ -3119,7 +3119,7 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 			ret = gst_pad_push(enc->srcpad, buf);
 			if (ret != GST_FLOW_OK) {
 				GST_DEBUG_OBJECT(enc, "pad_push failed: %s", gst_flow_get_name(ret));
-				return -1;
+				ret = -1;
 			}
 		} else {
 			old_buf = buf;
