@@ -75,6 +75,37 @@ static int ReadUntilKeyMatch(FILE * fp_in, const char *key_word, char *buf_value
 }
 
 /*****************************************************************************
+ * Function Name	: GetStringFromCtrlFile
+ * Description		: コントロールファイルから、キーワードに対する文字列を読み込み、引数return_stringで返す
+ *                   
+ * Parameters		:
+ * Called functions	:          
+ * Global Data		:
+ * Return Value		:
+ *****************************************************************************/
+static void GetStringFromCtrlFile(FILE * fp_in, const char *key_word,
+			   char *return_string, int *status_flag)
+{
+	long return_code;
+
+	*status_flag = 1;    /* 正常のとき */
+
+	if ((fp_in == NULL) || (key_word == NULL)
+	    || (return_string == NULL)) {
+		*status_flag = -1;    /* 引数エラーのとき */
+		return;
+	}
+
+	return_code = ReadUntilKeyMatch(fp_in, key_word, return_string);
+	if (return_code == 1) {
+		*status_flag = 1;    /* 正常のとき */
+
+	} else {
+		*status_flag = -1;    /* 見つからなかった等のエラーのとき */
+	}
+}
+
+/*****************************************************************************
  * Function Name	: GetValueFromCtrlFile
  * Description		: コントロールファイルから、キーワードに対する数値を読み込み、戻り値で返す
  *					
@@ -842,6 +873,11 @@ int GetFromCtrlFTop(const char *control_filepath,
 	if (fp_in == NULL) {
 		return (-1);
 	}
+
+	GetStringFromCtrlFile(fp_in, "input_yuv_path", appli_info->buf_input_yuv_file_with_path, &status_flag);
+	GetStringFromCtrlFile(fp_in, "input_yuv_file",
+				appli_info->buf_input_yuv_file,
+				&status_flag);
 
 	return_value =
 	    GetValueFromCtrlFile(fp_in, "stream_type", &status_flag);
