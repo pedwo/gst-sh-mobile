@@ -1,0 +1,2 @@
+- make gst-sh-video-cap send NEWSEGMENT events.
+- rtsp server only works for the first connection

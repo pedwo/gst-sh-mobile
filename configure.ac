@@ -149,22 +149,6 @@ if test "x$HAVE_UIOMUX" != "xyes" ; then
 fi
 
 dnl
-dnl Check for libshcodecs
-dnl
-
-PKG_CHECK_MODULES(SHCODECS, shcodecs >= 0.9.5, HAVE_SHCODECS=yes, HAVE_SHCODECS=no)
-if test "x$HAVE_SHCODECS" != "xyes"
-then
-  AC_MSG_ERROR([libshcodecs is required])
-  AC_ERROR
-fi
-AC_SUBST(SHCODECS_CFLAGS)
-AC_SUBST(SHCODECS_LIBS)
-
-AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,[$SHCODECS_LIBS])
-AC_CHECK_LIB(shcodecs,shcodecs_encoder_get_frame_num_delta,,AC_ERROR,[$SHCODECS_LIBS])
-
-dnl
 dnl Check for libshveu
 dnl
 
@@ -176,6 +160,22 @@ fi
 AC_SUBST(SHVEU_CFLAGS)
 AC_SUBST(SHVEU_LIBS)
 
+dnl
+dnl Check for libshcodecs
+dnl
+
+AG_GST_CHECK_FEATURE(SHCODECS, [shcodecs], shvideo, [
+
+	AG_GST_PKG_CHECK_MODULES(SHCODECS, shcodecs >= 0.9.5)
+	if test "x$HAVE_SHCODECS" = "xyes"; then
+		AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,[$SHCODECS_LIBS])
+		AC_CHECK_LIB(shcodecs,shcodecs_encoder_get_frame_num_delta,,AC_ERROR,[$SHCODECS_LIBS])
+	else
+		AC_MSG_WARN([libshcodecs not available, cannot build SHCODECS plugin])
+	fi
+])
+AC_SUBST(SHCODECS_CFLAGS)
+AC_SUBST(SHCODECS_LIBS)
 
 dnl *** set variables based on configure arguments ***
 
