@@ -3082,7 +3082,7 @@ static int
 gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 			unsigned char *data, int length, void *user_data)
 {
-	GstshvideoEnc *enc = (GstshvideoEnc *) user_data;
+	GstSHVideoEnc *enc = (GstSHVideoEnc *) user_data;
 	GstBuffer *buf = NULL;
 	static GstBuffer *old_buf = NULL;
 	gint ret = 0;
