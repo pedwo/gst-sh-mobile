@@ -1,2 +1,6 @@
 - make gst-sh-video-cap send NEWSEGMENT events.
 - rtsp server only works for the first connection
+- libtool is broken by default (have to copy a different version of 'libtool'
+	to compile)
+- capsneg is broken
+- potential race condition -- videoenc.c:463 -- needs investigation
