@@ -33,6 +33,10 @@
 #include <shveu/shveu.h>
 
 
+#ifndef FBIO_WAITFORVSYNC
+#define FBIO_WAITFORVSYNC _IOW('F', 0x20, __u32)
+#endif
+
 struct display_t {
 	int fb_handle;
 	struct fb_fix_screeninfo fb_fix;
@@ -173,6 +177,7 @@ int display_update(
 	unsigned long fb_addr;
 	double scale, aspect_x, aspect_y;
 	int dst_w, dst_h;
+	unsigned long crt = 0;
 
 	if (v4l_fmt != V4L2_PIX_FMT_NV12)
 		return -1;
@@ -202,6 +207,9 @@ int display_update(
 			SHVEU_NO_ROT);
 
 	display_flip(pvt);
+
+	/* wait for vsync interrupt */
+	ioctl(pvt->fb_handle, FBIO_WAITFORVSYNC, &crt);
 
 	return 0;
 }
