@@ -108,10 +108,8 @@
  * Direction: sink \n
  * Available: always \n
  * Caps:
- * - video/x-raw-yuv, format=(fourcc)NV12, width=(int)[48, 720], 
- *   height=(int)[48, 576], framerate=(fraction)[1, 25]
- * - video/x-raw-yuv, format=(fourcc)NV12, width=(int)[48, 720], 
- *   height=(int)[48, 480], framerate=(fraction)[1, 30]
+ * - video/x-raw-yuv, format=(fourcc)NV12, width=(int)[48, 1280], 
+ *   height=(int)[48, 720], framerate=(fraction)[1, 30]
  */
 static GstStaticPadTemplate enc_sink_factory = 
 	GST_STATIC_PAD_TEMPLATE("sink",
@@ -120,15 +118,9 @@ static GstStaticPadTemplate enc_sink_factory =
 				 GST_STATIC_CAPS(
 						"video/x-raw-yuv, "
 						"format = (fourcc) NV12,"
-						"width = (int) [48, 720],"
-						"height = (int) [48, 480]," 
+						"width = (int) [48, 1280],"
+						"height = (int) [48, 720]," 
 						"framerate = (fraction) [0, 30]"
-						";"
-						"video/x-raw-yuv, "
-						"format = (fourcc) NV12,"
-						"width = (int) [48, 720],"
-						"height = (int) [48, 576]," 
-						"framerate = (fraction) [0, 25]"
 						)
 				 );
 
@@ -139,13 +131,9 @@ static GstStaticPadTemplate enc_sink_factory =
  * Direction: src \n
  * Available: always \n
  * Caps:
- * - video/mpeg, width=(int)[48, 720], height=(int)[48, 576], 
- *   framerate=(fraction)[1, 25], mpegversion=(int)4
- * - video/mpeg, width=(int)[48, 720], height=(int)[48, 480], 
+ * - video/mpeg, width=(int)[48, 1280], height=(int)[48, 720], 
  *   framerate=(fraction)[1, 30], mpegversion=(int)4
- * - video/x-h264, width=(int)[48, 720], height=(int)[48, 576], 
- *   framerate=(fraction)[1, 25], h264version=(int)h264
- * - video/x-h264, width=(int)[48, 720], height=(int)[48, 480], 
+ * - video/x-h264, width=(int)[48, 1280], height=(int)[48, 720], 
  *   framerate=(fraction)[1, 30], h264version=(int)h264
  */
 static GstStaticPadTemplate enc_src_factory = 
@@ -154,27 +142,14 @@ static GstStaticPadTemplate enc_src_factory =
 				 GST_PAD_ALWAYS,
 				 GST_STATIC_CAPS(
 						"video/mpeg,"
-						"width  = (int) [48, 720],"
-						"height = (int) [48, 576],"
-						"framerate = (fraction) [0, 25],"
-						"mpegversion = (int) 4"
-						";"
-						"video/mpeg,"
-						"width  = (int) [48, 720],"
-						"height = (int) [48, 480],"
+						"width  = (int) [48, 1280],"
+						"height = (int) [48, 720],"
 						"framerate = (fraction) [0, 30],"
 						"mpegversion = (int) 4"
 						"; "
 						"video/x-h264,"
-						"width  = (int) [48, 720],"
-						"height = (int) [48, 576],"
-						"framerate = (fraction) [0, 25],"
-						"variant = (string) itu,"
-						"h264version = (string) h264"
-						"; "
-						"video/x-h264,"
-						"width  = (int) [48, 720],"
-						"height = (int) [48, 480],"
+						"width  = (int) [48, 1280],"
+						"height = (int) [48, 720],"
 						"framerate = (fraction) [0, 30],"
 						"variant = (string) itu,"
 						"h264version = (string) h264"
@@ -196,10 +171,10 @@ static GstElementClass *parent_class = NULL;
  * - "stream-type" (string). The type of the video stream ("h264"/"mpeg4").
  *   Default: None (An error message will display if the property is not set 
  *   or can not be determined from the stream). 
- * - "width" (long). The width of the video stream (48-720px). Default: 0 
+ * - "width" (long). The width of the video stream (48-1280px). Default: 0 
  *   (An error message will display if the property is not set or can not 
  *   be determined from the stream). 
- * - "height" (long). The width of the video stream (48-576px). Default: 0 
+ * - "height" (long). The width of the video stream (48-720px). Default: 0 
  *   (An error message will display if the property is not set or can not 
  *   be determined from the stream). 
  * - "framerate" (long). The framerate of the video stream multiplied by 10 (0-300).
