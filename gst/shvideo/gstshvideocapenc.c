@@ -537,15 +537,11 @@ static gboolean gst_shvideoenc_src_event(GstPad * pad, GstEvent * event)
 
 	switch (GST_EVENT_TYPE(event)) {
 	case GST_EVENT_LATENCY:
-		{
-			ret = TRUE;
-			break;
-		}
+		ret = TRUE;
+		break;
 	default:
-		{
-			ret = FALSE;
-			break;
-		}
+		ret = FALSE;
+		break;
 	}
 	return ret;
 }
@@ -567,22 +563,16 @@ gst_shvideo_enc_set_property(GObject * object, guint prop_id,
 	GST_LOG("%s called", __func__);
 	switch (prop_id) {
 	case PROP_CNTL_FILE:
-		{
-			strcpy(shvideoenc->ainfo.ctrl_file_name_buf, g_value_get_string(value));
-			shvideoenc->cntl_flg = 1;
-			break;
-		}
+		strcpy(shvideoenc->ainfo.ctrl_file_name_buf, g_value_get_string(value));
+		shvideoenc->cntl_flg = 1;
+		break;
 	case PROP_PREVIEW:
-		{
-			shvideoenc->preview = g_value_get_enum(value);
-			shvideoenc->preview_flg = 1;
-			break;
-		}
+		shvideoenc->preview = g_value_get_enum(value);
+		shvideoenc->preview_flg = 1;
+		break;
 	default:
-		{
-			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
-			break;
-		}
+		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+		break;
 	}
 }
 
@@ -600,15 +590,11 @@ gst_shvideo_enc_get_property(GObject * object, guint prop_id, GValue * value, GP
 	GST_LOG("%s called", __func__);
 	switch (prop_id) {
 	case PROP_CNTL_FILE:
-		{
-			g_value_set_string(value, shvideoenc->ainfo.ctrl_file_name_buf);
-			break;
-		}
+		g_value_set_string(value, shvideoenc->ainfo.ctrl_file_name_buf);
+		break;
 	case PROP_PREVIEW:
-		{
-			g_value_set_enum(value, shvideoenc->preview);
-			break;
-		}
+		g_value_set_enum(value, shvideoenc->preview);
+		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
 	}
@@ -648,36 +634,37 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) user_data;
 	GstBuffer *buf = NULL;
 	gint ret = 0;
+	int frm_delta;
 
 	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data\n", __func__, length);
 
-	if (length) {
-		int frm_delta;
+	if (length <= 0)
+		return 0;
 
-		buf = gst_buffer_new();
-		gst_buffer_set_data(buf, data, length);
+	buf = gst_buffer_new();
+	gst_buffer_set_data(buf, data, length);
 
-		if(enc->output_buf != NULL){		
-			buf = gst_buffer_join(enc->output_buf, buf);
-			enc->output_buf = NULL;
-		}
-		frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
-
-		if(frm_delta){
-			GST_BUFFER_DURATION(buf) =
-			frm_delta * enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
-			GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
-			GST_BUFFER_OFFSET(buf) = enc->frame_number;
-			enc->frame_number += frm_delta;
-			ret = gst_pad_push(enc->srcpad, buf);
-			if (ret != GST_FLOW_OK) {
-				GST_DEBUG_OBJECT(enc, "pad_push failed: %s", gst_flow_get_name(ret));
-				return -1;
-			}
-		} else {
-			enc->output_buf = buf;
-		}
+	if (enc->output_buf != NULL){		
+		buf = gst_buffer_join(enc->output_buf, buf);
+		enc->output_buf = NULL;
 	}
+	frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
+
+	if (frm_delta){
+		GST_BUFFER_DURATION(buf) =
+			frm_delta * enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
+		GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
+		GST_BUFFER_OFFSET(buf) = enc->frame_number;
+		enc->frame_number += frm_delta;
+		ret = gst_pad_push(enc->srcpad, buf);
+		if (ret != GST_FLOW_OK) {
+			GST_DEBUG_OBJECT(enc, "pad_push failed: %s", gst_flow_get_name(ret));
+			return -1;
+		}
+	} else {
+		enc->output_buf = buf;
+	}
+
 	return 0;
 }
 
