@@ -69,6 +69,7 @@ struct _GstSHVideoCapEnc {
 	GstClock *clock;
 	gboolean start_time_set;
 	GstClockTime start_time;
+	GstBuffer *output_buf;
 
 	pthread_t enc_thread;
 	pthread_t capture_thread;
@@ -469,6 +470,7 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 	shvideoenc->cntl_flg = 0;
 	shvideoenc->preview_flg = 0;
 	shvideoenc->start_time_set = FALSE;
+	shvideoenc->output_buf = NULL;
 }
 
 
@@ -645,7 +647,6 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 {
 	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) user_data;
 	GstBuffer *buf = NULL;
-	static GstBuffer *old_buf = NULL;
 	gint ret = 0;
 
 	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data\n", __func__, length);
@@ -656,9 +657,9 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 		buf = gst_buffer_new();
 		gst_buffer_set_data(buf, data, length);
 
-		if(old_buf != NULL){		
-			buf = gst_buffer_join(old_buf, buf);
-			old_buf = NULL;
+		if(enc->output_buf != NULL){		
+			buf = gst_buffer_join(enc->output_buf, buf);
+			enc->output_buf = NULL;
 		}
 		frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
 
@@ -674,7 +675,7 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 				return -1;
 			}
 		} else {
-			old_buf = buf;
+			enc->output_buf = buf;
 		}
 	}
 	return 0;
