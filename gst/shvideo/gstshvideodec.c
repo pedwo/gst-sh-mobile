@@ -432,6 +432,9 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 
 	dec->buffer = NULL;
 
+	dec->codec_data_present = FALSE;
+	dec->codec_data_present_first = TRUE;
+
 	sem_init(&dec->dec_sem, 0, 1); 
 	sem_init(&dec->push_sem, 0, 0); 
 
@@ -534,6 +537,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 	GstCaps* src_caps = NULL;
 	GstSHVideoDec *dec = (GstSHVideoDec *) (GST_OBJECT_PARENT (pad));
 	gboolean ret = TRUE;
+	const GValue *value;
 
 	GST_LOG_OBJECT(dec,"%s called",__FUNCTION__);
 
@@ -567,6 +571,83 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 					gst_structure_get_name (structure));
 			return FALSE;
 		}
+	}
+
+	if ((value = gst_structure_get_value(structure, "codec_data"))) {
+		guint size;
+		guint8 *data;
+		GstBuffer *buf;
+		guint8 *buffer_data;
+		GST_DEBUG_OBJECT(dec, "%s codec_data found\n", __func__);
+		dec->codec_data_present = TRUE;
+		if (dec->format == SHCodecs_Format_H264) {
+			buf = GST_BUFFER_CAST(gst_value_get_mini_object(value));
+			size = GST_BUFFER_SIZE(buf);
+			data = GST_BUFFER_DATA(buf);
+			GST_DEBUG_OBJECT(dec,
+					 "%s AVC Decoder Configuration Record version = 0x%x\n",
+					 __func__, (unsigned int) *data);
+			data++;
+			GST_DEBUG_OBJECT(dec, "%s Profile ICD = 0x%x\n", __func__,
+					 (unsigned int) *data);
+			data++;
+			GST_DEBUG_OBJECT(dec, "%s Profile compatability = 0x%x\n",
+					 __func__, (unsigned int) *data);
+			data++;
+			GST_DEBUG_OBJECT(dec, "%s Level IDC = 0x%x\n", (unsigned int) *data);
+			data++;
+			GST_DEBUG_OBJECT(dec, "%s NAL Length minus one = 0x%x\n",
+					 __func__, (unsigned int) *data);
+			data++;
+			dec->num_sps = (((unsigned int) *data++) & ~0xe0);
+			GST_DEBUG_OBJECT(dec, "%s Number of SPS's = 0x%x\n", __func__,
+					 dec->num_sps);
+			dec->sps_size = ((unsigned short) *data++) << 8;
+			dec->sps_size += ((unsigned short) *data++);
+			GST_DEBUG_OBJECT(dec, "%s Size of SPS = 0x%x\n", __func__,
+					 dec->sps_size);
+			//copy the sps data to the sps_buf
+			dec->codec_data_sps_buf = gst_buffer_try_new_and_alloc(dec->sps_size + 4);
+			if (dec->codec_data_sps_buf == NULL) {
+				GST_DEBUG_OBJECT(dec, "%s codec_data_sps_buf allocation failed\n",
+						 __func__);
+			}
+
+			buffer_data = GST_BUFFER_DATA(dec->codec_data_sps_buf);
+			*buffer_data = 0x00;
+			*(buffer_data + 1) = 0x00;
+			*(buffer_data + 2) = 0x00;
+			*(buffer_data + 3) = 0x01;
+			memcpy(GST_BUFFER_DATA(dec->codec_data_sps_buf) + 4, data, dec->sps_size);
+			data += dec->sps_size;
+			dec->num_pps = (unsigned int) *data++;
+			GST_DEBUG_OBJECT(dec, "%s Number of PPS's = 0x%x\n", __func__,
+					 dec->num_pps);
+			if (dec->num_pps > 0) {
+				dec->pps_size = ((unsigned short) *data++) << 8;
+				dec->pps_size += ((unsigned short) *data++);
+				GST_DEBUG_OBJECT(dec, "%s Size of PPS = 0x%x\n", __func__,
+						 dec->pps_size);
+				dec->codec_data_pps_buf =
+					gst_buffer_try_new_and_alloc(dec->pps_size + 4);
+				if (dec->codec_data_pps_buf == NULL) {
+					GST_DEBUG_OBJECT(dec,
+							 "%s codec_data_sps_buf allocation failed\n",
+							 __func__);
+				}
+
+				buffer_data = GST_BUFFER_DATA(dec->codec_data_pps_buf);
+				*buffer_data = 0x00;
+				*(buffer_data + 1) = 0x00;
+				*(buffer_data + 2) = 0x00;
+				*(buffer_data + 3) = 0x01;
+				//copy the sps data to the sps_buf
+				memcpy(GST_BUFFER_DATA(dec->codec_data_pps_buf) + 4, data,
+					   dec->pps_size);
+			}
+		}
+	} else {
+		GST_DEBUG_OBJECT(dec, "%s codec_data not found\n", __func__);
 	}
 
 	if(gst_structure_get_fraction (structure, "framerate", 
@@ -669,6 +750,54 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	{
 		dec->running = TRUE;
 		pthread_create( &dec->push_thread, NULL, gst_sh_video_dec_pad_push, dec);
+	}
+
+	if (dec->codec_data_present == TRUE) {	//This is for mp4 file playback
+		if (dec->format == SHCodecs_Format_H264) {
+			gint orig_bsize;
+			gint bsize;
+			guint8 *bdata = GST_BUFFER_DATA(buffer);
+
+			bsize = orig_bsize = GST_BUFFER_SIZE(buffer);
+			if (dec->codec_data_present_first == TRUE) {
+				if (*(bdata + 4) == 0x09) {	//an AUD NAL at the beginning
+					guint size = 0;
+					size = (*bdata++) << 24;
+					size += (*bdata++) << 16;
+					size += (*bdata++) << 8;
+					size += (*bdata++);
+					bdata += size;
+					bsize -= size;
+					if (*(bdata + 4) == 0x06) {	//an SEI NAL
+						size = 0;
+						size = (*bdata++) << 24;
+						size += (*bdata++) << 16;
+						size += (*bdata++) << 8;
+						size += (*bdata++);
+						bdata += size;
+						bsize -= size;
+					}
+					if (*(bdata + 4) == 0x67) {	//an SPS NAL  
+						dec->codec_data_present_first = FALSE;	//SPS and PPS NAL already in data
+						buffer =
+							gst_buffer_create_sub(buffer, orig_bsize - bsize,
+									  bsize);
+					}
+				}
+			}
+			*bdata = 0x00;
+			*(bdata + 1) = 0x00;
+			*(bdata + 2) = 0x00;
+			*(bdata + 3) = 0x01;
+
+			if (dec->codec_data_present_first == TRUE) {
+				dec->codec_data_present_first = FALSE;
+				dec->codec_data_sps_buf =
+					gst_buffer_join(dec->codec_data_sps_buf,
+							dec->codec_data_pps_buf);
+				buffer = gst_buffer_join(dec->codec_data_sps_buf, buffer);
+			}
+		}
 	}
 
 	/* Buffering */

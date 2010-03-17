@@ -93,6 +93,15 @@ struct _GstSHVideoDec
 
 	sem_t dec_sem;
 	sem_t push_sem;
+
+	gboolean codec_data_present;
+	gboolean codec_data_present_first;
+	guint num_sps;
+	guint sps_size;
+	GstBuffer *codec_data_sps_buf;
+	guint num_pps;
+	guint pps_size;
+	GstBuffer *codec_data_pps_buf;
 };
 
 /**
