@@ -192,7 +192,6 @@ GST_DEBUG_CATEGORY_STATIC (gst_sh_mobile_debug);
 enum gstshvideodecproperties
 {
 	PROP_0,
-	PROP_MAX_BUFFER_SIZE,
 	PROP_HW_BUFFER,
 	PROP_LAST
 };
@@ -305,6 +304,10 @@ static gint gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
 					  guchar * c_buf, gint c_size,
 					  void * user_data);
 
+/** Push a decoded buffer function
+* \var param data decoder object
+*/
+static void *gst_sh_video_dec_pad_push (void *data);
 
 // DEFINITIONS
 
@@ -374,6 +377,8 @@ gst_sh_video_dec_dispose (GObject * object)
 		GST_LOG_OBJECT (dec, "close decoder object %p", dec->decoder);
 		shcodecs_decoder_close (dec->decoder);
 	}
+	dec->end = TRUE;
+
 	G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
@@ -392,13 +397,6 @@ gst_sh_video_dec_class_init (GstSHVideoDecClass * klass)
 	gobject_class->dispose = gst_sh_video_dec_dispose;
 	gobject_class->set_property = gst_sh_video_dec_set_property;
 	gobject_class->get_property = gst_sh_video_dec_get_property;
-
-	g_object_class_install_property (gobject_class, PROP_MAX_BUFFER_SIZE,
-					 g_param_spec_uint ("buffer-size", 
-							    "Maximum buffer size kB", 
-							    "Maximum size of the cache buffer (kB, 0=disabled)", 
-							    0, G_MAXUINT, DEFAULT_MAX_SIZE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property (gobject_class, PROP_HW_BUFFER,
 					 g_param_spec_string ("hw-buffer", 
@@ -422,6 +420,7 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 				    GST_DEBUG_FUNCPTR (gst_sh_video_dec_sink_event));
 	gst_element_add_pad(GST_ELEMENT(dec),dec->sinkpad);
 
+
 	dec->srcpad = gst_pad_new_from_template(gst_element_class_get_pad_template(kclass,"src"),"src");
 	gst_element_add_pad(GST_ELEMENT(dec),dec->srcpad);
 	gst_pad_use_fixed_caps (dec->srcpad);
@@ -432,13 +431,12 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 	dec->use_physical = HW_ADDR_AUTO;
 
 	dec->buffer = NULL;
-	dec->buffer_size = DEFAULT_MAX_SIZE;
 
-	pthread_mutex_init(&dec->mutex,NULL);
-	pthread_mutex_init(&dec->cond_mutex,NULL);
-	pthread_cond_init(&dec->thread_condition,NULL);
+	sem_init(&dec->dec_sem, 0, 1); 
+	sem_init(&dec->push_sem, 0, 0); 
+
+	dec->end = FALSE;
 }
-
 
 static void
 gst_sh_video_dec_set_property (GObject * object, guint prop_id,
@@ -451,11 +449,6 @@ gst_sh_video_dec_set_property (GObject * object, guint prop_id,
 
 	switch (prop_id) 
 	{
-		case PROP_MAX_BUFFER_SIZE:
-		{
-			dec->buffer_size = g_value_get_uint (value) * 1024;
-			break;
-		}
 		case PROP_HW_BUFFER:
 		{
 			string = g_value_get_string (value);
@@ -492,11 +485,6 @@ gst_sh_video_dec_get_property (GObject * object, guint prop_id,
 
 	switch (prop_id) 
 	{
-		case PROP_MAX_BUFFER_SIZE:
-		{
-			g_value_set_uint(value,dec->buffer_size/1024);      
-			break;
-		}
 		case PROP_HW_BUFFER:
 		{
 			switch (dec->use_physical)
@@ -535,14 +523,7 @@ gst_sh_video_dec_sink_event (GstPad * pad, GstEvent * event)
 	{
 		GST_DEBUG_OBJECT (dec, "EOS gst event");
 		dec->running = FALSE;
-		if(dec->dec_thread)
-		{
-			pthread_join(dec->dec_thread,NULL);
-			// Decode the rest of the buffer
-			gst_sh_video_dec_decode(dec);
-		}
 	}
-
 	return gst_pad_push_event(dec->srcpad,event);
 }
 
@@ -667,12 +648,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 				  ("Source pad not linked."), (NULL));
 		ret = FALSE;
 	}
-	if(!gst_pad_set_caps(gst_pad_get_peer(dec->srcpad),src_caps))
-	{
-		GST_ELEMENT_ERROR((GstElement*)dec,CORE,NEGOTIATION,
-				  ("Peer pad not linked."), (NULL));
-		ret = FALSE;
-	}
+
 	gst_caps_unref(src_caps);
 
 	dec->caps_set = TRUE;
@@ -686,146 +662,72 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 {
 	GstSHVideoDec *dec = (GstSHVideoDec *) (GST_OBJECT_PARENT (pad));
 	GstFlowReturn ret = GST_FLOW_OK;
+	gint used_bytes;
+	GstBuffer* buffer = GST_BUFFER(inbuffer);
 
-	if(!dec->caps_set)
+	if(!dec->push_thread)
 	{
-		GST_ELEMENT_ERROR((GstElement*)dec,CORE,NEGOTIATION,
-				  ("Caps not set."), (NULL));
-		return GST_FLOW_UNEXPECTED;
-	}
-
-	GST_LOG_OBJECT(dec,"%s called",__FUNCTION__);
-
-	/* Checking if the new frame fits in the buffer. If it does not,
-	 * we'll have to wait until the decoder has consumed the buffer. */  
-	if(dec->buffer &&
-	   GST_BUFFER_SIZE(dec->buffer) + GST_BUFFER_SIZE(inbuffer) > dec->buffer_size)
-	{
-		GST_DEBUG_OBJECT(dec,"Buffer full, waiting");    
-		pthread_mutex_lock( &dec->cond_mutex );
-		pthread_cond_wait( &dec->thread_condition, &dec->cond_mutex );
-		pthread_mutex_unlock( &dec->cond_mutex );
-		GST_DEBUG_OBJECT(dec,"Got signal");
+		dec->running = TRUE;
+		pthread_create( &dec->push_thread, NULL, gst_sh_video_dec_pad_push, dec);
 	}
 
 	/* Buffering */
-	pthread_mutex_lock( &dec->mutex );
 	if(!dec->buffer)
 	{
 		GST_DEBUG_OBJECT(dec,
 				 "First frame in buffer. Size %d timestamp: %llu duration: %llu",
-				 GST_BUFFER_SIZE(inbuffer),
-				 GST_TIME_AS_MSECONDS(GST_BUFFER_TIMESTAMP (inbuffer)),
-				 GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (inbuffer)));
-
-		dec->buffer = inbuffer;
+				 GST_BUFFER_SIZE(buffer),
+				 GST_TIME_AS_MSECONDS(GST_BUFFER_TIMESTAMP (buffer)),
+				 GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (buffer)));
 	}  
 	else
 	{
 		GST_LOG_OBJECT(dec,
 			       "Joining buffers. Size %d timestamp: %llu duration: %llu",
-			       GST_BUFFER_SIZE(inbuffer),
-			       GST_TIME_AS_MSECONDS(GST_BUFFER_TIMESTAMP (inbuffer)),
-			       GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (inbuffer)));
+			       GST_BUFFER_SIZE(buffer),
+			       GST_TIME_AS_MSECONDS(GST_BUFFER_TIMESTAMP (buffer)),
+			       GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (buffer)));
 
-		dec->buffer = gst_buffer_join(dec->buffer,inbuffer);
+		buffer = gst_buffer_join(dec->buffer,buffer);
 		GST_LOG_OBJECT(dec,"Buffer added. Now storing %d bytes",
-			       GST_BUFFER_SIZE(dec->buffer));        
+			       GST_BUFFER_SIZE(buffer));        
 	}
-	pthread_mutex_unlock( &dec->mutex );
 
-	if(!dec->dec_thread)
+	dec->buffer = NULL; 
+
+	used_bytes = shcodecs_decode(dec->decoder,
+			GST_BUFFER_DATA (buffer),
+			GST_BUFFER_SIZE (buffer));
+
+	GST_DEBUG_OBJECT(dec, "used_bytes. %d bytes", used_bytes);
+	if (used_bytes < 0) {
+
+		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
+				  ("Decode error"), ("%s failed (Error on shcodecs_decode)",
+							 __func__));
+
+		return GST_FLOW_ERROR;
+	}
+
+	// Preserve the data that was not used
+	if(GST_BUFFER_SIZE(buffer) != used_bytes)
+	{    
+		dec->buffer = gst_buffer_create_sub(buffer,
+						    used_bytes,
+						    GST_BUFFER_SIZE(buffer)-used_bytes);
+	}
+
+	if(!dec->running)
 	{
-		GST_DEBUG_OBJECT(dec,"Starting the decoder thread");    
-		dec->running = TRUE;
-		pthread_create( &dec->dec_thread, NULL, gst_sh_video_dec_decode, dec);
-	}
-
-	/* Free waiting decoder */
-	pthread_mutex_lock( &dec->cond_mutex );
-	pthread_cond_signal( &dec->thread_condition);
-	pthread_mutex_unlock( &dec->cond_mutex );
-
+		GST_DEBUG_OBJECT(dec,"We are done, calling finalize.");
+		shcodecs_decoder_finalize(dec->decoder);
+		GST_DEBUG_OBJECT(dec,
+				 "Stream finalized. Total decoded %d frames.",
+				 shcodecs_decoder_get_frame_count(dec->decoder));
+	}    
+	gst_buffer_unref(buffer);
 	return ret;
-}
 
-void *
-gst_sh_video_dec_decode (void *data)
-{
-	gint used_bytes;
-	GstBuffer* buffer;
-
-	GstSHVideoDec *dec = (GstSHVideoDec *)data;
-
-	GST_LOG_OBJECT(dec,"%s called\n",__FUNCTION__);
-
-	/* While dec->running */
-	do
-	{
-		/* Buffer empty, we have to wait */
-		if(!dec->buffer)
-		{
-			GST_DEBUG_OBJECT(dec,"Waiting for data.");        
-			pthread_mutex_lock( &dec->cond_mutex );
-			pthread_cond_wait( &dec->thread_condition, &dec->cond_mutex );
-			pthread_mutex_unlock( &dec->cond_mutex );
-			GST_DEBUG_OBJECT(dec,"Got signal");        
-		}
-
-		pthread_mutex_lock(&dec->mutex);
-		buffer = dec->buffer;
-		dec->buffer = NULL; 
-		pthread_mutex_unlock(&dec->mutex); 
-
-		// If the other thread was waiting for buffer to be consumed
-		pthread_mutex_lock( &dec->cond_mutex );
-		pthread_cond_signal( &dec->thread_condition);
-		pthread_mutex_unlock( &dec->cond_mutex );
-
-		GST_DEBUG_OBJECT(dec,"Input buffer size: %d",
-				 GST_BUFFER_SIZE (buffer));
-
-		used_bytes = shcodecs_decode(dec->decoder,
-				GST_BUFFER_DATA (buffer),
-				GST_BUFFER_SIZE (buffer));
-
-		GST_DEBUG_OBJECT(dec,"Used: %d",used_bytes);
-
-		// Preserve the data that was not used
-		if(GST_BUFFER_SIZE(buffer) != used_bytes)
-		{    
-			pthread_mutex_lock(&dec->mutex);
-			if(dec->buffer)
-			{
-				dec->buffer = gst_buffer_join(
-					 gst_buffer_create_sub(buffer,used_bytes,
-							       GST_BUFFER_SIZE(buffer)-used_bytes),
-					 dec->buffer);
-			}
-			else
-			{
-				dec->buffer = gst_buffer_create_sub(buffer,
-								    used_bytes,
-								    GST_BUFFER_SIZE(buffer)-used_bytes);
-			}
-			GST_DEBUG_OBJECT(dec,"Preserving %d bytes of data",
-					 GST_BUFFER_SIZE(dec->buffer));
-			pthread_mutex_unlock(&dec->mutex); 
-		}
-
-		if(!dec->running)
-		{
-			GST_DEBUG_OBJECT(dec,"We are done, calling finalize.");
-			shcodecs_decoder_finalize(dec->decoder);
-			GST_DEBUG_OBJECT(dec,
-					 "Stream finalized. Total decoded %d frames.",
-					 shcodecs_decoder_get_frame_count(dec->decoder));
-		}    
-		gst_buffer_unref(buffer);
-		buffer = NULL;
-	}while(dec->running);
-
-	return NULL;
 }
 
 static gint
@@ -835,52 +737,78 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
 			       void * user_data)
 {
 	GstSHVideoDec *dec = (GstSHVideoDec *) user_data;
-	GstBuffer *buf;  
 	GstFlowReturn ret;
+	
 	gint offset = shcodecs_decoder_get_frame_count(dec->decoder);
 
+	sem_wait(&dec->dec_sem); 
 	GST_LOG_OBJECT(dec,"%s called",__FUNCTION__);  
 
 	if(dec->use_physical == HW_ADDR_YES)
 	{
 		GST_LOG_OBJECT(dec,"Using own buffer");  
-		buf = (GstBuffer *) gst_mini_object_new (GST_TYPE_SH_VIDEO_BUFFER);
-		GST_SH_VIDEO_BUFFER_Y_DATA(buf) = y_buf;    
-		GST_SH_VIDEO_BUFFER_Y_SIZE(buf) = y_size;    
-		GST_SH_VIDEO_BUFFER_C_DATA(buf) = c_buf;    
-		GST_SH_VIDEO_BUFFER_C_SIZE(buf) = c_size;    
-		GST_BUFFER_OFFSET(buf) = offset; 
+		dec->push_buf = (GstBuffer *) gst_mini_object_new (GST_TYPE_SH_VIDEO_BUFFER);
+		GST_SH_VIDEO_BUFFER_Y_DATA(dec->push_buf) = y_buf;    
+		GST_SH_VIDEO_BUFFER_Y_SIZE(dec->push_buf) = y_size;    
+		GST_SH_VIDEO_BUFFER_C_DATA(dec->push_buf) = c_buf;    
+		GST_SH_VIDEO_BUFFER_C_SIZE(dec->push_buf) = c_size;    
+		GST_BUFFER_OFFSET(dec->push_buf) = offset; 
 	}
 	else
 	{
 		GST_LOG_OBJECT(dec,"Using GST buffer");  
 		ret = gst_pad_alloc_buffer(dec->srcpad,offset,y_size + c_size,
-					   gst_pad_get_caps(dec->srcpad),&buf);
-		if (ret != GST_FLOW_OK || GST_BUFFER_SIZE(buf) != y_size + c_size) 
+					   gst_pad_get_caps(dec->srcpad),&dec->push_buf);
+		if (ret != GST_FLOW_OK || GST_BUFFER_SIZE(dec->push_buf) != y_size + c_size) 
 		{
 			GST_LOG_OBJECT(dec,"Src pad didn't allocate buffer");  
-			buf = gst_buffer_new_and_alloc(y_size+c_size);
-			GST_BUFFER_OFFSET(buf) = offset; 
+			dec->push_buf = gst_buffer_new_and_alloc(y_size+c_size);
+			GST_BUFFER_OFFSET(dec->push_buf) = offset; 
 		}
-		memcpy(GST_BUFFER_DATA(buf),y_buf,y_size);
-		memcpy(GST_BUFFER_DATA(buf)+y_size,c_buf,c_size);
+		memcpy(GST_BUFFER_DATA(dec->push_buf),y_buf,y_size);
+		memcpy(GST_BUFFER_DATA(dec->push_buf)+y_size,c_buf,c_size);
 	}
 
-	GST_BUFFER_CAPS(buf) = gst_caps_copy(GST_PAD_CAPS(dec->srcpad));
-	GST_BUFFER_DURATION(buf) = GST_SECOND * dec->fps_denominator / dec->fps_numerator;
-	GST_BUFFER_TIMESTAMP(buf) = offset * GST_BUFFER_DURATION(buf);
-	GST_BUFFER_OFFSET_END(buf) = offset;
+	GST_BUFFER_CAPS(dec->push_buf) = gst_caps_copy(GST_PAD_CAPS(dec->srcpad));
+	GST_BUFFER_DURATION(dec->push_buf) = GST_SECOND * dec->fps_denominator / dec->fps_numerator;
+	GST_BUFFER_TIMESTAMP(dec->push_buf) = offset * GST_BUFFER_DURATION(dec->push_buf);
+	GST_BUFFER_OFFSET_END(dec->push_buf) = offset;
+
 
 	GST_LOG_OBJECT (dec, "Pushing frame number: %d time: %" GST_TIME_FORMAT, 
 			offset, 
-			GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (buf)));
-	ret = gst_pad_push (dec->srcpad, buf);
+			GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (dec->push_buf)));
 
-	if (ret != GST_FLOW_OK) 
-	{
-		GST_DEBUG_OBJECT (dec, "pad_push failed: %s", gst_flow_get_name (ret));
-	}
+	sem_post(&dec->push_sem);
 
 	return 0; //0 means continue decoding
 }
 
+static void *
+gst_sh_video_dec_pad_push (void *data)
+{
+	GstFlowReturn ret;
+
+	GstSHVideoDec *dec = (GstSHVideoDec *)data;
+
+	while(1)
+	{
+		sem_wait(&dec->push_sem);
+		GST_LOG_OBJECT(dec,"%s called\n",__FUNCTION__);
+
+		ret = gst_pad_push (dec->srcpad, dec->push_buf);
+
+		if (ret != GST_FLOW_OK) 
+		{
+			GST_DEBUG_OBJECT (dec, "pad_push failed: %s", gst_flow_get_name (ret));
+		}
+
+		if(dec->end) break;
+		sem_post(&dec->dec_sem);
+	}
+
+	sem_destroy(&dec->dec_sem);
+	sem_destroy(&dec->push_sem);
+
+	return NULL;
+}

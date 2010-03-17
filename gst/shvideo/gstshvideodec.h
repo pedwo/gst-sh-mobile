@@ -26,6 +26,7 @@
 #include <gst/gst.h>
 #include <gst/video/gstvideosink.h>
 #include <gst/gstelement.h>
+#include <semaphore.h> 
 
 G_BEGIN_DECLS
 #define GST_TYPE_SH_VIDEO_DEC \
@@ -58,11 +59,11 @@ typedef struct _GstSHVideoDecClass GstSHVideoDecClass;
  * \var running A flag indicating that the decoding thread should be running
  * \var use_physical HW buffer usage setting
  * \var buffer Pointer to the cache buffer
- * \var buffer_size Size of the cache buffer
+ * \var push_buf Pointer to src buffer
  * \var dec_thread Decoder thread
- * \var mutex Mutex for the common data
- * \var cond_mutex Mutex for the conditional variable of the decoder thread
- * \var thread_condition Conditional variable of the decoder thread
+ * \var push_thread Src thread for push buffer
+ * \var dec_sem for the Src functiom
+ * \var push_sem for the Src function
  */
 struct _GstSHVideoDec
 {
@@ -80,16 +81,18 @@ struct _GstSHVideoDec
 
 	gboolean caps_set;
 	gboolean running;
+	gboolean end;
 	
 	gint use_physical;  
 
 	GstBuffer* buffer;
-	guint32 buffer_size;
+	GstBuffer* push_buf;
 
 	pthread_t dec_thread;
-	pthread_mutex_t mutex;
-	pthread_mutex_t cond_mutex;
-	pthread_cond_t  thread_condition;
+	pthread_t push_thread;
+
+	sem_t dec_sem;
+	sem_t push_sem;
 };
 
 /**
@@ -106,11 +109,6 @@ struct _GstSHVideoDecClass
 * \var return object type
 */
 GType gst_sh_video_dec_get_type (void);
-
-/** The video input buffer decode function
-* \var param data decoder object
-*/
-void* gst_sh_video_dec_decode (void *data);
 
 G_END_DECLS
 #endif
