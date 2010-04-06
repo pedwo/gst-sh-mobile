@@ -201,10 +201,6 @@ static void capture_image_cb(sh_ceu * ceu, const void *frame_data, size_t length
 
 	if (pixel_format == V4L2_PIX_FMT_NV12) {
 		shvideoenc->ceu_ubuf = (unsigned char *) frame_data;
-		shcodecs_encoder_get_input_physical_addr(shvideoenc->encoder,
-							 (unsigned int *) &shvideoenc->enc_in_yaddr,
-							 (unsigned int *)
-							 &shvideoenc->enc_in_caddr);
 	}
 }
 
@@ -266,12 +262,11 @@ static void *blit_thread(void *data)
 
 		/* memory copy from ceu output buffer to vpu input buffer */
 
-#if 0
-		fprintf(stderr,
-			"Resizing input data from %lu from size %ld x %ld to size %d x %d\n",
-			in_yaddr, shvideoenc->cap_w, shvideoenc->cap_h,
-			shvideoenc->width, shvideoenc->height);
-#endif
+		GST_LOG_OBJECT(shvideoenc, "%s starting scale", __func__);
+
+		shcodecs_encoder_get_input_physical_addr(shvideoenc->encoder,
+				(unsigned int *) &shvideoenc->enc_in_yaddr,
+				(unsigned int *) &shvideoenc->enc_in_caddr);
 
 		shveu_operation(shvideoenc->veu,
 				in_yaddr,
