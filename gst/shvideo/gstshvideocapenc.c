@@ -89,8 +89,6 @@ struct _GstSHVideoCapEnc {
 
 	gboolean output_lock;
 	gboolean libshcodecs_stop;
-	int cntl_flg;
-	int preview_flg;
 };
 
 
@@ -435,8 +433,6 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 	shvideoenc->frame_number = 0;
 	shvideoenc->preview = PREVIEW_OFF;
 	shvideoenc->output_lock = TRUE;
-	shvideoenc->cntl_flg = 0;
-	shvideoenc->preview_flg = 0;
 	shvideoenc->start_time_set = FALSE;
 	shvideoenc->output_buf = NULL;
 }
@@ -532,11 +528,9 @@ gst_shvideo_enc_set_property(GObject * object, guint prop_id,
 	switch (prop_id) {
 	case PROP_CNTL_FILE:
 		strcpy(shvideoenc->ainfo.ctrl_file_name_buf, g_value_get_string(value));
-		shvideoenc->cntl_flg = 1;
 		break;
 	case PROP_PREVIEW:
 		shvideoenc->preview = g_value_get_enum(value);
-		shvideoenc->preview_flg = 1;
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
