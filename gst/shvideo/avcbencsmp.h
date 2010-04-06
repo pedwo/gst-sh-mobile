@@ -14,7 +14,7 @@ typedef struct {
 	long ypic;
     long frame_rate;
 
-	sh_ceu *ceu;
+	capture *ceu;
 
 } APPLI_INFO;
 

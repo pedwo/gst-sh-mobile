@@ -54,7 +54,7 @@ static int xioctl(int fd, int request, void *arg)
 	return r;
 }
 
-static int read_frame(sh_ceu * ceu, sh_process_callback cb, void *user_data)
+static int read_frame(capture * ceu, sh_process_callback cb, void *user_data)
 {
 	struct v4l2_buffer buf;
 	unsigned int i;
@@ -131,7 +131,7 @@ static int read_frame(sh_ceu * ceu, sh_process_callback cb, void *user_data)
 }
 
 
-void sh_ceu_capture_frame(sh_ceu * ceu, sh_process_callback cb, void *user_data)
+void capture_capture_frame(capture * ceu, sh_process_callback cb, void *user_data)
 {
 	for (;;) {
 		fd_set fds;
@@ -158,7 +158,7 @@ void sh_ceu_capture_frame(sh_ceu * ceu, sh_process_callback cb, void *user_data)
 	}
 }
 
-void sh_ceu_stop_capturing(sh_ceu * ceu)
+void capture_stop_capturing(capture * ceu)
 {
 	enum v4l2_buf_type type;
 
@@ -175,7 +175,7 @@ void sh_ceu_stop_capturing(sh_ceu * ceu)
 	}
 }
 
-void sh_ceu_start_capturing(sh_ceu * ceu)
+void capture_start_capturing(capture * ceu)
 {
 	unsigned int i;
 	enum v4l2_buf_type type;
@@ -223,7 +223,7 @@ void sh_ceu_start_capturing(sh_ceu * ceu)
 	}
 }
 
-static void uninit_device(sh_ceu * ceu)
+static void uninit_device(capture * ceu)
 {
 	unsigned int i;
 
@@ -247,7 +247,7 @@ static void uninit_device(sh_ceu * ceu)
 	free(ceu->buffers);
 }
 
-static void init_read(sh_ceu * ceu, unsigned int buffer_size)
+static void init_read(capture * ceu, unsigned int buffer_size)
 {
 	ceu->buffers = calloc(1, sizeof(*ceu->buffers));
 
@@ -264,7 +264,7 @@ static void init_read(sh_ceu * ceu, unsigned int buffer_size)
 	}
 }
 
-static void init_mmap(sh_ceu * ceu)
+static void init_mmap(capture * ceu)
 {
 	struct v4l2_requestbuffers req;
 	CLEAR(req);
@@ -318,7 +318,7 @@ static void init_mmap(sh_ceu * ceu)
 }
 
 
-static void init_userp(sh_ceu * ceu, unsigned int buffer_size)
+static void init_userp(capture * ceu, unsigned int buffer_size)
 {
 	struct v4l2_requestbuffers req;
 	unsigned int page_size;
@@ -370,7 +370,7 @@ static void init_userp(sh_ceu * ceu, unsigned int buffer_size)
 
 }
 
-static void init_device(sh_ceu * ceu)
+static void init_device(capture * ceu)
 {
 	struct v4l2_capability cap;
 	struct v4l2_cropcap cropcap;
@@ -477,14 +477,14 @@ static void init_device(sh_ceu * ceu)
 	}
 }
 
-static void close_device(sh_ceu * ceu)
+static void close_device(capture * ceu)
 {
 	if (-1 == close(ceu->fd))
 		errno_exit("close");
 	ceu->fd = -1;
 }
 
-static void open_device(sh_ceu * ceu)
+static void open_device(capture * ceu)
 {
 	struct stat st;
 
@@ -508,16 +508,16 @@ static void open_device(sh_ceu * ceu)
 	}
 }
 
-void sh_ceu_close(sh_ceu * ceu)
+void capture_close(capture * ceu)
 {
 	uninit_device(ceu);
 	close_device(ceu);
 	free(ceu);
 }
 
-sh_ceu *sh_ceu_open(const char *device_name, int width, int height, io_method io, UIOMux * uiomux)
+capture *capture_open(const char *device_name, int width, int height, io_method io, UIOMux * uiomux)
 {
-	sh_ceu *ceu;
+	capture *ceu;
 
 	ceu = malloc(sizeof(*ceu));
 
@@ -533,17 +533,17 @@ sh_ceu *sh_ceu_open(const char *device_name, int width, int height, io_method io
 	return ceu;
 }
 
-int sh_ceu_get_width(sh_ceu * ceu)
+int capture_get_width(capture * ceu)
 {
 	return ceu->width;
 }
 
-int sh_ceu_get_height(sh_ceu * ceu)
+int capture_get_height(capture * ceu)
 {
 	return ceu->height;
 }
 
-unsigned int sh_ceu_get_pixel_format(sh_ceu * ceu)
+unsigned int capture_get_pixel_format(capture * ceu)
 {
 	return ceu->pixel_format;
 }

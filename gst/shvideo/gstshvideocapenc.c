@@ -151,7 +151,7 @@ static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * shvideoenc);
 static void *launch_camera_encoder_thread(void *data);
 static void *capture_thread(void *data);
 static void *blit_thread(void *data);
-static void capture_image_cb(sh_ceu * ceu, const void *frame_data, size_t length, void *user_data);
+static void capture_image_cb(capture * ceu, const void *frame_data, size_t length, void *user_data);
 static GType gst_camera_preview_get_type(void);
 static gboolean gst_shvideoenc_src_event(GstPad * pad, GstEvent * event);
 static GstStateChangeReturn gst_shvideo_enc_change_state(GstElement *
@@ -187,17 +187,17 @@ static GType gst_camera_preview_get_type(void)
 }
 
 /** ceu callback function
-	@param sh_ceu 
+	@param capture 
 	@param frame_data output buffer pointer
 	@param length buffer size
 	@param user_data user pointer
 */
-static void capture_image_cb(sh_ceu * ceu, const void *frame_data, size_t length, void *user_data)
+static void capture_image_cb(capture * ceu, const void *frame_data, size_t length, void *user_data)
 {
 	GstSHVideoCapEnc *shvideoenc = (GstSHVideoCapEnc *) user_data;
 	unsigned int pixel_format;
 
-	pixel_format = sh_ceu_get_pixel_format(ceu);
+	pixel_format = capture_get_pixel_format(ceu);
 
 	if (pixel_format == V4L2_PIX_FMT_NV12) {
 		shvideoenc->ceu_ubuf = (unsigned char *) frame_data;
@@ -237,7 +237,7 @@ static void *capture_thread(void *data)
 		}
 
 
-		sh_ceu_capture_frame(enc->ainfo.ceu, capture_image_cb, enc);
+		capture_capture_frame(enc->ainfo.ceu, capture_image_cb, enc);
 
 		/* This mutex releases the VEU copy to the VPU input buffer and the framebuffer */
 		pthread_mutex_unlock(&enc->blit_mutex);
@@ -335,7 +335,7 @@ static void gst_shvideo_enc_dispose(GObject * object)
 
 	pthread_mutex_lock(&shvideoenc->launch_mutex);
 
-	sh_ceu_stop_capturing(shvideoenc->ainfo.ceu);
+	capture_stop_capturing(shvideoenc->ainfo.ceu);
 
 	if (shvideoenc->encoder != NULL) {
 		shcodecs_encoder_close(shvideoenc->encoder);
@@ -347,7 +347,7 @@ static void gst_shvideo_enc_dispose(GObject * object)
 	}
 
 	shveu_close();
-	sh_ceu_close(shvideoenc->ainfo.ceu);
+	capture_close(shvideoenc->ainfo.ceu);
 
 	uiomux_close(shvideoenc->uiomux);
 
@@ -765,11 +765,11 @@ static void *launch_camera_encoder_thread(void *data)
 	}
 
 	/* ceu open */
-	enc->ainfo.ceu = sh_ceu_open(enc->ainfo.input_file_name_buf,
+	enc->ainfo.ceu = capture_open(enc->ainfo.input_file_name_buf,
 					 enc->ainfo.xpic, enc->ainfo.ypic, IO_METHOD_USERPTR,
 					 enc->uiomux);
-	enc->cap_w = sh_ceu_get_width(enc->ainfo.ceu);
-	enc->cap_h = sh_ceu_get_height(enc->ainfo.ceu);
+	enc->cap_w = capture_get_width(enc->ainfo.ceu);
+	enc->cap_h = capture_get_height(enc->ainfo.ceu);
 	GST_DEBUG_OBJECT(enc, "Capturing at %dx%d\n", enc->cap_w, enc->cap_h);
 
 	enc->encoder = shcodecs_encoder_init(enc->width, enc->height, enc->format);
@@ -816,7 +816,7 @@ static void *launch_camera_encoder_thread(void *data)
 		pthread_create(&enc->blit_thread, NULL, blit_thread, enc);
 	}
 
-	sh_ceu_start_capturing(enc->ainfo.ceu);
+	capture_start_capturing(enc->ainfo.ceu);
 
 	ret = shcodecs_encoder_run(enc->encoder);
 
