@@ -30,7 +30,6 @@
 #include <string.h>
 #include <pthread.h>
 #include <linux/videodev2.h>	/* For pixel formats */
-#include <uiomux/uiomux.h>
 #include <shveu/shveu.h>
 #include <shcodecs/shcodecs_encoder.h>
 
@@ -38,6 +37,7 @@
 #include "ControlFileUtil.h"
 #include "capture.h"
 #include "display.h"
+#include "thrqueue.h"
 
 typedef enum {
 	PREVIEW_OFF,
@@ -75,22 +75,16 @@ struct _GstSHVideoCapEnc {
 	pthread_t capture_thread;
 	pthread_t blit_thread;
 
-	void *p_display;
-	pthread_mutex_t capture_start_mutex;
-	pthread_mutex_t capture_end_mutex;
-	pthread_mutex_t blit_mutex;
-	pthread_mutex_t blit_vpu_end_mutex;
-	pthread_mutex_t output_mutex;
-	pthread_mutex_t launch_mutex;
+	struct Queue * captured_queue;
 
-	UIOMux *uiomux;
+	void *p_display;
+	pthread_mutex_t launch_mutex;
+	pthread_mutex_t encode_start_mutex;
+
 	int veu;
 
 	int cap_w;
 	int cap_h;
-	unsigned char *ceu_ubuf;
-	unsigned int enc_in_yaddr;
-	unsigned int enc_in_caddr;
 	GstCameraPreview preview;
 
 	gboolean output_lock;
@@ -149,9 +143,6 @@ static int gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 					unsigned char *data, int length, void *user_data);
 static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * shvideoenc);
 static void *launch_camera_encoder_thread(void *data);
-static void *capture_thread(void *data);
-static void *blit_thread(void *data);
-static void capture_image_cb(capture * ceu, const void *frame_data, size_t length, void *user_data);
 static GType gst_camera_preview_get_type(void);
 static gboolean gst_shvideoenc_src_event(GstPad * pad, GstEvent * event);
 static GstStateChangeReturn gst_shvideo_enc_change_state(GstElement *
@@ -192,30 +183,21 @@ static GType gst_camera_preview_get_type(void)
 	@param length buffer size
 	@param user_data user pointer
 */
-static void capture_image_cb(capture * ceu, const void *frame_data, size_t length, void *user_data)
+static void capture_image_cb(capture * ceu, const unsigned char *frame_data, size_t length, void *user_data)
 {
-	GstSHVideoCapEnc *shvideoenc = (GstSHVideoCapEnc *) user_data;
-	unsigned int pixel_format;
+	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
 
-	pixel_format = capture_get_pixel_format(ceu);
-
-	if (pixel_format == V4L2_PIX_FMT_NV12) {
-		shvideoenc->ceu_ubuf = (unsigned char *) frame_data;
-	}
+	GST_DEBUG_OBJECT(pvt, "Captured a frame");
+	queue_enq (pvt->captured_queue, (void*)frame_data);
 }
 
 static void *capture_thread(void *data)
 {
 	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) data;
-	long long unsigned int time_diff, stamp_diff, sleep_time;
+	guint64 time_diff, stamp_diff, sleep_time;
 	GstClockTime time_now;
 
 	while (1) {
-		GST_LOG_OBJECT(enc, "%s called", __func__);
-
-		/* This mutex is released by the VPU get_input call back, created locked */
-		pthread_mutex_lock(&enc->capture_start_mutex);
-
 		/* Camera sensors cannot always be set to the required frame rate. The v4l
 		   camera driver attempts to set to the requested frame rate, but if not
 		   possible it attempts to set a higher frame rate, therefore we wait... */
@@ -230,69 +212,67 @@ static void *capture_thread(void *data)
 
 		if (stamp_diff > time_diff) {
 			sleep_time = stamp_diff - time_diff;
-			GST_DEBUG_OBJECT(enc, "Capture: waiting " GST_TIME_FORMAT "ms", sleep_time);
-			usleep(sleep_time * 1000);
+			GST_DEBUG_OBJECT(enc, "Waiting %lldms", sleep_time);
+// TODO Waiting causes problems. It might be because we queue capture buffers in v4l2
+//			usleep(sleep_time * 1000);
 		} else {
-			GST_DEBUG_OBJECT(enc, "Capture: late by " GST_TIME_FORMAT "ms", time_diff-stamp_diff);
+			GST_DEBUG_OBJECT(enc, "Late by %lldms", time_diff-stamp_diff);
 		}
 
-
-		capture_capture_frame(enc->ainfo.ceu, capture_image_cb, enc);
-
-		/* This mutex releases the VEU copy to the VPU input buffer and the framebuffer */
-		pthread_mutex_unlock(&enc->blit_mutex);
+		capture_get_frame(enc->ainfo.ceu, capture_image_cb, enc);
 	}
+
 	return NULL;
 }
 
 static void *blit_thread(void *data)
 {
-	GstSHVideoCapEnc *shvideoenc = (GstSHVideoCapEnc *) data;
-	unsigned long in_yaddr;
-	unsigned long in_caddr;
+	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) data;
+	unsigned long enc_y, enc_c;
+	unsigned long cap_y, cap_c;
+
+	GST_LOG_OBJECT(pvt, "Preview=%d", pvt->preview);
 
 	while (1) {
-		GST_LOG_OBJECT(shvideoenc, "%s called preview %d", __func__,
-				   shvideoenc->preview);
-		pthread_mutex_lock(&shvideoenc->blit_mutex);
+		GST_LOG_OBJECT(pvt, "Waiting for capture");
 
-		in_yaddr =
-			uiomux_virt_to_phys(shvideoenc->uiomux, UIOMUX_SH_VEU, shvideoenc->ceu_ubuf);
-		in_caddr = in_yaddr + (shvideoenc->cap_w * shvideoenc->cap_h);
+		cap_y = (unsigned long) queue_deq(pvt->captured_queue);
+		cap_c = cap_y + (pvt->cap_w * pvt->cap_h);
 
-		/* memory copy from ceu output buffer to vpu input buffer */
+		GST_LOG_OBJECT(pvt, "Starting scale");
 
-		GST_LOG_OBJECT(shvideoenc, "%s starting scale", __func__);
+		shcodecs_encoder_get_input_physical_addr (pvt->encoder, (unsigned int *)&enc_y, (unsigned int *)&enc_c);
 
-		shcodecs_encoder_get_input_physical_addr(shvideoenc->encoder,
-				(unsigned int *) &shvideoenc->enc_in_yaddr,
-				(unsigned int *) &shvideoenc->enc_in_caddr);
-
-		shveu_operation(shvideoenc->veu,
-				in_yaddr,
-				in_caddr,
-				shvideoenc->cap_w,
-				shvideoenc->cap_h,
-				shvideoenc->cap_w,
+		shveu_operation(pvt->veu,
+				cap_y,
+				cap_c,
+				pvt->cap_w,
+				pvt->cap_h,
+				pvt->cap_w,
 				SHVEU_YCbCr420,
-				shvideoenc->enc_in_yaddr,
-				shvideoenc->enc_in_caddr,
-				(long) shvideoenc->width,
-				(long) shvideoenc->height,
-				(long) shvideoenc->width, SHVEU_YCbCr420, SHVEU_NO_ROT);
-		pthread_mutex_unlock(&shvideoenc->blit_vpu_end_mutex);
+				enc_y,
+				enc_c,
+				(long) pvt->width,
+				(long) pvt->height,
+				(long) pvt->width,
+				SHVEU_YCbCr420, SHVEU_NO_ROT);
 
-		if (shvideoenc->preview == PREVIEW_ON) {
-			display_update(shvideoenc->p_display,
-					shvideoenc->enc_in_yaddr,
-					shvideoenc->enc_in_caddr,
-					shvideoenc->width,
-					shvideoenc->height,
-					shvideoenc->width,
+		/* Let the encoder get_input function return */
+		pthread_mutex_unlock(&pvt->encode_start_mutex);
+
+		if (pvt->preview == PREVIEW_ON) {
+			display_update(pvt->p_display,
+					enc_y,
+					enc_c,
+					pvt->width,
+					pvt->height,
+					pvt->width,
 					V4L2_PIX_FMT_NV12);
 		}
-		pthread_mutex_unlock(&shvideoenc->capture_end_mutex);
+
+		capture_queue_buffer (pvt->ainfo.ceu, (void *)cap_y);
 	}
+
 	return NULL;
 }
 
@@ -349,17 +329,10 @@ static void gst_shvideo_enc_dispose(GObject * object)
 	shveu_close();
 	capture_close(shvideoenc->ainfo.ceu);
 
-	uiomux_close(shvideoenc->uiomux);
-
 	pthread_cancel(shvideoenc->enc_thread);
 	pthread_cancel(shvideoenc->capture_thread);
 	pthread_cancel(shvideoenc->blit_thread);
 
-	pthread_mutex_destroy(&shvideoenc->capture_start_mutex);
-	pthread_mutex_destroy(&shvideoenc->capture_end_mutex);
-	pthread_mutex_destroy(&shvideoenc->blit_mutex);
-	pthread_mutex_destroy(&shvideoenc->blit_vpu_end_mutex);
-	pthread_mutex_destroy(&shvideoenc->output_mutex);
 	pthread_mutex_destroy(&shvideoenc->launch_mutex);
 
 	G_OBJECT_CLASS(parent_class)->dispose(object);
@@ -447,11 +420,11 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 	shvideoenc->enc_thread = 0;
 
 	pthread_mutex_init(&shvideoenc->launch_mutex, NULL);
-	pthread_mutex_init(&shvideoenc->capture_start_mutex, NULL);
-	pthread_mutex_init(&shvideoenc->capture_end_mutex, NULL);
-	pthread_mutex_init(&shvideoenc->blit_mutex, NULL);
-	pthread_mutex_init(&shvideoenc->blit_vpu_end_mutex, NULL);
-	pthread_mutex_init(&shvideoenc->output_mutex, NULL);
+	pthread_mutex_init(&shvideoenc->encode_start_mutex, NULL);
+
+	/* Initialize the queues */
+	shvideoenc->captured_queue = queue_init();
+	queue_limit (shvideoenc->captured_queue, 2);
 
 	shvideoenc->format = SHCodecs_Format_NONE;
 	shvideoenc->out_caps = NULL;
@@ -600,17 +573,17 @@ gst_shvideo_enc_get_property(GObject * object, guint prop_id, GValue * value, GP
 	@param user_data Gstreamer SH encoder object
 	@return 0 if encoder should continue. 1 if encoder should pause.
 */
-static int gst_shvideo_enc_get_input(SHCodecs_Encoder * encoder, void *user_data)
+static int gst_shvideo_enc_get_input(SHCodecs_Encoder *encoder, void *user_data)
 {
-	GstSHVideoCapEnc *shvideoenc = (GstSHVideoCapEnc *) user_data;
-	GST_LOG_OBJECT(shvideoenc, "%s called", __func__);
+	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
+	GST_LOG_OBJECT(pvt, "Waiting for blit to complete");
 
-	pthread_mutex_lock(&shvideoenc->capture_end_mutex);	//This mutex is created unlocked, so the first time it falls through
-	pthread_mutex_unlock(&shvideoenc->capture_start_mutex);	//Start the next capture, then return to the Encoder  
-	pthread_mutex_lock(&shvideoenc->blit_vpu_end_mutex);	//wait until the VEU has copied the data to the VPU input buffer
-	GST_LOG_OBJECT(shvideoenc, "%s end", __func__);
+	/* This mutex is unlocked once the capture buffer has been copied to the
+	   encoder input buffer */
+	pthread_mutex_lock(&pvt->encode_start_mutex);
+	GST_LOG_OBJECT(pvt, "Got input buffer");
 
-	if (shvideoenc->libshcodecs_stop == TRUE)
+	if (pvt->libshcodecs_stop == TRUE)
 		return -1;
 	return 0;
 }
@@ -631,7 +604,7 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 	gint ret = 0;
 	int frm_delta;
 
-	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data\n", __func__, length);
+	GST_LOG_OBJECT(enc, "Got %d bytes data\n", length);
 
 	if (length <= 0)
 		return 0;
@@ -693,10 +666,6 @@ static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * shvideoenc)
 	}
 
 	/* Initalise the mutexes */
-	pthread_mutex_lock(&shvideoenc->capture_start_mutex);
-	pthread_mutex_unlock(&shvideoenc->capture_end_mutex);
-	pthread_mutex_lock(&shvideoenc->blit_mutex);
-	pthread_mutex_lock(&shvideoenc->blit_vpu_end_mutex);
 	pthread_mutex_lock(&shvideoenc->launch_mutex);
 
 	if (!shvideoenc->enc_thread) {
@@ -726,7 +695,7 @@ static void *launch_camera_encoder_thread(void *data)
 	}
 #endif
 
-	/* watit for  READY status */
+	/* wait for  READY status */
 	while (enc->output_lock == TRUE) {
 		usleep(10);
 	}
@@ -749,11 +718,12 @@ static void *launch_camera_encoder_thread(void *data)
 	snprintf(enc->ainfo.input_file_name_buf, 256, "%s/%s",
 		 enc->ainfo.buf_input_yuv_file_with_path, enc->ainfo.buf_input_yuv_file);
 
-	/* uiomux open */
-	enc->uiomux = uiomux_open();
-
-	/* veu open */
+	/* VEU initialisation */
 	enc->veu = shveu_open();
+	if (enc->veu < 0) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+				  ("Error opening VEU"), (NULL));
+	}
 
 	/* Display output */
 	if (enc->preview == PREVIEW_ON) {
@@ -765,12 +735,22 @@ static void *launch_camera_encoder_thread(void *data)
 	}
 
 	/* ceu open */
-	enc->ainfo.ceu = capture_open(enc->ainfo.input_file_name_buf,
-					 enc->ainfo.xpic, enc->ainfo.ypic, IO_METHOD_USERPTR,
-					 enc->uiomux);
+	enc->ainfo.ceu = capture_open_userio(enc->ainfo.input_file_name_buf,
+					enc->ainfo.xpic, enc->ainfo.ypic);
+	if (enc->ainfo.ceu == NULL) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+				  ("Error opening CEU"), (NULL));
+	}
+	capture_set_use_physical(enc->ainfo.ceu, 1);
 	enc->cap_w = capture_get_width(enc->ainfo.ceu);
 	enc->cap_h = capture_get_height(enc->ainfo.ceu);
-	GST_DEBUG_OBJECT(enc, "Capturing at %dx%d\n", enc->cap_w, enc->cap_h);
+
+	if (capture_get_pixel_format (enc->ainfo.ceu) != V4L2_PIX_FMT_NV12) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+				  ("Camera capture pixel format is not supported"), (NULL));
+	}
+
+	GST_DEBUG_OBJECT(enc, "Capturing at %dx%d", enc->cap_w, enc->cap_h);
 
 	enc->encoder = shcodecs_encoder_init(enc->width, enc->height, enc->format);
 
@@ -802,11 +782,13 @@ static void *launch_camera_encoder_thread(void *data)
 						(shcodecs_encoder_get_frame_rate(enc->encoder) /
 						 10));
 
-	GST_DEBUG_OBJECT(enc, "Encoder init: %ldx%ld %ldfps format:%ld",
+	GST_DEBUG_OBJECT(enc, "Encoder init: %ldx%ld %.2ffps format:%ld",
 			 shcodecs_encoder_get_xpic_size(enc->encoder),
 			 shcodecs_encoder_get_ypic_size(enc->encoder),
-			 shcodecs_encoder_get_frame_rate(enc->encoder),
-			 shcodecs_encoder_get_frame_rate(enc->encoder) / 10);
+			 shcodecs_encoder_get_frame_rate(enc->encoder) / 10.0,
+			 shcodecs_encoder_get_frame_rate(enc->encoder));
+
+	capture_start_capturing(enc->ainfo.ceu);
 
 	/* Create the threads */
 	if (!enc->capture_thread) {
@@ -815,8 +797,6 @@ static void *launch_camera_encoder_thread(void *data)
 	if (!enc->blit_thread) {
 		pthread_create(&enc->blit_thread, NULL, blit_thread, enc);
 	}
-
-	capture_start_capturing(enc->ainfo.ceu);
 
 	ret = shcodecs_encoder_run(enc->encoder);
 

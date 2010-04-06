@@ -20,43 +20,45 @@
 #ifndef __CAPTURE_H__
 #define __CAPTURE_H__
 
-typedef enum {
-	IO_METHOD_READ,
-	IO_METHOD_MMAP,
-	IO_METHOD_USERPTR,
-} io_method;
+struct capture_;
+typedef struct capture_ capture;
 
-typedef struct _capture {
-	const char *dev_name;
-	int fd;
-	io_method io;
-	struct buffer *buffers;
-	unsigned int n_buffers;
-	int width;
-	int height;
-	unsigned int pixel_format;
-	void *uiomux;
-} capture;
+typedef void (*capture_callback) (capture * cap, const unsigned char *frame_data,
+				     size_t length, void *user_data);
 
-typedef void (*sh_process_callback) (capture * ceu, const void *frame_data, size_t length,
-				     void *user_data);
+capture *capture_open(const char *device_name, int width, int height);
 
-capture *capture_open(const char *device_name, int width, int height, io_method io, void *uiomux);
+capture *capture_open_userio(const char *device_name, int width, int height);
 
-void capture_close(capture * ceu);
+void capture_close(capture * cap);
 
-void capture_start_capturing(capture * ceu);
+/**
+ * Set the data output mode to use physical addresses.
+ * If the calling application is interfacing to other IP blocks such as
+ * the VEU, then set this function. Otherwise, captured frame output will
+ * be mapped to userspace addresses, usable by normal applications.
+ * \param cap The capture handle
+ * \param use_physical Flag: Physical addresses will be reported for
+ * output frame data if set to a non-zero value.
+ * \retval 0 Success
+ */
+int
+capture_set_use_physical(capture * cap, int use_physical);
 
-void capture_stop_capturing(capture * ceu);
+void capture_start_capturing(capture * cap);
 
-void capture_capture_frame(capture * ceu, sh_process_callback cb, void *user_data);
+void capture_stop_capturing(capture * cap);
+
+void capture_get_frame(capture * cap, capture_callback cb,
+			  void *user_data);
+
+void capture_queue_buffer(capture * cap, const void * buffer_data);
 
 /* Get the properties of the captured frames 
  * The v4l device may not support the request size
  */
-int capture_get_width(capture * ceu);
-int capture_get_height(capture * ceu);
-unsigned int capture_get_pixel_format(capture * ceu);
+int capture_get_width(capture * cap);
+int capture_get_height(capture * cap);
+unsigned int capture_get_pixel_format(capture * cap);
 
 #endif				/* __CAPTURE_H__ */
-
