@@ -681,19 +681,13 @@ static void *launch_camera_encoder_thread(void *data)
 
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	if (enc->libshcodecs_stop == TRUE)
-		return NULL;
-#if 0
-	while (gst_pad_get_peer(enc->srcpad) == NULL) {
-		usleep(10);
-
-	}
-#endif
-
 	/* wait for  READY status */
 	while (enc->output_lock == TRUE) {
 		usleep(10);
 	}
+
+	if (enc->libshcodecs_stop == TRUE)
+		return NULL;
 
 	gst_shvideocameraenc_read_src_caps(enc);
 	GST_LOG_OBJECT(enc, "set caps fps numerator %x fps denominator %x \n",
