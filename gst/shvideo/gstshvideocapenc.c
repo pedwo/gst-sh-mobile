@@ -61,6 +61,7 @@ struct _GstSHVideoCapEnc {
 	gint fps_denominator;
 
 	APPLI_INFO ainfo;
+	capture *ceu;
 
 	GstCaps *out_caps;
 	gboolean caps_set;
@@ -217,7 +218,7 @@ static void *capture_thread(void *data)
 			GST_DEBUG_OBJECT(enc, "Late by %lldms", time_diff-stamp_diff);
 		}
 
-		capture_get_frame(enc->ainfo.ceu, capture_image_cb, enc);
+		capture_get_frame(enc->ceu, capture_image_cb, enc);
 	}
 
 	return NULL;
@@ -268,7 +269,7 @@ static void *blit_thread(void *data)
 					V4L2_PIX_FMT_NV12);
 		}
 
-		capture_queue_buffer (pvt->ainfo.ceu, (void *)cap_y);
+		capture_queue_buffer (pvt->ceu, (void *)cap_y);
 	}
 
 	return NULL;
@@ -313,7 +314,7 @@ static void gst_shvideo_enc_dispose(GObject * object)
 
 	pthread_mutex_lock(&shvideoenc->launch_mutex);
 
-	capture_stop_capturing(shvideoenc->ainfo.ceu);
+	capture_stop_capturing(shvideoenc->ceu);
 
 	if (shvideoenc->encoder != NULL) {
 		shcodecs_encoder_close(shvideoenc->encoder);
@@ -325,7 +326,7 @@ static void gst_shvideo_enc_dispose(GObject * object)
 	}
 
 	shveu_close();
-	capture_close(shvideoenc->ainfo.ceu);
+	capture_close(shvideoenc->ceu);
 
 	pthread_cancel(shvideoenc->enc_thread);
 	pthread_cancel(shvideoenc->capture_thread);
@@ -729,17 +730,17 @@ static void *launch_camera_encoder_thread(void *data)
 	}
 
 	/* ceu open */
-	enc->ainfo.ceu = capture_open_userio(enc->ainfo.input_file_name_buf,
+	enc->ceu = capture_open_userio(enc->ainfo.input_file_name_buf,
 					enc->ainfo.xpic, enc->ainfo.ypic);
-	if (enc->ainfo.ceu == NULL) {
+	if (enc->ceu == NULL) {
 		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 				  ("Error opening CEU"), (NULL));
 	}
-	capture_set_use_physical(enc->ainfo.ceu, 1);
-	enc->cap_w = capture_get_width(enc->ainfo.ceu);
-	enc->cap_h = capture_get_height(enc->ainfo.ceu);
+	capture_set_use_physical(enc->ceu, 1);
+	enc->cap_w = capture_get_width(enc->ceu);
+	enc->cap_h = capture_get_height(enc->ceu);
 
-	if (capture_get_pixel_format (enc->ainfo.ceu) != V4L2_PIX_FMT_NV12) {
+	if (capture_get_pixel_format (enc->ceu) != V4L2_PIX_FMT_NV12) {
 		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 				  ("Camera capture pixel format is not supported"), (NULL));
 	}
@@ -782,7 +783,7 @@ static void *launch_camera_encoder_thread(void *data)
 			 shcodecs_encoder_get_frame_rate(enc->encoder) / 10.0,
 			 shcodecs_encoder_get_frame_rate(enc->encoder));
 
-	capture_start_capturing(enc->ainfo.ceu);
+	capture_start_capturing(enc->ceu);
 
 	/* Create the threads */
 	if (!enc->capture_thread) {
