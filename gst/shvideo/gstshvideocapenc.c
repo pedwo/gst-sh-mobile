@@ -423,7 +423,7 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 
 	/* Initialize the queues */
 	shvideoenc->captured_queue = queue_init();
-	queue_limit (shvideoenc->captured_queue, 2);
+	queue_limit (shvideoenc->captured_queue, NUM_CAPTURE_BUFS);
 
 	shvideoenc->format = SHCodecs_Format_NONE;
 	shvideoenc->out_caps = NULL;
