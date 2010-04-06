@@ -77,7 +77,7 @@ struct _GstSHVideoCapEnc {
 
 	struct Queue * captured_queue;
 
-	void *p_display;
+	void *display;
 	pthread_mutex_t launch_mutex;
 	pthread_mutex_t encode_start_mutex;
 
@@ -259,7 +259,7 @@ static void *blit_thread(void *data)
 		pthread_mutex_unlock(&pvt->encode_start_mutex);
 
 		if (pvt->preview == PREVIEW_ON) {
-			display_update(pvt->p_display,
+			display_update(pvt->display,
 					enc_y,
 					enc_c,
 					pvt->width,
@@ -321,7 +321,7 @@ static void gst_shvideo_enc_dispose(GObject * object)
 	}
 
 	if (shvideoenc->preview == PREVIEW_ON) {
-		display_close(shvideoenc->p_display);
+		display_close(shvideoenc->display);
 	}
 
 	shveu_close();
@@ -721,8 +721,8 @@ static void *launch_camera_encoder_thread(void *data)
 
 	/* Display output */
 	if (enc->preview == PREVIEW_ON) {
-		enc->p_display = display_open(enc->veu);
-		if (!enc->p_display) {
+		enc->display = display_open(enc->veu);
+		if (!enc->display) {
 			GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 					  ("Error opening fb device"), (NULL));
 		}
