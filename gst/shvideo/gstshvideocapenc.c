@@ -77,10 +77,11 @@ struct _GstSHVideoCapEnc {
 	pthread_t blit_thread;
 
 	struct Queue * captured_queue;
+	struct Queue * enc_input_q;
+	struct Queue * enc_input_empty_q;
 
 	void *display;
 	pthread_mutex_t launch_mutex;
-	pthread_mutex_t encode_start_mutex;
 
 	int veu;
 
@@ -238,6 +239,8 @@ static void *blit_thread(void *data)
 		cap_y = (unsigned long) queue_deq(pvt->captured_queue);
 		cap_c = cap_y + (pvt->cap_w * pvt->cap_h);
 
+		queue_deq(pvt->enc_input_empty_q);
+
 		GST_LOG_OBJECT(pvt, "Starting scale");
 
 		shcodecs_encoder_get_input_physical_addr (pvt->encoder, (unsigned int *)&enc_y, (unsigned int *)&enc_c);
@@ -256,8 +259,7 @@ static void *blit_thread(void *data)
 				(long) pvt->width,
 				SHVEU_YCbCr420, SHVEU_NO_ROT);
 
-		/* Let the encoder get_input function return */
-		pthread_mutex_unlock(&pvt->encode_start_mutex);
+		queue_enq(pvt->enc_input_q, NULL);
 
 		if (pvt->preview == PREVIEW_ON) {
 			display_update(pvt->display,
@@ -419,12 +421,16 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 	shvideoenc->enc_thread = 0;
 
 	pthread_mutex_init(&shvideoenc->launch_mutex, NULL);
-	pthread_mutex_init(&shvideoenc->encode_start_mutex, NULL);
-	pthread_mutex_lock(&shvideoenc->encode_start_mutex);
 
 	/* Initialize the queues */
 	shvideoenc->captured_queue = queue_init();
 	queue_limit (shvideoenc->captured_queue, NUM_CAPTURE_BUFS);
+
+	shvideoenc->enc_input_q = queue_init();
+	queue_limit (shvideoenc->enc_input_q, 1);
+
+	shvideoenc->enc_input_empty_q = queue_init();
+	queue_limit (shvideoenc->enc_input_empty_q, 1);
 
 	shvideoenc->format = SHCodecs_Format_NONE;
 	shvideoenc->out_caps = NULL;
@@ -574,9 +580,8 @@ static int gst_shvideo_enc_get_input(SHCodecs_Encoder *encoder, void *user_data)
 	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
 	GST_LOG_OBJECT(pvt, "Waiting for blit to complete");
 
-	/* This mutex is unlocked once the capture buffer has been copied to the
-	   encoder input buffer */
-	pthread_mutex_lock(&pvt->encode_start_mutex);
+	queue_enq(pvt->enc_input_empty_q, NULL);
+	queue_deq(pvt->enc_input_q);
 	GST_LOG_OBJECT(pvt, "Got input buffer");
 
 	if (pvt->libshcodecs_stop == TRUE)
