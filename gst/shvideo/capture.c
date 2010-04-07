@@ -378,7 +378,7 @@ static void init_mmap(capture * cap)
 		}
 	}
 
-	if (req.count < 2) {
+	if (req.count < NUM_CAPTURE_BUFS) {
 		fprintf(stderr, "Insufficient buffer memory on %s\n",
 			 cap->dev_name);
 		exit(EXIT_FAILURE);
@@ -441,7 +441,7 @@ init_userp(capture * cap, unsigned int buffer_size)
 		}
 	}
 
-	if (req.count < 2) {
+	if (req.count < NUM_CAPTURE_BUFS) {
 		fprintf(stderr, "Insufficient buffer memory on %s\n",
 			 cap->dev_name);
 		exit(EXIT_FAILURE);
