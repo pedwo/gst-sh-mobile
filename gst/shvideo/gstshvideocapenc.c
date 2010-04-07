@@ -420,6 +420,7 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 
 	pthread_mutex_init(&shvideoenc->launch_mutex, NULL);
 	pthread_mutex_init(&shvideoenc->encode_start_mutex, NULL);
+	pthread_mutex_lock(&shvideoenc->encode_start_mutex);
 
 	/* Initialize the queues */
 	shvideoenc->captured_queue = queue_init();
