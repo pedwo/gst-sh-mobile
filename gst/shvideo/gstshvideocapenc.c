@@ -81,7 +81,6 @@ struct _GstSHVideoCapEnc {
 	struct Queue * enc_input_empty_q;
 
 	void *display;
-	pthread_mutex_t launch_mutex;
 
 	int veu;
 
@@ -89,8 +88,13 @@ struct _GstSHVideoCapEnc {
 	int cap_h;
 	GstCameraPreview preview;
 
-	gboolean output_lock;
-	gboolean libshcodecs_stop;
+	/* This is used to stop the plugin sending data downstream when PAUSED */
+	gboolean hold_output;
+
+	/* These flags stop the threads in turn */
+	gboolean stop_capture_thr;
+	gboolean stop_blit_thr;
+	gboolean stop_encode_thr;
 };
 
 
@@ -188,6 +192,7 @@ static void capture_image_cb(capture * ceu, const unsigned char *frame_data, siz
 	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
 
 	GST_DEBUG_OBJECT(pvt, "Captured a frame");
+
 	queue_enq (pvt->captured_queue, (void*)frame_data);
 }
 
@@ -197,7 +202,7 @@ static void *capture_thread(void *data)
 	guint64 time_diff, stamp_diff, sleep_time;
 	GstClockTime time_now;
 
-	while (1) {
+	while (!enc->stop_capture_thr) {
 		/* Camera sensors cannot always be set to the required frame rate. The v4l
 		   camera driver attempts to set to the requested frame rate, but if not
 		   possible it attempts to set a higher frame rate, therefore we wait... */
@@ -222,6 +227,11 @@ static void *capture_thread(void *data)
 		capture_get_frame(enc->ceu, capture_image_cb, enc);
 	}
 
+	/* Let blit thread know that we have finished, but push a final frame
+	   down the pipeline to make sure that it gets kicked */
+	enc->stop_blit_thr = TRUE;
+	capture_get_frame(enc->ceu, capture_image_cb, enc);
+
 	return NULL;
 }
 
@@ -240,6 +250,10 @@ static void *blit_thread(void *data)
 		cap_c = cap_y + (pvt->cap_w * pvt->cap_h);
 
 		queue_deq(pvt->enc_input_empty_q);
+
+		if (pvt->stop_blit_thr) {
+			pvt->stop_encode_thr = TRUE;
+		}
 
 		GST_LOG_OBJECT(pvt, "Starting scale");
 
@@ -260,6 +274,10 @@ static void *blit_thread(void *data)
 				SHVEU_YCbCr420, SHVEU_NO_ROT);
 
 		queue_enq(pvt->enc_input_q, NULL);
+
+		if (pvt->stop_blit_thr) {
+			break;
+		}
 
 		if (pvt->preview == PREVIEW_ON) {
 			display_update(pvt->display,
@@ -312,9 +330,11 @@ static void gst_shvideo_enc_base_init(gpointer klass)
 static void gst_shvideo_enc_dispose(GObject * object)
 {
 	GstSHVideoCapEnc *shvideoenc = GST_SH_VIDEO_CAPENC(object);
+	void *thread_ret;
 	GST_LOG("%s called", __func__);
 
-	pthread_mutex_lock(&shvideoenc->launch_mutex);
+	shvideoenc->stop_capture_thr = TRUE;
+	pthread_join(shvideoenc->enc_thread, &thread_ret);
 
 	capture_stop_capturing(shvideoenc->ceu);
 
@@ -329,12 +349,6 @@ static void gst_shvideo_enc_dispose(GObject * object)
 
 	shveu_close();
 	capture_close(shvideoenc->ceu);
-
-	pthread_cancel(shvideoenc->enc_thread);
-	pthread_cancel(shvideoenc->capture_thread);
-	pthread_cancel(shvideoenc->blit_thread);
-
-	pthread_mutex_destroy(&shvideoenc->launch_mutex);
 
 	G_OBJECT_CLASS(parent_class)->dispose(object);
 }
@@ -417,10 +431,10 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 
 	shvideoenc->encoder = NULL;
 	shvideoenc->caps_set = FALSE;
-	shvideoenc->libshcodecs_stop = FALSE;
+	shvideoenc->stop_capture_thr = FALSE;
+	shvideoenc->stop_blit_thr = FALSE;
+	shvideoenc->stop_encode_thr = FALSE;
 	shvideoenc->enc_thread = 0;
-
-	pthread_mutex_init(&shvideoenc->launch_mutex, NULL);
 
 	/* Initialize the queues */
 	shvideoenc->captured_queue = queue_init();
@@ -440,7 +454,7 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 	shvideoenc->fps_denominator = 1;
 	shvideoenc->frame_number = 0;
 	shvideoenc->preview = PREVIEW_OFF;
-	shvideoenc->output_lock = TRUE;
+	shvideoenc->hold_output = TRUE;
 	shvideoenc->start_time_set = FALSE;
 	shvideoenc->output_buf = NULL;
 }
@@ -457,16 +471,16 @@ gst_shvideo_enc_change_state(GstElement * element, GstStateChange transition)
 	switch (transition) {
 	case GST_STATE_CHANGE_NULL_TO_READY:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_NULL_TO_READY");
-		shvideoenc->output_lock = TRUE;
+		shvideoenc->hold_output = TRUE;
 		break;
 	case GST_STATE_CHANGE_READY_TO_PAUSED:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_READY_TO_PAUSED");
-		shvideoenc->output_lock = FALSE;
+		shvideoenc->hold_output = FALSE;
 		gst_shvideo_enc_init_camera_encoder(shvideoenc);
 		break;
 	case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_PAUSED_TO_PLAYING");
-		shvideoenc->output_lock = FALSE;
+		shvideoenc->hold_output = FALSE;
 		break;
 	default:
 		break;
@@ -479,16 +493,15 @@ gst_shvideo_enc_change_state(GstElement * element, GstStateChange transition)
 	switch (transition) {
 	case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_PLAYING_TO_PAUSED");
-		shvideoenc->output_lock = TRUE;
+		shvideoenc->hold_output = TRUE;
 		break;
 	case GST_STATE_CHANGE_PAUSED_TO_READY:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_PAUSED_TO_READY");
-		shvideoenc->output_lock = TRUE;
+		shvideoenc->hold_output = TRUE;
 		break;
 	case GST_STATE_CHANGE_READY_TO_NULL:
 		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_READY_TO_NULL");
-		shvideoenc->libshcodecs_stop = TRUE;
-		shvideoenc->output_lock = TRUE;
+		shvideoenc->hold_output = TRUE;
 		break;
 	default:
 		break;
@@ -584,8 +597,9 @@ static int gst_shvideo_enc_get_input(SHCodecs_Encoder *encoder, void *user_data)
 	queue_deq(pvt->enc_input_q);
 	GST_LOG_OBJECT(pvt, "Got input buffer");
 
-	if (pvt->libshcodecs_stop == TRUE)
+	if (pvt->stop_encode_thr == TRUE) {
 		return -1;
+	}
 	return 0;
 }
 
@@ -627,8 +641,9 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 		enc->frame_number += frm_delta;
 		ret = gst_pad_push(enc->srcpad, buf);
 		if (ret != GST_FLOW_OK) {
-			GST_DEBUG_OBJECT(enc, "pad_push failed: %s", gst_flow_get_name(ret));
-			return -1;
+			GST_DEBUG_OBJECT(enc, "pad_push failed: %s.", gst_flow_get_name(ret));
+			// Do not return -1. This would cause shcodecs_encoder_run to stop. 
+			// TODO should keep data in case PAUSED before PLAYING
 		}
 	} else {
 		enc->output_buf = buf;
@@ -666,9 +681,6 @@ static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * shvideoenc)
 				  ("Error reading control file."), (NULL));
 	}
 
-	/* Initalise the mutexes */
-	pthread_mutex_lock(&shvideoenc->launch_mutex);
-
 	if (!shvideoenc->enc_thread) {
 		/* We'll have to launch the encoder in 
 		   a separate thread to keep the pipeline running */
@@ -684,15 +696,16 @@ static void *launch_camera_encoder_thread(void *data)
 {
 	gint ret;
 	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) data;
+	void *thread_ret;
 
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	/* wait for  READY status */
-	while (enc->output_lock == TRUE) {
+	while (enc->hold_output == TRUE) {
 		usleep(10);
 	}
 
-	if (enc->libshcodecs_stop == TRUE)
+	if (enc->stop_encode_thr == TRUE)
 		return NULL;
 
 	gst_shvideocameraenc_read_src_caps(enc);
@@ -799,7 +812,11 @@ static void *launch_camera_encoder_thread(void *data)
 
 	gst_pad_push_event(enc->srcpad, gst_event_new_eos());
 
-	pthread_mutex_unlock(&enc->launch_mutex);
+	/* Wait for threads to finish */
+	pthread_join(enc->blit_thread, &thread_ret);
+	pthread_join(enc->capture_thread, &thread_ret);
+
+	gst_pad_push_event(enc->srcpad, gst_event_new_eos());
 
 	return NULL;
 }
