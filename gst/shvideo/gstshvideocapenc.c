@@ -15,8 +15,6 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
  *
- * Takashi Namiki <takashi.namiki@renesas.com>
- *
  */
 
 
@@ -74,9 +72,7 @@ struct _GstSHVideoCapEnc {
 
 	pthread_t enc_thread;
 	pthread_t capture_thread;
-	pthread_t blit_thread;
 
-	struct Queue * captured_queue;
 	struct Queue * enc_input_q;
 	struct Queue * enc_input_empty_q;
 
@@ -93,7 +89,6 @@ struct _GstSHVideoCapEnc {
 
 	/* These flags stop the threads in turn */
 	gboolean stop_capture_thr;
-	gboolean stop_blit_thr;
 	gboolean stop_encode_thr;
 };
 
@@ -181,7 +176,12 @@ static GType gst_camera_preview_get_type(void)
 	return camera_preview_type;
 }
 
+/******************
+ * CAPTURE THREAD *
+ ******************/
+
 /** ceu callback function
+ * received a full frame from the camera
 	@param capture 
 	@param frame_data output buffer pointer
 	@param length buffer size
@@ -190,10 +190,52 @@ static GType gst_camera_preview_get_type(void)
 static void capture_image_cb(capture * ceu, const unsigned char *frame_data, size_t length, void *user_data)
 {
 	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
+	unsigned long enc_y, enc_c;
+	unsigned long cap_y, cap_c;
 
 	GST_DEBUG_OBJECT(pvt, "Captured a frame");
 
-	queue_enq (pvt->captured_queue, (void*)frame_data);
+	cap_y = (unsigned long) frame_data;
+	cap_c = cap_y + (pvt->cap_w * pvt->cap_h);
+
+	/* TODO Get a token for an empty encoder input buffer. Once shcodecs releases input buffers prior
+	   to encoding, we can put the buffer ptr into the queue.  */
+	queue_deq(pvt->enc_input_empty_q);
+	shcodecs_encoder_get_input_physical_addr (pvt->encoder, (unsigned int *)&enc_y, (unsigned int *)&enc_c);
+
+	GST_DEBUG_OBJECT(pvt, "Starting blit to encoder input buffer...");
+
+	shveu_operation(pvt->veu,
+			cap_y,
+			cap_c,
+			pvt->cap_w,
+			pvt->cap_h,
+			pvt->cap_w,
+			SHVEU_YCbCr420,
+			enc_y,
+			enc_c,
+			(long) pvt->width,
+			(long) pvt->height,
+			(long) pvt->width,
+			SHVEU_YCbCr420, SHVEU_NO_ROT);
+
+	GST_DEBUG_OBJECT(pvt, "Blit to encoder input buffer complete");
+
+	pvt->stop_encode_thr = pvt->stop_capture_thr;
+	queue_enq(pvt->enc_input_q, (void*)enc_y);
+
+	if (pvt->preview == PREVIEW_ON) {
+		display_update(pvt->display,
+				cap_y,
+				cap_c,
+				pvt->cap_w,
+				pvt->cap_h,
+				pvt->cap_w,
+				V4L2_PIX_FMT_NV12);
+		GST_DEBUG_OBJECT(pvt, "Display update complete");
+	}
+
+	capture_queue_buffer (pvt->ceu, (void *)cap_y);
 }
 
 static void *capture_thread(void *data)
@@ -202,7 +244,7 @@ static void *capture_thread(void *data)
 	guint64 time_diff, stamp_diff, sleep_time;
 	GstClockTime time_now;
 
-	while (!enc->stop_capture_thr) {
+	while (!enc->stop_encode_thr) {
 		/* Camera sensors cannot always be set to the required frame rate. The v4l
 		   camera driver attempts to set to the requested frame rate, but if not
 		   possible it attempts to set a higher frame rate, therefore we wait... */
@@ -218,78 +260,12 @@ static void *capture_thread(void *data)
 		if (stamp_diff > time_diff) {
 			sleep_time = stamp_diff - time_diff;
 			GST_DEBUG_OBJECT(enc, "Waiting %lldms", sleep_time);
-// TODO Waiting causes problems. It might be because we queue capture buffers in v4l2
-//			usleep(sleep_time * 1000);
+			usleep(sleep_time * 1000);
 		} else {
 			GST_DEBUG_OBJECT(enc, "Late by %lldms", time_diff-stamp_diff);
 		}
 
 		capture_get_frame(enc->ceu, capture_image_cb, enc);
-	}
-
-	/* Let blit thread know that we have finished, but push a final frame
-	   down the pipeline to make sure that it gets kicked */
-	enc->stop_blit_thr = TRUE;
-	capture_get_frame(enc->ceu, capture_image_cb, enc);
-
-	return NULL;
-}
-
-static void *blit_thread(void *data)
-{
-	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) data;
-	unsigned long enc_y, enc_c;
-	unsigned long cap_y, cap_c;
-
-	GST_LOG_OBJECT(pvt, "Preview=%d", pvt->preview);
-
-	while (1) {
-		GST_LOG_OBJECT(pvt, "Waiting for capture");
-
-		cap_y = (unsigned long) queue_deq(pvt->captured_queue);
-		cap_c = cap_y + (pvt->cap_w * pvt->cap_h);
-
-		queue_deq(pvt->enc_input_empty_q);
-
-		if (pvt->stop_blit_thr) {
-			pvt->stop_encode_thr = TRUE;
-		}
-
-		GST_LOG_OBJECT(pvt, "Starting scale");
-
-		shcodecs_encoder_get_input_physical_addr (pvt->encoder, (unsigned int *)&enc_y, (unsigned int *)&enc_c);
-
-		shveu_operation(pvt->veu,
-				cap_y,
-				cap_c,
-				pvt->cap_w,
-				pvt->cap_h,
-				pvt->cap_w,
-				SHVEU_YCbCr420,
-				enc_y,
-				enc_c,
-				(long) pvt->width,
-				(long) pvt->height,
-				(long) pvt->width,
-				SHVEU_YCbCr420, SHVEU_NO_ROT);
-
-		queue_enq(pvt->enc_input_q, NULL);
-
-		if (pvt->stop_blit_thr) {
-			break;
-		}
-
-		if (pvt->preview == PREVIEW_ON) {
-			display_update(pvt->display,
-					enc_y,
-					enc_c,
-					pvt->width,
-					pvt->height,
-					pvt->width,
-					V4L2_PIX_FMT_NV12);
-		}
-
-		capture_queue_buffer (pvt->ceu, (void *)cap_y);
 	}
 
 	return NULL;
@@ -432,14 +408,10 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 	shvideoenc->encoder = NULL;
 	shvideoenc->caps_set = FALSE;
 	shvideoenc->stop_capture_thr = FALSE;
-	shvideoenc->stop_blit_thr = FALSE;
 	shvideoenc->stop_encode_thr = FALSE;
 	shvideoenc->enc_thread = 0;
 
 	/* Initialize the queues */
-	shvideoenc->captured_queue = queue_init();
-	queue_limit (shvideoenc->captured_queue, NUM_CAPTURE_BUFS);
-
 	shvideoenc->enc_input_q = queue_init();
 	queue_limit (shvideoenc->enc_input_q, 1);
 
@@ -583,6 +555,10 @@ gst_shvideo_enc_get_property(GObject * object, guint prop_id, GValue * value, GP
 	}
 }
 
+/******************
+ * ENCODER THREAD *
+ ******************/
+
 /** Callback function for the encoder input
 	@param encoder shcodecs encoder
 	@param user_data Gstreamer SH encoder object
@@ -593,6 +569,7 @@ static int gst_shvideo_enc_get_input(SHCodecs_Encoder *encoder, void *user_data)
 	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
 	GST_LOG_OBJECT(pvt, "Waiting for blit to complete");
 
+	/* TODO Push a token for a free encoder input buffer */
 	queue_enq(pvt->enc_input_empty_q, NULL);
 	queue_deq(pvt->enc_input_q);
 	GST_LOG_OBJECT(pvt, "Got input buffer");
@@ -796,15 +773,12 @@ static void *launch_camera_encoder_thread(void *data)
 			 shcodecs_encoder_get_frame_rate(enc->encoder) / 10.0,
 			 shcodecs_encoder_get_frame_rate(enc->encoder));
 
-	capture_start_capturing(enc->ceu);
-
 	/* Create the threads */
 	if (!enc->capture_thread) {
 		pthread_create(&enc->capture_thread, NULL, capture_thread, enc);
 	}
-	if (!enc->blit_thread) {
-		pthread_create(&enc->blit_thread, NULL, blit_thread, enc);
-	}
+
+	capture_start_capturing(enc->ceu);
 
 	ret = shcodecs_encoder_run(enc->encoder);
 
@@ -813,7 +787,6 @@ static void *launch_camera_encoder_thread(void *data)
 	gst_pad_push_event(enc->srcpad, gst_event_new_eos());
 
 	/* Wait for threads to finish */
-	pthread_join(enc->blit_thread, &thread_ret);
 	pthread_join(enc->capture_thread, &thread_ret);
 
 	gst_pad_push_event(enc->srcpad, gst_event_new_eos());
