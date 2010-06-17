@@ -198,10 +198,9 @@ static void capture_image_cb(capture * ceu, const unsigned char *frame_data, siz
 	cap_y = (unsigned long) frame_data;
 	cap_c = cap_y + (pvt->cap_w * pvt->cap_h);
 
-	/* TODO Get a token for an empty encoder input buffer. Once shcodecs releases input buffers prior
-	   to encoding, we can put the buffer ptr into the queue.  */
-	queue_deq(pvt->enc_input_empty_q);
-	shcodecs_encoder_get_input_physical_addr (pvt->encoder, (unsigned int *)&enc_y, (unsigned int *)&enc_c);
+	/* Get an empty encoder input frame */
+	enc_y = (unsigned long) queue_deq(pvt->enc_input_empty_q);
+	enc_c = enc_y + (pvt->width * pvt->height);
 
 	GST_DEBUG_OBJECT(pvt, "Starting blit to encoder input buffer...");
 
@@ -413,10 +412,7 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEnc
 
 	/* Initialize the queues */
 	shvideoenc->enc_input_q = queue_init();
-	queue_limit (shvideoenc->enc_input_q, 1);
-
 	shvideoenc->enc_input_empty_q = queue_init();
-	queue_limit (shvideoenc->enc_input_empty_q, 1);
 
 	shvideoenc->format = SHCodecs_Format_NONE;
 	shvideoenc->out_caps = NULL;
@@ -559,6 +555,20 @@ gst_shvideo_enc_get_property(GObject * object, guint prop_id, GValue * value, GP
  * ENCODER THREAD *
  ******************/
 
+/* SHCodecs_Encoder_Input_Release callback */
+static int gst_shvideo_enc_release_input_buf(SHCodecs_Encoder * encoder,
+                             unsigned char * y_input,
+                             unsigned char * c_input,
+                             void * user_data)
+{
+	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
+
+	GST_LOG_OBJECT(pvt, "Got an encoder input buffer");
+	queue_enq (pvt->enc_input_empty_q, y_input);
+
+	return 0;
+}
+
 /** Callback function for the encoder input
 	@param encoder shcodecs encoder
 	@param user_data Gstreamer SH encoder object
@@ -567,11 +577,15 @@ gst_shvideo_enc_get_property(GObject * object, guint prop_id, GValue * value, GP
 static int gst_shvideo_enc_get_input(SHCodecs_Encoder *encoder, void *user_data)
 {
 	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
+	unsigned long enc_y, enc_c;
+
 	GST_LOG_OBJECT(pvt, "Waiting for blit to complete");
 
-	/* TODO Push a token for a free encoder input buffer */
-	queue_enq(pvt->enc_input_empty_q, NULL);
-	queue_deq(pvt->enc_input_q);
+	/* Get a scaled frame from the queue */
+	enc_y = (unsigned long) queue_deq(pvt->enc_input_q);
+	enc_c = enc_y + (pvt->width * pvt->height);
+	shcodecs_encoder_set_input_physical_addr (encoder, (unsigned int *)enc_y, (unsigned int *)enc_c);
+
 	GST_LOG_OBJECT(pvt, "Got input buffer");
 
 	if (pvt->stop_encode_thr == TRUE) {
@@ -741,6 +755,7 @@ static void *launch_camera_encoder_thread(void *data)
 
 	shcodecs_encoder_set_input_callback(enc->encoder, gst_shvideo_enc_get_input, enc);
 	shcodecs_encoder_set_output_callback(enc->encoder, gst_shvideo_enc_write_output, enc);
+	shcodecs_encoder_set_input_release_callback(enc->encoder, gst_shvideo_enc_release_input_buf, enc);
 
 	ret = GetFromCtrlFtoEncParam(enc->encoder, &enc->ainfo);
 	if (ret < 0) {
@@ -773,12 +788,12 @@ static void *launch_camera_encoder_thread(void *data)
 			 shcodecs_encoder_get_frame_rate(enc->encoder) / 10.0,
 			 shcodecs_encoder_get_frame_rate(enc->encoder));
 
+	capture_start_capturing(enc->ceu);
+
 	/* Create the threads */
 	if (!enc->capture_thread) {
 		pthread_create(&enc->capture_thread, NULL, capture_thread, enc);
 	}
-
-	capture_start_capturing(enc->ceu);
 
 	ret = shcodecs_encoder_run(enc->encoder);
 
