@@ -114,7 +114,7 @@ struct _GstSHVideoDecClass
 	GstElementClass parent;
 };
 
-/** Get gst-sh-mobile-dec-sink object type
+/** Get gst-sh-mobile-dec object type
 * \var return object type
 */
 GType gst_sh_video_dec_get_type (void);
