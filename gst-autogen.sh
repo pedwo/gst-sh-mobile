@@ -227,18 +227,31 @@ autogen_options ()
           echo "+ debug output enabled"
           shift
           ;;
+      --prefix=*)
+	  CONFIGURE_EXT_OPT="$CONFIGURE_EXT_OPT --prefix=$optarg"
+	  echo "+ passing --prefix=$optarg to configure"
+          shift
+          ;;
+      --prefix)
+	  shift
+	  echo "DEBUG: $1"
+	  CONFIGURE_EXT_OPT="$CONFIGURE_EXT_OPT --prefix=$1"
+	  echo "+ passing --prefix=$1 to configure"
+          shift
+          ;;
+
       -h|--help)
           echo "autogen.sh (autogen options) -- (configure options)"
           echo "autogen.sh help options: "
           echo " --noconfigure            don't run the configure script"
           echo " --nocheck                don't do version checks"
           echo " --debug                  debug the autogen process"
+	  echo " --prefix		  will be passed on to configure"
           echo
           echo " --with-autoconf PATH     use autoconf in PATH"
           echo " --with-automake PATH     use automake in PATH"
           echo
-          echo "Any argument either not in the above list or after a '--' will be "
-          echo "passed to ./configure."
+          echo "to pass options to configure, put them as arguments after -- "
 	  exit 1
           ;;
       --with-automake=*)
@@ -253,12 +266,13 @@ autogen_options ()
 	  CONFIGURE_DEF_OPT="$CONFIGURE_DEF_OPT --with-autoconf=$AUTOCONF"
           shift
           ;;
-      --) shift ; break ;;
-      *)
-          echo "+ passing argument $1 to configure"
+      --disable*|--enable*|--with*)
+          echo "+ passing option $1 to configure"
 	  CONFIGURE_EXT_OPT="$CONFIGURE_EXT_OPT $1"
           shift
           ;;
+       --) shift ; break ;;
+      *) echo "- ignoring unknown autogen.sh argument $1"; shift ;;
     esac
   done
 
@@ -292,27 +306,3 @@ tool_run ()
     exit 1
   }
 }
-
-
-install_git_hooks ()
-{
-  if test -d .git; then
-    # install pre-commit hook for doing clean commits
-    for hook in pre-commit; do
-      if test ! \( -x .git/hooks/$hook -a -L .git/hooks/$hook \); then
-        echo "+ Installing git $hook hook"
-        rm -f .git/hooks/$hook
-        ln -s ../../common/hooks/$hook.hook .git/hooks/$hook || {
-          # if we couldn't create a symbolic link, try doing a plain cp
-          if cp common/hooks/pre-commit.hook .git/hooks/pre-commit; then
-            chmod +x .git/hooks/pre-commit;
-          else
-            echo "********** Couldn't install git $hook hook **********"; 
-          fi
-        }
-      fi
-    done
-  fi
-}
-
-

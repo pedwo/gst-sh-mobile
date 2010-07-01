@@ -1,157 +1,149 @@
-AC_PREREQ(2.52)
+AC_INIT
 
-dnl initialize autoconf
-dnl when going to/from release please set the nano (fourth number) right !
-dnl releases only do Wall, git and prerelease does Werror too
-AC_INIT(GStreamer SHVIDEO, 0.0.0.1,
-    http://bugzilla.gnome.org/enter_bug.cgi?product=GStreamer,
-    gst-shvideo)
+AC_CONFIG_MACRO_DIR([m4])
 
-AG_GST_INIT
+dnl versions of gstreamer and plugins-base
+GST_MAJORMINOR=0.10
+GST_REQUIRED=0.10.0
+GSTPB_REQUIRED=0.10.0
 
-dnl initialize automake
-AM_INIT_AUTOMAKE
+dnl fill in your package name and version here
+dnl the fourth (nano) number should be 0 for a release, 1 for CVS,
+dnl and 2... for a prerelease
 
-dnl define PACKAGE_VERSION_* variables
-AS_VERSION
+dnl when going to/from release please set the nano correctly !
+dnl releases only do Wall, cvs and prerelease does Werror too
+AS_VERSION(gst-shvideo, GST_PLUGIN_VERSION, 0, 0, 0, 1,
+    GST_PLUGIN_CVS="no", GST_PLUGIN_CVS="yes")
 
-dnl check if this is a release version
-AS_NANO(GST_CVS="no", GST_CVS="yes")
-
-dnl can autoconf find the source ?
-AC_CONFIG_SRCDIR([gst/shvideo/gstshvideodec.c])
-
-dnl define the output header for config
-AM_CONFIG_HEADER([config.h])
-
-dnl can autoconf find the macros
-AC_CONFIG_MACRO_DIR([common/m4])
-
-dnl AM_MAINTAINER_MODE only provides the option to configure to enable it
+dnl AM_MAINTAINER_MODE provides the option to enable maintainer mode
 AM_MAINTAINER_MODE
 
-dnl sets host_* variables
-AC_CANONICAL_HOST
+AM_INIT_AUTOMAKE($PACKAGE, $VERSION)
 
-dnl our libraries and install dirs use major.minor as a version
-GST_MAJORMINOR=$PACKAGE_VERSION_MAJOR.$PACKAGE_VERSION_MINOR
-dnl we override it here if we need to for the release candidate of new series
-GST_MAJORMINOR=0.10
+dnl make aclocal work in maintainer mode
+AC_SUBST(ACLOCAL_AMFLAGS, "-I m4")
+
+AM_CONFIG_HEADER(config.h)
+
+dnl check for tools
+AC_PROG_CC
+AC_PROG_LIBTOOL
+
+
+dnl decide on error flags
+AS_COMPILER_FLAG(-Wall, GST_WALL="yes", GST_WALL="no")
+                                                                                
+if test "x$GST_WALL" = "xyes"; then
+   GST_ERROR="$GST_ERROR -Wall"
+                                                                                
+   if test "x$GST_PLUGIN_CVS" = "xyes"; then
+     AS_COMPILER_FLAG(-Werror,GST_ERROR="$GST_ERROR -Werror",GST_ERROR="$GST_ERROR")
+   fi
+fi
+
+dnl Check for pkgconfig first
+AC_CHECK_PROG(HAVE_PKGCONFIG, pkg-config, yes, no)
+
+dnl Give error and exit if we don't have pkgconfig
+if test "x$HAVE_PKGCONFIG" = "xno"; then
+  AC_MSG_ERROR(you need to have pkgconfig installed !)
+fi
+
+dnl Now we're ready to ask for gstreamer libs and cflags
+dnl And we can also ask for the right version of gstreamer
+
+
+PKG_CHECK_MODULES(GST, \
+  gstreamer-$GST_MAJORMINOR >= $GST_REQUIRED,
+  HAVE_GST=yes,HAVE_GST=no)
+
+dnl Give error and exit if we don't have gstreamer
+if test "x$HAVE_GST" = "xno"; then
+  AC_MSG_ERROR(you need gstreamer development packages installed !)
+fi
+
+dnl append GST_ERROR cflags to GST_CFLAGS
+GST_CFLAGS="$GST_CFLAGS $GST_ERROR"
+
+dnl make GST_CFLAGS and GST_LIBS available
+AC_SUBST(GST_CFLAGS)
+AC_SUBST(GST_LIBS)
+
+dnl make GST_MAJORMINOR available in Makefile.am
 AC_SUBST(GST_MAJORMINOR)
 
-AM_PROG_LIBTOOL
+dnl If we need them, we can also use the base class libraries
+PKG_CHECK_MODULES(GST_BASE, gstreamer-base-$GST_MAJORMINOR >= $GST_REQUIRED,
+                  HAVE_GST_BASE=yes, HAVE_GST_BASE=no)
 
-dnl *** required versions of GStreamer stuff ***
-GST_REQ=0.10.22
+dnl Give a warning if we don't have gstreamer libs
+dnl you can turn this into an error if you need them
+if test "x$HAVE_GST_BASE" = "xno"; then
+  AC_MSG_NOTICE(no GStreamer base class libraries found (gstreamer-base-$GST_MAJORMINOR))
+fi
 
-dnl *** autotools stuff ****
+dnl make _CFLAGS and _LIBS available
+AC_SUBST(GST_BASE_CFLAGS)
+AC_SUBST(GST_BASE_LIBS)
 
-dnl allow for different autotools
-AS_AUTOTOOLS_ALTERNATE
+dnl If we need them, we can also use the gstreamer-plugins-base libraries
+PKG_CHECK_MODULES(GSTPB_BASE,
+                  gstreamer-plugins-base-$GST_MAJORMINOR >= $GSTPB_REQUIRED,
+                  HAVE_GSTPB_BASE=yes, HAVE_GSTPB_BASE=no)
 
-dnl Add parameters for aclocal
-AC_SUBST(ACLOCAL_AMFLAGS, "-I m4 -I common/m4")
+dnl Give a warning if we don't have gstreamer libs
+dnl you can turn this into an error if you need them
+if test "x$HAVE_GSTPB_BASE" = "xno"; then
+  AC_MSG_NOTICE(no GStreamer Plugins Base libraries found (gstreamer-plugins-base-$GST_MAJORMINOR))
+fi
 
-dnl *** check for arguments to configure ***
+dnl make _CFLAGS and _LIBS available
+AC_SUBST(GSTPB_BASE_CFLAGS)
+AC_SUBST(GSTPB_BASE_LIBS)
 
-AG_GST_ARG_WITH_PKG_CONFIG_PATH
-AG_GST_ARG_WITH_PACKAGE_NAME
-AG_GST_ARG_WITH_PACKAGE_ORIGIN
-AG_GST_ARG_WITH_PLUGINS
+dnl If we need them, we can also use the gstreamer-controller libraries
+PKG_CHECK_MODULES(GSTCTRL,
+                  gstreamer-controller-$GST_MAJORMINOR >= $GSTPB_REQUIRED,
+                  HAVE_GSTCTRL=yes, HAVE_GSTCTRL=no)
 
-dnl *** checks for platform ***
+dnl Give a warning if we don't have gstreamer-controller
+dnl you can turn this into an error if you need them
+if test "x$HAVE_GSTCTRL" = "xno"; then
+  AC_MSG_NOTICE(no GStreamer Controller libraries found (gstreamer-controller-$GST_MAJORMINOR))
+fi
 
-dnl * hardware/architecture *
+dnl make _CFLAGS and _LIBS available
+AC_SUBST(GSTCTRL_CFLAGS)
+AC_SUBST(GSTCTRL_LIBS)
 
-dnl common/m4/gst-arch.m4
-dnl check CPU type
-AG_GST_ARCH
+dnl set the plugindir where plugins should be installed
+if test "x${prefix}" = "x$HOME"; then
+  plugindir="$HOME/.gstreamer-$GST_MAJORMINOR/plugins"
+else
+  plugindir="\$(libdir)/gstreamer-$GST_MAJORMINOR"
+fi
+AC_SUBST(plugindir)
 
-dnl *** checks for programs ***
+dnl set proper LDFLAGS for plugins
+GST_PLUGIN_LDFLAGS='-module -avoid-version -export-symbols-regex [_]*\(gst_\|Gst\|GST_\).*'
+AC_SUBST(GST_PLUGIN_LDFLAGS)
 
-dnl find a compiler
-AC_PROG_CC
-
-# FIXME: are these two lines needed ?
-AM_PROG_CC_STDC
-AS="${CC}"
-
-dnl check if the compiler supports '-c' and '-o' options
-AM_PROG_CC_C_O
-
-# Check for pkg-config
-AC_CHECK_PROG(HAVE_PKG_CONFIG, pkg-config, yes)
-
-AC_PATH_PROG(VALGRIND_PATH, valgrind, no)
-AM_CONDITIONAL(HAVE_VALGRIND, test ! "x$VALGRIND_PATH" = "xno")
-
-dnl check for documentation tools
-
-dnl *** checks for libraries ***
-
-AC_CHECK_LIB(glib-2.0, strcmp)
-
-dnl *** checks for header files ***
-
-dnl check if we have ANSI C header files
-AC_HEADER_STDC
-
-dnl *** checks for types/defines ***
-
-dnl *** checks for structures ***
-
-dnl *** checks for compiler characteristics ***
-
-dnl *** checks for library functions ***
-
-dnl *** checks for dependancy libraries ***
-
-AG_GST_CHECK_FUNCTION
-
-AG_GST_GLIB_CHECK([2.12])
-
-dnl checks for gstreamer
-dnl uninstalled is selected preferentially -- see pkg-config(1)
-AG_GST_CHECK_GST($GST_MAJORMINOR, [$GST_REQ], yes)
-AG_GST_CHECK_GST_BASE($GST_MAJORMINOR, [$GST_REQ], yes)
-AG_GST_CHECK_GST_GDP($GST_MAJORMINOR, [$GST_REQ], yes)
-AG_GST_CHECK_GST_CONTROLLER($GST_MAJORMINOR, [$GST_REQ], yes)
-AG_GST_CHECK_GST_PLUGINS_BASE($GST_MAJORMINOR, [$GST_REQ], yes)
-dnl AG_GST_CHECK_GST_CHECK($GST_MAJORMINOR, [$GST_REQ], no)
-dnl AM_CONDITIONAL(HAVE_GST_CHECK, test "x$HAVE_GST_CHECK" = "xyes")
-
-AC_MSG_NOTICE(Using GStreamer Core Plugins in $GST_PLUGINS_DIR)
 
 dnl
 dnl Check for libuiomux
 dnl
-
-HAVE_UIOMUX=no
-UIOMUX_SUPPORT=no
-
-if test "x$HAVE_PKG_CONFIG" = "xyes" ; then
-  PKG_CHECK_MODULES(UIOMUX, uiomux, HAVE_UIOMUX=yes, HAVE_UIOMUX=no)
-fi
-
-if test "x$HAVE_UIOMUX" = "xno" ; then
-  AC_CHECK_LIB(uiomux, uiomux_init, HAVE_UIOMUX="maybe", , [-l...])
-  if test "x$HAVE_UIOMUX" = xmaybe ; then
-    AC_CHECK_HEADER([uiomux/uiomux.h], HAVE_UIOMUX="yes", HAVE_UIOMUX="no")
-  fi
-  if test "x$HAVE_UIOMUX" = xyes ; then
-    UIOMUX_LIBS="-luiomux"
-  fi
-fi
-
+PKG_CHECK_MODULES(UIOMUX, uiomux, HAVE_UIOMUX="yes", HAVE_UIOMUX="no")
 if test "x$HAVE_UIOMUX" != "xyes" ; then
   AC_MSG_ERROR([libuiomux is required])
   AC_ERROR
 fi
+AC_SUBST(UIOMUX_CFLAGS)
+AC_SUBST(UIOMUX_LIBS)
 
 dnl
 dnl Check for libshveu
 dnl
-
 PKG_CHECK_MODULES(SHVEU, shveu >= 0.5.0, HAVE_SHVEU="yes", HAVE_SHVEU="no")
 if test "x$HAVE_SHVEU" != "xyes" ; then
   AC_MSG_ERROR([libshveu is required])
@@ -163,82 +155,14 @@ AC_SUBST(SHVEU_LIBS)
 dnl
 dnl Check for libshcodecs
 dnl
-
-AG_GST_CHECK_FEATURE(SHCODECS, [shcodecs], shvideo, [
-
-	AG_GST_PKG_CHECK_MODULES(SHCODECS, shcodecs >= 0.9.5)
-	if test "x$HAVE_SHCODECS" = "xyes"; then
-		AC_CHECK_LIB(shcodecs,shcodecs_decoder_set_use_physical,,AC_ERROR,[$SHCODECS_LIBS])
-		AC_CHECK_LIB(shcodecs,shcodecs_encoder_get_frame_num_delta,,AC_ERROR,[$SHCODECS_LIBS])
-	else
-		AC_MSG_WARN([libshcodecs not available, cannot build SHCODECS plugin])
-	fi
-])
+PKG_CHECK_MODULES(SHCODECS, shcodecs >= 0.9.9, HAVE_SHCODECS="yes", HAVE_SHCODECS="no")
+if test "x$HAVE_SHCODECS" != "xyes" ; then
+  AC_MSG_ERROR([libshcodecs is required])
+  AC_ERROR
+fi
 AC_SUBST(SHCODECS_CFLAGS)
 AC_SUBST(SHCODECS_LIBS)
 
-dnl *** set variables based on configure arguments ***
 
-dnl set location of plugin directory
-AG_GST_SET_PLUGINDIR
+AC_OUTPUT(Makefile m4/Makefile gst/Makefile gst/shvideo/Makefile)
 
-dnl define an ERROR_CFLAGS Makefile variable
-AG_GST_SET_ERROR_CFLAGS($GST_CVS)
-
-dnl define correct level for debugging messages
-AG_GST_SET_LEVEL_DEFAULT($GST_CVS)
-
-dnl *** finalize CFLAGS, LDFLAGS, LIBS ***
-
-AG_GST_DEFAULT_ELEMENTS
-
-dnl Overview:
-dnl GST_OPTION_CFLAGS:  common flags for profiling, debugging, errors, ...
-dnl GST_*:              flags shared by built objects to link against GStreamer
-dnl GST_ALL_LDFLAGS:    linker flags shared by all
-dnl GST_LIB_LDFLAGS:    additional linker flags for all libaries
-dnl GST_LT_LDFLAGS:     library versioning of our libraries
-dnl GST_PLUGIN_LDFLAGS: flags to be used for all plugins
-
-dnl GST_OPTION_CFLAGS
-if test "x$USE_DEBUG" = xyes; then
-   PROFILE_CFLAGS="-g"
-fi
-AC_SUBST(PROFILE_CFLAGS)
-
-if test "x$GST_CVS" = "xyes"; then
-  DEPRECATED_CFLAGS="-DGST_DISABLE_DEPRECATED"
-else
-  DEPRECATED_CFLAGS=""
-fi
-AC_SUBST(DEPRECATED_CFLAGS)
-
-dnl every flag in GST_OPTION_CFLAGS can be overridden at make time
-GST_OPTION_CFLAGS="\$(ERROR_CFLAGS) \$(DEBUG_CFLAGS) \$(PROFILE_CFLAGS) \$(GCOV_CFLAGS) \$(OPT_CFLAGS) \$(DEPRECATED_CFLAGS)"
-
-AC_SUBST(GST_OPTION_CFLAGS)
-
-dnl FIXME: do we want to rename to GST_ALL_* ?
-dnl prefer internal headers to already installed ones
-dnl also add builddir include for enumtypes and marshal
-dnl add GST_OPTION_CFLAGS, but overridable
-GST_CFLAGS="-I\$(top_srcdir)/gst-libs -I\$(top_builddir)/gst-libs $GST_CFLAGS \$(GST_OPTION_CFLAGS)"
-AC_SUBST(GST_CFLAGS)
-AC_SUBST(GST_LIBS)
-
-GST_ALL_LDFLAGS="-no-undefined"
-AC_SUBST(GST_ALL_LDFLAGS)
-
-dnl this really should only contain flags, not libs - they get added before
-dnl whatevertarget_LIBS and -L flags here affect the rest of the linking
-GST_PLUGIN_LDFLAGS="-module -avoid-version -export-symbols-regex '^[_]*gst_plugin_desc\$\$' $GST_ALL_LDFLAGS"
-AC_SUBST(GST_PLUGIN_LDFLAGS)
-
-AC_CONFIG_FILES(
-Makefile
-gst/Makefile
-gst/shvideo/Makefile
-)
-AC_OUTPUT
-
-AG_GST_OUTPUT_PLUGINS

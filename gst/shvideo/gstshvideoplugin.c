@@ -61,4 +61,4 @@ GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     "gst-sh-mobile",
     "SH HW video elements",
     gst_sh_video_plugin_init,
-    VERSION, "LGPL", GST_PACKAGE_NAME, GST_PACKAGE_ORIGIN)
+    VERSION, "LGPL", "Renesas SH Video", "")
