@@ -41,7 +41,7 @@ gst_sh_video_plugin_init (GstPlugin * plugin)
           GST_TYPE_SH_VIDEO_SINK))
     return FALSE;
 
-  if (!gst_element_register (plugin, "gst-sh-mobile-dec", GST_RANK_NONE,
+  if (!gst_element_register (plugin, "gst-sh-mobile-dec", GST_RANK_PRIMARY,
           GST_TYPE_SH_VIDEO_DEC))
     return FALSE;
 
