@@ -43,25 +43,12 @@ if test "x$GST_WALL" = "xyes"; then
 fi
 
 dnl Check for pkgconfig first
-AC_CHECK_PROG(HAVE_PKGCONFIG, pkg-config, yes, no)
-
-dnl Give error and exit if we don't have pkgconfig
-if test "x$HAVE_PKGCONFIG" = "xno"; then
-  AC_MSG_ERROR(you need to have pkgconfig installed !)
-fi
+AC_CHECK_PROG(HAVE_PKG_CONFIG, pkg-config, yes)
 
 dnl Now we're ready to ask for gstreamer libs and cflags
 dnl And we can also ask for the right version of gstreamer
 
-
-PKG_CHECK_MODULES(GST, \
-  gstreamer-$GST_MAJORMINOR >= $GST_REQUIRED,
-  HAVE_GST=yes,HAVE_GST=no)
-
-dnl Give error and exit if we don't have gstreamer
-if test "x$HAVE_GST" = "xno"; then
-  AC_MSG_ERROR(you need gstreamer development packages installed !)
-fi
+PKG_CHECK_MODULES(GST, gstreamer-$GST_MAJORMINOR >= $GST_REQUIRED)
 
 dnl append GST_ERROR cflags to GST_CFLAGS
 GST_CFLAGS="$GST_CFLAGS $GST_ERROR"
@@ -73,49 +60,13 @@ AC_SUBST(GST_LIBS)
 dnl make GST_MAJORMINOR available in Makefile.am
 AC_SUBST(GST_MAJORMINOR)
 
-dnl If we need them, we can also use the base class libraries
-PKG_CHECK_MODULES(GST_BASE, gstreamer-base-$GST_MAJORMINOR >= $GST_REQUIRED,
-                  HAVE_GST_BASE=yes, HAVE_GST_BASE=no)
+PKG_CHECK_MODULES(GST_BASE, gstreamer-base-$GST_MAJORMINOR >= $GST_REQUIRED)
 
-dnl Give a warning if we don't have gstreamer libs
-dnl you can turn this into an error if you need them
-if test "x$HAVE_GST_BASE" = "xno"; then
-  AC_MSG_NOTICE(no GStreamer base class libraries found (gstreamer-base-$GST_MAJORMINOR))
-fi
-
-dnl make _CFLAGS and _LIBS available
-AC_SUBST(GST_BASE_CFLAGS)
-AC_SUBST(GST_BASE_LIBS)
-
-dnl If we need them, we can also use the gstreamer-plugins-base libraries
 PKG_CHECK_MODULES(GSTPB_BASE,
-                  gstreamer-plugins-base-$GST_MAJORMINOR >= $GSTPB_REQUIRED,
-                  HAVE_GSTPB_BASE=yes, HAVE_GSTPB_BASE=no)
+                  gstreamer-plugins-base-$GST_MAJORMINOR >= $GSTPB_REQUIRED)
 
-dnl Give a warning if we don't have gstreamer libs
-dnl you can turn this into an error if you need them
-if test "x$HAVE_GSTPB_BASE" = "xno"; then
-  AC_MSG_NOTICE(no GStreamer Plugins Base libraries found (gstreamer-plugins-base-$GST_MAJORMINOR))
-fi
-
-dnl make _CFLAGS and _LIBS available
-AC_SUBST(GSTPB_BASE_CFLAGS)
-AC_SUBST(GSTPB_BASE_LIBS)
-
-dnl If we need them, we can also use the gstreamer-controller libraries
 PKG_CHECK_MODULES(GSTCTRL,
-                  gstreamer-controller-$GST_MAJORMINOR >= $GSTPB_REQUIRED,
-                  HAVE_GSTCTRL=yes, HAVE_GSTCTRL=no)
-
-dnl Give a warning if we don't have gstreamer-controller
-dnl you can turn this into an error if you need them
-if test "x$HAVE_GSTCTRL" = "xno"; then
-  AC_MSG_NOTICE(no GStreamer Controller libraries found (gstreamer-controller-$GST_MAJORMINOR))
-fi
-
-dnl make _CFLAGS and _LIBS available
-AC_SUBST(GSTCTRL_CFLAGS)
-AC_SUBST(GSTCTRL_LIBS)
+                  gstreamer-controller-$GST_MAJORMINOR >= $GSTPB_REQUIRED)
 
 dnl set the plugindir where plugins should be installed
 if test "x${prefix}" = "x$HOME"; then
@@ -131,37 +82,11 @@ AC_SUBST(GST_PLUGIN_LDFLAGS)
 
 
 dnl
-dnl Check for libuiomux
+dnl Check for libraries
 dnl
-PKG_CHECK_MODULES(UIOMUX, uiomux, HAVE_UIOMUX="yes", HAVE_UIOMUX="no")
-if test "x$HAVE_UIOMUX" != "xyes" ; then
-  AC_MSG_ERROR([libuiomux is required])
-  AC_ERROR
-fi
-AC_SUBST(UIOMUX_CFLAGS)
-AC_SUBST(UIOMUX_LIBS)
-
-dnl
-dnl Check for libshveu
-dnl
-PKG_CHECK_MODULES(SHVEU, shveu >= 0.5.0, HAVE_SHVEU="yes", HAVE_SHVEU="no")
-if test "x$HAVE_SHVEU" != "xyes" ; then
-  AC_MSG_ERROR([libshveu is required])
-  AC_ERROR
-fi
-AC_SUBST(SHVEU_CFLAGS)
-AC_SUBST(SHVEU_LIBS)
-
-dnl
-dnl Check for libshcodecs
-dnl
-PKG_CHECK_MODULES(SHCODECS, shcodecs >= 0.9.9, HAVE_SHCODECS="yes", HAVE_SHCODECS="no")
-if test "x$HAVE_SHCODECS" != "xyes" ; then
-  AC_MSG_ERROR([libshcodecs is required])
-  AC_ERROR
-fi
-AC_SUBST(SHCODECS_CFLAGS)
-AC_SUBST(SHCODECS_LIBS)
+PKG_CHECK_MODULES(UIOMUX, uiomux >= 1.1.0)
+PKG_CHECK_MODULES(SHVEU, shveu >= 1.3.0)
+PKG_CHECK_MODULES(SHCODECS, shcodecs >= 1.1.0)
 
 
 AC_OUTPUT(Makefile m4/Makefile gst/Makefile gst/shvideo/Makefile)
