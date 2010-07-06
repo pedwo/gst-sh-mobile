@@ -76,9 +76,9 @@ struct _GstSHVideoCapEnc {
 	struct Queue * enc_input_q;
 	struct Queue * enc_input_empty_q;
 
-	void *display;
+	DISPLAY *display;
 
-	int veu;
+	SHVEU *veu;
 
 	int cap_w;
 	int cap_h;
@@ -204,19 +204,12 @@ static void capture_image_cb(capture * ceu, const unsigned char *frame_data, siz
 
 	GST_DEBUG_OBJECT(pvt, "Starting blit to encoder input buffer...");
 
-	shveu_operation(pvt->veu,
-			cap_y,
-			cap_c,
-			pvt->cap_w,
-			pvt->cap_h,
-			pvt->cap_w,
-			SHVEU_YCbCr420,
-			enc_y,
-			enc_c,
-			(long) pvt->width,
-			(long) pvt->height,
-			(long) pvt->width,
-			SHVEU_YCbCr420, SHVEU_NO_ROT);
+	shveu_crop(pvt->veu, 1, 0, 0, (long) pvt->width, (long) pvt->height);
+	shveu_rescale(pvt->veu,
+		cap_y, cap_c,
+		pvt->cap_w, pvt->cap_h, V4L2_PIX_FMT_NV12,
+		enc_y, enc_c,
+		(long) pvt->width, (long) pvt->height, V4L2_PIX_FMT_NV12);
 
 	GST_DEBUG_OBJECT(pvt, "Blit to encoder input buffer complete");
 
@@ -322,7 +315,7 @@ static void gst_shvideo_enc_dispose(GObject * object)
 		display_close(shvideoenc->display);
 	}
 
-	shveu_close();
+	shveu_close(shvideoenc->veu);
 	capture_close(shvideoenc->ceu);
 
 	G_OBJECT_CLASS(parent_class)->dispose(object);
@@ -719,14 +712,14 @@ static void *launch_camera_encoder_thread(void *data)
 
 	/* VEU initialisation */
 	enc->veu = shveu_open();
-	if (enc->veu < 0) {
+	if (enc->veu == NULL) {
 		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 				  ("Error opening VEU"), (NULL));
 	}
 
 	/* Display output */
 	if (enc->preview == PREVIEW_ON) {
-		enc->display = display_open(enc->veu);
+		enc->display = display_open();
 		if (!enc->display) {
 			GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 					  ("Error opening fb device"), (NULL));

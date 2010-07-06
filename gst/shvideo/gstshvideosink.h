@@ -29,6 +29,7 @@
 #include <gst/video/gstvideosink.h>
 #include <gst/gstelement.h>
 #include <uiomux/uiomux.h>
+#include "display.h"
 
 G_BEGIN_DECLS
 #define GST_TYPE_SH_VIDEO_SINK \
@@ -76,9 +77,8 @@ struct _GstSHVideoSink
 	gint dst_y;
 	gint zoom_factor;
 
-	void *display;
+	DISPLAY *display;
 	UIOMux *uiomux;
-	int shveu;
 	void *veu_mem_user;
 	unsigned long veu_mem_phys;
 };

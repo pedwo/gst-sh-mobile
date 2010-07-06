@@ -89,7 +89,7 @@
 #include "gstshvideosink.h"
 #include "gstshvideobuffer.h"
 #include <linux/videodev2.h> /* For pixel formats */
-#include <shveu/shveu.h>
+#include <uiomux/uiomux.h>
 #include "display.h"
 
 GST_DEBUG_CATEGORY_STATIC (gst_sh_video_sink_debug);
@@ -543,9 +543,7 @@ gst_sh_video_sink_start (GstBaseSink *bsink)
    
 	GST_DEBUG_OBJECT(sink,"START, opening devices.");
 
-	sink->shveu = shveu_open();
-
-	sink->display = display_open(sink->shveu);
+	sink->display = display_open();
 	if (!sink->display) {
 		GST_ELEMENT_ERROR((GstElement *) sink, CORE, FAILED,
 				  ("Error opening fb device"), (NULL));
@@ -561,7 +559,6 @@ gst_sh_video_sink_stop (GstBaseSink *bsink)
 
 	GST_DEBUG_OBJECT(sink,"STOP, closing devices.");
 	display_close(sink->display);
-	shveu_close();
 
 	return TRUE;
 }
