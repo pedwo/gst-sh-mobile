@@ -33,6 +33,7 @@
 #include "gstshvideoenc.h"
 #include "gstshvideodec.h"
 #include "gstshvideocapenc.h"
+#include "gstshvideoresize.h"
 
 gboolean
 gst_sh_video_plugin_init (GstPlugin * plugin)
@@ -51,6 +52,10 @@ gst_sh_video_plugin_init (GstPlugin * plugin)
 
   if (!gst_element_register (plugin, "gst-sh-mobile-camera-enc", GST_RANK_PRIMARY,
           GST_TYPE_SH_VIDEO_CAPENC))
+    return FALSE;
+
+  if (!gst_element_register (plugin, "gst-sh-mobile-resize", GST_RANK_PRIMARY,
+          GST_TYPE_SHVIDRESIZE))
     return FALSE;
 
   return TRUE;

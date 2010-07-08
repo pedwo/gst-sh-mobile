@@ -21,6 +21,8 @@
 #ifndef GSTSHVIDEOBUFFER_H
 #define GSTSHVIDEOBUFFER_H
 
+#include <linux/videodev2.h>
+#include <uiomux/uiomux.h>
 #include <gst/gst.h>
 
 #define GST_TYPE_SH_VIDEO_BUFFER (gst_sh_video_buffer_get_type())
@@ -45,6 +47,9 @@ struct _GstSHVideoBuffer
 {
 	GstBuffer buffer;
 
+	UIOMux *uiomux;
+	int allocated;
+	gint allocated_size;
 	guint8   *y_data;
 	guint    y_size;
 	guint8   *c_data;
@@ -72,5 +77,11 @@ struct _GstSHVideoBufferclass
  * @return object type
  */
 GType gst_sh_video_buffer_get_type (void);
+
+/**
+ * Allocate a buffer that can be directly accessed by the SH hardware
+ */
+GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int v4l2fmt);
+
 
 #endif //GSTSHVIDEOBUFFER_H
