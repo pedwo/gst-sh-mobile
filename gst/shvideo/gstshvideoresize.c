@@ -51,7 +51,6 @@
 #include <shveu/shveu.h>
 
 #include "gstshvideoresize.h"
-#include "gstshvideosink.h"
 #include "gstshvideobuffer.h"
 
 /* Declare variable used to categorize GST_LOG output */

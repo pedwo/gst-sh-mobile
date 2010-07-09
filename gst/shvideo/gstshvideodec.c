@@ -102,7 +102,6 @@
 #include <pthread.h>
 
 #include "gstshvideodec.h"
-#include "gstshvideosink.h"
 #include "gstshvideobuffer.h"
 
 /**
@@ -692,7 +691,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 	/* Autodetect Gstshvideosink */
 	if(dec->use_physical == HW_ADDR_AUTO)
 	{
-		if(GST_IS_SH_VIDEO_SINK(gst_pad_get_parent_element(gst_pad_get_peer(dec->srcpad))))
+		if(GST_IS_SH_VIDEO_PEER(dec->srcpad))
 		{
 			dec->use_physical = HW_ADDR_YES;
 			GST_DEBUG_OBJECT(dec,"use_physical auto detected to YES");  
