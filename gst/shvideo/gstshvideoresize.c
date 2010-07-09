@@ -61,29 +61,13 @@ GST_DEBUG_CATEGORY_STATIC (gst_shvidresize_debug);
 #undef GST_VIDEO_SIZE_RANGE
 #define GST_VIDEO_SIZE_RANGE "(int) [ 16, 4092]"
 
-/* YCbCr 4:2:0 Semi-planar */
-#define GST_VIDEO_CAPS_YUV_NV12                                         \
-            "video/x-raw-yuv, "                                         \
-            "format = (fourcc) NV12, "                                  \
-            "width = " GST_VIDEO_SIZE_RANGE ", "                        \
-            "height = " GST_VIDEO_SIZE_RANGE ", "                       \
-            "framerate = " GST_VIDEO_FPS_RANGE
-
-/* YCbCr 4:2:2 Semi-planar */
-#define GST_VIDEO_CAPS_YUV_NV16                                         \
-            "video/x-raw-yuv, "                                         \
-            "format = (fourcc) NV16, "                                  \
-            "width = " GST_VIDEO_SIZE_RANGE ", "                        \
-            "height = " GST_VIDEO_SIZE_RANGE ", "                       \
-            "framerate = " GST_VIDEO_FPS_RANGE
-
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
 	"sink",
 	GST_PAD_SINK,
 	GST_PAD_ALWAYS,
 	GST_STATIC_CAPS (
-		GST_VIDEO_CAPS_YUV_NV12";"
-		GST_VIDEO_CAPS_YUV_NV16";"
+		GST_VIDEO_CAPS_YUV("NV12")";"
+		GST_VIDEO_CAPS_YUV("NV16")";"
 		GST_VIDEO_CAPS_RGB_16";"
 		GST_VIDEO_CAPS_RGBx
 	)
@@ -94,8 +78,8 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
 	GST_PAD_SRC,
 	GST_PAD_ALWAYS,
 	GST_STATIC_CAPS (
-		GST_VIDEO_CAPS_YUV_NV12";"
-		GST_VIDEO_CAPS_YUV_NV16";"
+		GST_VIDEO_CAPS_YUV("NV12")";"
+		GST_VIDEO_CAPS_YUV("NV16")";"
 		GST_VIDEO_CAPS_RGB_16";"
 		GST_VIDEO_CAPS_RGBx
 	)
@@ -442,8 +426,8 @@ static GstCaps *gst_shvidresize_transform_caps (GstBaseTransform *trans,
 	GST_LOG("begin (%s)", direction==GST_PAD_SRC ? "src" : "sink");
 
 	static GstStaticCaps static_caps = GST_STATIC_CAPS (
-		GST_VIDEO_CAPS_YUV_NV12";"
-		GST_VIDEO_CAPS_YUV_NV16";"
+		GST_VIDEO_CAPS_YUV("NV12")";"
+		GST_VIDEO_CAPS_YUV("NV16")";"
 		GST_VIDEO_CAPS_RGB_16";"
 		GST_VIDEO_CAPS_RGBx
 	);
