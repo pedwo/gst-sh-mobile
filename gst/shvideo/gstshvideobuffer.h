@@ -48,6 +48,7 @@ struct _GstSHVideoBuffer
 	GstBuffer buffer;
 
 	UIOMux *uiomux;
+	int v4l2format;
 	int allocated;
 	gint allocated_size;
 	guint8   *y_data;

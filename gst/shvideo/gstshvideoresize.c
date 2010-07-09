@@ -47,47 +47,34 @@
 GST_DEBUG_CATEGORY_STATIC (gst_shvidresize_debug);
 #define GST_CAT_DEFAULT gst_shvidresize_debug
 
-// TODO add more formats
+#undef GST_VIDEO_SIZE_RANGE
+#define GST_VIDEO_SIZE_RANGE "(int) [ 16, 4092]"
 
-/**
- * \var sink_factory
- * Name: sink \n
- * Direction: sink \n
- * Available: always \n
- * Caps:
- * - video/x-raw-yuv, format=(fourcc)NV12, width=(int)[16, 4092], 
- *   height=(int)[16, 4092]
- */
+/* YCbCr Semi-planar */
+#define GST_VIDEO_CAPS_YUV_NV12                                         \
+            "video/x-raw-yuv, "                                         \
+            "format = (fourcc) NV12, "                                  \
+            "width = " GST_VIDEO_SIZE_RANGE ", "                        \
+            "height = " GST_VIDEO_SIZE_RANGE ", "                       \
+            "framerate = " GST_VIDEO_FPS_RANGE
+
 static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
 	"sink",
 	GST_PAD_SINK,
 	GST_PAD_ALWAYS,
-	GST_STATIC_CAPS
-	( "video/x-raw-yuv, "
-	  "format = (fourcc) NV12,"
-	  "width = (int) [16, 4092],"
-	  "height = (int) [16, 4092]"
+	GST_STATIC_CAPS (
+		GST_VIDEO_CAPS_YUV_NV12";"
+		GST_VIDEO_CAPS_RGB_16
 	)
 );
 
-/**
- * \var src_factory
- * Name: src \n
- * Direction: src \n
- * Available: always \n
- * Caps:
- * - video/x-raw-yuv, format=(fourcc)NV12, width=(int)[16, 4092], 
- *   height=(int)[16, 4092]
- */
 static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
 	"src",
 	GST_PAD_SRC,
 	GST_PAD_ALWAYS,
-	GST_STATIC_CAPS
-	( "video/x-raw-yuv, "
-	  "format = (fourcc) NV12,"
-	  "width = (int) [16, 4092],"
-	  "height = (int) [16, 4092]"
+	GST_STATIC_CAPS (
+		GST_VIDEO_CAPS_YUV_NV12";"
+		GST_VIDEO_CAPS_RGB_16
 	)
 );
 
@@ -164,9 +151,9 @@ static void gst_shvidresize_base_init(gpointer gclass)
 	GstElementClass *element_class = GST_ELEMENT_CLASS(gclass);
 
 	gst_element_class_add_pad_template(element_class,
-	gst_static_pad_template_get (&src_factory));
+		gst_static_pad_template_get (&src_factory));
 	gst_element_class_add_pad_template(element_class,
-	gst_static_pad_template_get (&sink_factory));
+		gst_static_pad_template_get (&sink_factory));
 	gst_element_class_set_details(element_class, &element_details);
 }
 
@@ -213,12 +200,14 @@ static void gst_shvidresize_init (GstSHVidresize *vidresize)
 /*****************************************************************************/
 
 /*
- * Helper: parse_caps
+ * Helper: get_spec
  */
-static gboolean parse_caps (GstCaps *cap, gint *width,
-	gint *height, guint32 *format)
+static gboolean get_spec (GstCaps *cap, gint *width,
+	gint *height, int *v4l2format)
 {
 	GstStructure *structure;
+	guint32 fourcc;
+	gint bpp;
 	structure = gst_caps_get_structure(cap, 0);
 
 	GST_LOG("begin");
@@ -233,28 +222,28 @@ static gboolean parse_caps (GstCaps *cap, gint *width,
 		return FALSE;
 	}
 
-	if (!gst_structure_get_fourcc(structure, "format", format)) {
-		GST_ERROR("failed to get fourcc from cap");
+	*v4l2format = 0;
+
+	if (gst_structure_get_fourcc(structure, "format", &fourcc)) {
+		if (fourcc == GST_MAKE_FOURCC('N', 'V', '1', '2')) {
+			*v4l2format = V4L2_PIX_FMT_NV12;
+		}
+	} else {
+		if (gst_structure_get_int(structure, "bpp", &bpp)) {
+			if (bpp == 16)
+				*v4l2format = V4L2_PIX_FMT_RGB565;
+		}
+	}
+
+
+	if (*v4l2format == 0) {
+		GST_ERROR("failed to get format from cap");
 		return FALSE;
 	}
 
 	GST_LOG("end");
 
 	return TRUE; 
-}
-
-/*
- * Helper: get_v4l2format
- */
-int get_v4l2format (guint32 fourcc)
-{
-	switch (fourcc) {
-	case GST_MAKE_FOURCC('N', 'V', '1', '2'):
-		return V4L2_PIX_FMT_NV12;
-	default:
-		GST_ERROR("failed to get colorspace");
-		return 0;
-	}
 }
 
 /*****************************************************************************/
@@ -271,17 +260,15 @@ static GstFlowReturn gst_shvidresize_prepare_output_buffer (GstBaseTransform
 {
 	GstSHVidresize *vidresize = GST_SHVIDRESIZE(trans);
 	gint width, height;
-	guint32 fourcc;
 	int v4l2fmt;
 
 	GST_LOG("begin");
 
 	/* Get the width, height & format from the caps */
-	if (!parse_caps(caps, &width, &height, &fourcc)) {
+	if (!get_spec(caps, &width, &height, &v4l2fmt)) {
 		GST_ERROR("Failed to get resolution");
 		return FALSE;
 	}
-	v4l2fmt = get_v4l2format(fourcc);
 
 	GST_LOG("output size = %dx%d, format=%d", width, height, v4l2fmt);
 
@@ -295,7 +282,7 @@ static GstFlowReturn gst_shvidresize_prepare_output_buffer (GstBaseTransform
 
 	gst_buffer_set_caps(*outBuf, GST_PAD_CAPS(trans->srcpad));
 
-	GST_LOG("alloacted dst py=%p, pc=%p", GST_SH_VIDEO_BUFFER_Y_DATA(*outBuf), GST_SH_VIDEO_BUFFER_C_DATA(*outBuf));
+	GST_LOG("allocated dst py=%p, pc=%p", GST_SH_VIDEO_BUFFER_Y_DATA(*outBuf), GST_SH_VIDEO_BUFFER_C_DATA(*outBuf));
 
 	GST_LOG("end");   
 
@@ -311,16 +298,14 @@ static gboolean gst_shvidresize_get_unit_size (GstBaseTransform *trans,
 	GstCaps *caps, guint *size)
 {
 	gint height, width;
-	guint32 fourcc;
 	int v4l2fmt;
 
 	GST_LOG("begin");
 
-	if (!parse_caps(caps, &width, &height, &fourcc)) {
+	if (!get_spec(caps, &width, &height, &v4l2fmt)) {
 		GST_ERROR("Failed to get resolution");
 		return FALSE;
 	}
-	v4l2fmt = get_v4l2format(fourcc);
 
 	// TODO calc buf size
 	*size =1;
@@ -429,11 +414,13 @@ static GstCaps *gst_shvidresize_transform_caps (GstBaseTransform *trans,
 
 	GST_LOG("begin (%s)", direction==GST_PAD_SRC ? "src" : "sink");
 
+	static GstStaticCaps static_caps = GST_STATIC_CAPS (
+		GST_VIDEO_CAPS_YUV_NV12";"
+		GST_VIDEO_CAPS_RGB_16
+	);
+
 	// TODO should limit scale up/down
-	ret = gst_caps_new_simple ("video/x-raw-yuv",
-		"format", GST_TYPE_FOURCC, GST_MAKE_FOURCC ('N','V','1','2'),
-		"width", GST_TYPE_INT_RANGE, 16, 4096,
-		"height", GST_TYPE_INT_RANGE, 16, 4096, NULL);
+	ret = gst_static_caps_get(&static_caps);
 
 	return ret;
 }
@@ -447,37 +434,29 @@ static gboolean gst_shvidresize_set_caps (GstBaseTransform *trans,
 {
 	GstSHVidresize      *vidresize  = GST_SHVIDRESIZE(trans);
 	gboolean            ret         = FALSE;
-	guint32             fourcc;
-//	guint               outBufSize;
 
 	GST_LOG("begin");
 
 	/* parse input cap */
-	if (!parse_caps(in, &vidresize->srcWidth,
-			&vidresize->srcHeight, &fourcc)) {
+	if (!get_spec(in, &vidresize->srcWidth,
+			&vidresize->srcHeight, &vidresize->srcColorSpace)) {
 		GST_ELEMENT_ERROR(vidresize, RESOURCE, FAILED,
 			("failed to get input resolution"), (NULL));
 		goto exit;
 	}
 
-	GST_LOG("input: %dx%d %" GST_FOURCC_FORMAT, vidresize->srcWidth, vidresize->srcHeight, GST_FOURCC_ARGS(fourcc));
-
-	/* map fourcc with its corresponding v4l2 colorspace type */ 
-	vidresize->srcColorSpace = get_v4l2format(fourcc);
+	GST_LOG("input: %dx%d", vidresize->srcWidth, vidresize->srcHeight);
 
 
 	/* parse output cap */
-	if (!parse_caps(out, &vidresize->dstWidth,
-			&vidresize->dstHeight, &fourcc)) {
+	if (!get_spec(out, &vidresize->dstWidth,
+			&vidresize->dstHeight, &vidresize->dstColorSpace)) {
 		GST_ELEMENT_ERROR(vidresize, RESOURCE, FAILED,
 			("failed to get output resolution"), (NULL));
 		goto exit;
 	}
 
-	GST_LOG("output: %dx%d %" GST_FOURCC_FORMAT, vidresize->dstWidth, vidresize->dstHeight, GST_FOURCC_ARGS(fourcc));
-
-	/* map fourcc with its corresponding v4l2 colorspace type */
-	vidresize->dstColorSpace = get_v4l2format(fourcc);
+	GST_LOG("output: %dx%d", vidresize->dstWidth, vidresize->dstHeight);
 
 	// TODO If allocating a buffer pool, here would be a good place
 

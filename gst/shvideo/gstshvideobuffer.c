@@ -67,6 +67,8 @@ GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int 
 	/* Supported color formats */
 	if (v4l2fmt == V4L2_PIX_FMT_NV12)
 		size = (width * height * 3) / 2;
+	else if (v4l2fmt == V4L2_PIX_FMT_RGB565)
+		size = (width * height * 2);
 	else
 		return NULL;
 
@@ -88,6 +90,7 @@ GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int 
 	buf->allocated = 1;
 	buf->allocated_size = size;
 	buf->uiomux = uiomux;
+	buf->v4l2format = v4l2fmt;
 
 	/* Setup the special data */
 	if (v4l2fmt == V4L2_PIX_FMT_NV12) {
@@ -95,6 +98,12 @@ GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int 
 		GST_SH_VIDEO_BUFFER_Y_SIZE(buf) = width * height;
 		GST_SH_VIDEO_BUFFER_C_DATA(buf) = (void*)(phys + width * height);
 		GST_SH_VIDEO_BUFFER_C_SIZE(buf) = width * height / 2;
+	}
+	else if (v4l2fmt == V4L2_PIX_FMT_RGB565) {
+		GST_SH_VIDEO_BUFFER_Y_DATA(buf) = (void*)phys;
+		GST_SH_VIDEO_BUFFER_Y_SIZE(buf) = width * height * 2;
+		GST_SH_VIDEO_BUFFER_C_DATA(buf) = NULL;
+		GST_SH_VIDEO_BUFFER_C_SIZE(buf) = 0;
 	} else
 		return NULL;
 
