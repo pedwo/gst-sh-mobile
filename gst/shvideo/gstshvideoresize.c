@@ -8,13 +8,14 @@
  * Example usage:
  *     gst-launch 
  *       videotestsrc
- *       ! "video/x-raw-rgb, bpp=16, depth=16, width=160, height=120"
+ *       ! "video/x-raw-rgb, bpp=16, width=160, height=120"
  *       ! gst-sh-mobile-resize
- *       ! "video/x-raw-yuv, format=(fourcc)NV16, width=320, height=240"
+ *       ! "video/x-raw-yuv, width=320, height=240"
  *       ! filesink location=out_qvga.yuv
  *
  * This plugin supports the following formats on input and output:
- *       "video/x-raw-rgb, bpp=16, depth=16"
+ *       "video/x-raw-rgb, bpp=16"
+ *       "video/x-raw-rgb, bpp=32"
  *       "video/x-raw-yuv, format=(fourcc)NV12"
  *       "video/x-raw-yuv, format=(fourcc)NV16"
  *
@@ -81,7 +82,8 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
 	GST_STATIC_CAPS (
 		GST_VIDEO_CAPS_YUV_NV12";"
 		GST_VIDEO_CAPS_YUV_NV16";"
-		GST_VIDEO_CAPS_RGB_16
+		GST_VIDEO_CAPS_RGB_16";"
+		GST_VIDEO_CAPS_RGBx
 	)
 );
 
@@ -92,7 +94,8 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
 	GST_STATIC_CAPS (
 		GST_VIDEO_CAPS_YUV_NV12";"
 		GST_VIDEO_CAPS_YUV_NV16";"
-		GST_VIDEO_CAPS_RGB_16
+		GST_VIDEO_CAPS_RGB_16";"
+		GST_VIDEO_CAPS_RGBx
 	)
 );
 
@@ -252,6 +255,8 @@ static gboolean get_spec (GstCaps *cap, gint *width,
 		if (gst_structure_get_int(structure, "bpp", &bpp)) {
 			if (bpp == 16)
 				*v4l2format = V4L2_PIX_FMT_RGB565;
+			if (bpp == 32)
+				*v4l2format = V4L2_PIX_FMT_RGB32;
 		}
 	}
 
@@ -437,7 +442,8 @@ static GstCaps *gst_shvidresize_transform_caps (GstBaseTransform *trans,
 	static GstStaticCaps static_caps = GST_STATIC_CAPS (
 		GST_VIDEO_CAPS_YUV_NV12";"
 		GST_VIDEO_CAPS_YUV_NV16";"
-		GST_VIDEO_CAPS_RGB_16
+		GST_VIDEO_CAPS_RGB_16";"
+		GST_VIDEO_CAPS_RGBx
 	);
 
 	// TODO should limit scale up/down
