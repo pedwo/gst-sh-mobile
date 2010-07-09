@@ -1,14 +1,22 @@
 /*
- * "SHVidResize" element. Resizes video frames using the VEU hardware resizer
+ * "gst-sh-mobile-resize" element. Resizes video frames using the VEU hardware resizer
  * (via libshveu).
  *
  * In Gstreamer terminology, the element implements an out of place transform
  * (i.e. filter) on raw video frames.
  *
  * Example usage:
- *     gst-launch videotestsrc ! 'video/x-raw-yuv,width=160,height=120' !
- *       SHVidResize ! 'video/x-raw-yuv,width=320,height=240' ! 
- *        fakesink silent=TRUE
+ *     gst-launch 
+ *       videotestsrc
+ *       ! "video/x-raw-rgb, bpp=16, depth=16, width=160, height=120"
+ *       ! gst-sh-mobile-resize
+ *       ! "video/x-raw-yuv, format=(fourcc)NV16, width=320, height=240"
+ *       ! filesink location=out_qvga.yuv
+ *
+ * This plugin supports the following formats on input and output:
+ *       "video/x-raw-rgb, bpp=16, depth=16"
+ *       "video/x-raw-yuv, format=(fourcc)NV12"
+ *       "video/x-raw-yuv, format=(fourcc)NV16"
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -50,10 +58,18 @@ GST_DEBUG_CATEGORY_STATIC (gst_shvidresize_debug);
 #undef GST_VIDEO_SIZE_RANGE
 #define GST_VIDEO_SIZE_RANGE "(int) [ 16, 4092]"
 
-/* YCbCr Semi-planar */
+/* YCbCr 4:2:0 Semi-planar */
 #define GST_VIDEO_CAPS_YUV_NV12                                         \
             "video/x-raw-yuv, "                                         \
             "format = (fourcc) NV12, "                                  \
+            "width = " GST_VIDEO_SIZE_RANGE ", "                        \
+            "height = " GST_VIDEO_SIZE_RANGE ", "                       \
+            "framerate = " GST_VIDEO_FPS_RANGE
+
+/* YCbCr 4:2:2 Semi-planar */
+#define GST_VIDEO_CAPS_YUV_NV16                                         \
+            "video/x-raw-yuv, "                                         \
+            "format = (fourcc) NV16, "                                  \
             "width = " GST_VIDEO_SIZE_RANGE ", "                        \
             "height = " GST_VIDEO_SIZE_RANGE ", "                       \
             "framerate = " GST_VIDEO_FPS_RANGE
@@ -64,6 +80,7 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE(
 	GST_PAD_ALWAYS,
 	GST_STATIC_CAPS (
 		GST_VIDEO_CAPS_YUV_NV12";"
+		GST_VIDEO_CAPS_YUV_NV16";"
 		GST_VIDEO_CAPS_RGB_16
 	)
 );
@@ -74,6 +91,7 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE(
 	GST_PAD_ALWAYS,
 	GST_STATIC_CAPS (
 		GST_VIDEO_CAPS_YUV_NV12";"
+		GST_VIDEO_CAPS_YUV_NV16";"
 		GST_VIDEO_CAPS_RGB_16
 	)
 );
@@ -227,6 +245,8 @@ static gboolean get_spec (GstCaps *cap, gint *width,
 	if (gst_structure_get_fourcc(structure, "format", &fourcc)) {
 		if (fourcc == GST_MAKE_FOURCC('N', 'V', '1', '2')) {
 			*v4l2format = V4L2_PIX_FMT_NV12;
+		} else if (fourcc == GST_MAKE_FOURCC('N', 'V', '1', '6')) {
+			*v4l2format = V4L2_PIX_FMT_NV16;
 		}
 	} else {
 		if (gst_structure_get_int(structure, "bpp", &bpp)) {
@@ -416,6 +436,7 @@ static GstCaps *gst_shvidresize_transform_caps (GstBaseTransform *trans,
 
 	static GstStaticCaps static_caps = GST_STATIC_CAPS (
 		GST_VIDEO_CAPS_YUV_NV12";"
+		GST_VIDEO_CAPS_YUV_NV16";"
 		GST_VIDEO_CAPS_RGB_16
 	);
 
