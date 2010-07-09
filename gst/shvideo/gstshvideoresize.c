@@ -6,12 +6,14 @@
  * (i.e. filter) on raw video frames.
  *
  * Example usage:
- *     gst-launch 
- *       videotestsrc
- *       ! "video/x-raw-rgb, bpp=16, width=160, height=120"
- *       ! gst-sh-mobile-resize
- *       ! "video/x-raw-yuv, width=320, height=240"
+ * \code
+ *     gst-launch \
+ *       videotestsrc \
+ *       ! "video/x-raw-rgb, bpp=16, width=160, height=120" \
+ *       ! gst-sh-mobile-resize \
+ *       ! "video/x-raw-yuv, width=320, height=240" \
  *       ! filesink location=out_qvga.yuv
+ * \endcode
  *
  * This plugin supports the following formats on input and output:
  *       "video/x-raw-rgb, bpp=16"
