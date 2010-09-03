@@ -1,4 +1,21 @@
-- make gst-sh-video-cap send NEWSEGMENT events.
-- rtsp server only works for the first connection
-- capsneg is broken
-- potential race condition -- videoenc.c:463 -- needs investigation
+This is a loosely-categorized list of outstanding tasks and ideas for improving
+this package. When implementing any of these, please include an update to this
+TODO file removing that task, in the same commit.
+
+* Modify video encoder to support GST_TYPE_SH_VIDEO_BUFFER input buffers so that
+it can connect to other SH elements without performing a memcpy.
+
+* Create SH capture plugin. This is essentially the same as the v4l2 src plugin
+but would allocate memory from UIOMux and use the USERPTR v4l2 capture method.
+The output buffers would use GST_TYPE_SH_VIDEO_BUFFER so that other SH elements
+can use the captured buffers without performing a memcpy.
+
+* Create an SH video blend/overlay plugin.
+
+* make gst-sh-video-cap send NEWSEGMENT events.
+
+* capsneg is broken
+
+* potential race condition -- videoenc.c:463 -- needs investigation
+
+

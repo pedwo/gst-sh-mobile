@@ -18,8 +18,11 @@ noinst_HEADERS = \
 	thrqueue.h \
 	capture.h \
 	ControlFileUtil.h \
+	gstshvideobuffer.h \
 	gstshvideocapenc.h \
 	gstshvideodec.h \
 	gstshvideoenc.h \
+	gstshencdefaults.h \
 	gstshvideoresize.h \
+	gstshvideosink.h \
 	display.h
