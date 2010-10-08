@@ -37,6 +37,8 @@
 #include "display.h"
 #include "thrqueue.h"
 
+#define CHROMA_ALIGNMENT 16
+
 typedef enum {
 	PREVIEW_OFF,
 	PREVIEW_ON
@@ -742,6 +744,13 @@ static void *launch_camera_encoder_thread(void *data)
 				  ("Camera capture pixel format is not supported"), (NULL));
 	}
 
+	/* Check for frame size that result in v4l2 capture buffers with the CbCr
+	   plane located at an unsupported memory alignment. */
+	if ((enc->width * enc->height) & (CHROMA_ALIGNMENT-1)) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+				  ("unsupported encode size due to Chroma plane alignment"), (NULL));
+	}
+
 	GST_DEBUG_OBJECT(enc, "Capturing at %dx%d", enc->cap_w, enc->cap_h);
 
 	enc->encoder = shcodecs_encoder_init(enc->width, enc->height, enc->format);
@@ -903,6 +912,14 @@ static gboolean gst_shvideocameraenc_set_src_caps(GstPad * pad, GstCaps * caps)
 
 	if (!gst_structure_get_int(structure, "height", &shvideoenc->height)) {
 		GST_DEBUG_OBJECT(shvideoenc, "%s failed (no height)", __func__);
+		return FALSE;
+	}
+
+	/* Check for frame size that result in v4l2 capture buffers with the CbCr
+	   plane located at an unsupported memory alignment. */
+	if ((shvideoenc->width * shvideoenc->height) & (CHROMA_ALIGNMENT-1)) {
+		GST_DEBUG_OBJECT(shvideoenc, "%s failed "
+				"(unsupported size due to Chroma plane alignment)", __func__);
 		return FALSE;
 	}
 
