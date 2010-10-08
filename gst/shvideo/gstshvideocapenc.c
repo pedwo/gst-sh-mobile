@@ -133,7 +133,7 @@ static void gst_shvideo_enc_init_class(gpointer g_class, gpointer data);
 static void gst_shvideo_enc_base_init(gpointer klass);
 static void gst_shvideo_enc_dispose(GObject * object);
 static void gst_shvideo_enc_class_init(GstSHVideoCapEncClass * klass);
-static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEncClass * gklass);
+static void gst_shvideo_enc_init(GstSHVideoCapEnc * enc, GstSHVideoCapEncClass * gklass);
 static void gst_shvideo_enc_set_property(GObject * object, guint prop_id,
 					 const GValue * value, GParamSpec * pspec);
 static void gst_shvideo_enc_get_property(GObject * object, guint prop_id,
@@ -142,7 +142,7 @@ static gboolean gst_shvideo_enc_src_query(GstPad * pad, GstQuery * query);
 static int gst_shvideo_enc_get_input(SHCodecs_Encoder * encoder, void *user_data);
 static int gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 					unsigned char *data, int length, void *user_data);
-static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * shvideoenc);
+static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * enc);
 static void *launch_camera_encoder_thread(void *data);
 static GType gst_camera_preview_get_type(void);
 static gboolean gst_shvideoenc_src_event(GstPad * pad, GstEvent * event);
@@ -150,7 +150,7 @@ static GstStateChangeReturn gst_shvideo_enc_change_state(GstElement *
 							 element, GstStateChange transition);
 static gboolean gst_shvideoenc_set_clock(GstElement * element, GstClock * clock);
 static gboolean gst_shvideocameraenc_set_src_caps(GstPad * pad, GstCaps * caps);
-static void gst_shvideocameraenc_read_src_caps(GstSHVideoCapEnc * shvideoenc);
+static void gst_shvideocameraenc_read_src_caps(GstSHVideoCapEnc * enc);
 
 /**
  * Define encoder properties
@@ -299,26 +299,26 @@ static void gst_shvideo_enc_base_init(gpointer klass)
 */
 static void gst_shvideo_enc_dispose(GObject * object)
 {
-	GstSHVideoCapEnc *shvideoenc = GST_SH_VIDEO_CAPENC(object);
+	GstSHVideoCapEnc *enc = GST_SH_VIDEO_CAPENC(object);
 	void *thread_ret;
 	GST_LOG("%s called", __func__);
 
-	shvideoenc->stop_capture_thr = TRUE;
-	pthread_join(shvideoenc->enc_thread, &thread_ret);
+	enc->stop_capture_thr = TRUE;
+	pthread_join(enc->enc_thread, &thread_ret);
 
-	capture_stop_capturing(shvideoenc->ceu);
+	capture_stop_capturing(enc->ceu);
 
-	if (shvideoenc->encoder != NULL) {
-		shcodecs_encoder_close(shvideoenc->encoder);
-		shvideoenc->encoder = NULL;
+	if (enc->encoder != NULL) {
+		shcodecs_encoder_close(enc->encoder);
+		enc->encoder = NULL;
 	}
 
-	if (shvideoenc->preview == PREVIEW_ON) {
-		display_close(shvideoenc->display);
+	if (enc->preview == PREVIEW_ON) {
+		display_close(enc->display);
 	}
 
-	shveu_close(shvideoenc->veu);
-	capture_close(shvideoenc->ceu);
+	shveu_close(enc->veu);
+	capture_close(enc->ceu);
 
 	G_OBJECT_CLASS(parent_class)->dispose(object);
 }
@@ -380,70 +380,70 @@ static void gst_shvideo_enc_class_init(GstSHVideoCapEncClass * klass)
 }
 
 /** Initialize the encoder
-	@param shvideoenc Gstreamer SH video element
+	@param enc Gstreamer SH video element
 	@param gklass Gstreamer SH video encode class
 */
-static void gst_shvideo_enc_init(GstSHVideoCapEnc * shvideoenc, GstSHVideoCapEncClass * gklass)
+static void gst_shvideo_enc_init(GstSHVideoCapEnc * enc, GstSHVideoCapEncClass * gklass)
 {
-	GstElementClass *klass = GST_ELEMENT_GET_CLASS(shvideoenc);
+	GstElementClass *klass = GST_ELEMENT_GET_CLASS(enc);
 
-	GST_LOG_OBJECT(shvideoenc, "%s called", __func__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	shvideoenc->srcpad =
+	enc->srcpad =
 		gst_pad_new_from_template(gst_element_class_get_pad_template(klass, "src"), "src");
-	gst_pad_set_setcaps_function(shvideoenc->srcpad, gst_shvideocameraenc_set_src_caps);
+	gst_pad_set_setcaps_function(enc->srcpad, gst_shvideocameraenc_set_src_caps);
 
-	gst_pad_set_query_function(shvideoenc->srcpad,
+	gst_pad_set_query_function(enc->srcpad,
 				   GST_DEBUG_FUNCPTR(gst_shvideo_enc_src_query));
-	gst_pad_set_event_function(shvideoenc->srcpad, GST_DEBUG_FUNCPTR(gst_shvideoenc_src_event));
+	gst_pad_set_event_function(enc->srcpad, GST_DEBUG_FUNCPTR(gst_shvideoenc_src_event));
 
-	gst_element_add_pad(GST_ELEMENT(shvideoenc), shvideoenc->srcpad);
+	gst_element_add_pad(GST_ELEMENT(enc), enc->srcpad);
 
-	shvideoenc->encoder = NULL;
-	shvideoenc->caps_set = FALSE;
-	shvideoenc->stop_capture_thr = FALSE;
-	shvideoenc->stop_encode_thr = FALSE;
-	shvideoenc->enc_thread = 0;
+	enc->encoder = NULL;
+	enc->caps_set = FALSE;
+	enc->stop_capture_thr = FALSE;
+	enc->stop_encode_thr = FALSE;
+	enc->enc_thread = 0;
 
 	/* Initialize the queues */
-	shvideoenc->enc_input_q = queue_init();
-	shvideoenc->enc_input_empty_q = queue_init();
+	enc->enc_input_q = queue_init();
+	enc->enc_input_empty_q = queue_init();
 
-	shvideoenc->format = SHCodecs_Format_NONE;
-	shvideoenc->out_caps = NULL;
-	shvideoenc->width = 0;
-	shvideoenc->height = 0;
-	shvideoenc->fps_numerator = 25;
-	shvideoenc->fps_denominator = 1;
-	shvideoenc->frame_number = 0;
-	shvideoenc->preview = PREVIEW_OFF;
-	shvideoenc->hold_output = TRUE;
-	shvideoenc->start_time_set = FALSE;
-	shvideoenc->output_buf = NULL;
+	enc->format = SHCodecs_Format_NONE;
+	enc->out_caps = NULL;
+	enc->width = 0;
+	enc->height = 0;
+	enc->fps_numerator = 25;
+	enc->fps_denominator = 1;
+	enc->frame_number = 0;
+	enc->preview = PREVIEW_OFF;
+	enc->hold_output = TRUE;
+	enc->start_time_set = FALSE;
+	enc->output_buf = NULL;
 }
 
 
 static GstStateChangeReturn
 gst_shvideo_enc_change_state(GstElement * element, GstStateChange transition)
 {
-	GstSHVideoCapEnc *shvideoenc = (GstSHVideoCapEnc *) element;
+	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) element;
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
 
-	GST_DEBUG_OBJECT(shvideoenc, "%s called", __func__);
+	GST_DEBUG_OBJECT(enc, "%s called", __func__);
 
 	switch (transition) {
 	case GST_STATE_CHANGE_NULL_TO_READY:
-		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_NULL_TO_READY");
-		shvideoenc->hold_output = TRUE;
+		GST_DEBUG_OBJECT(enc, "GST_STATE_CHANGE_NULL_TO_READY");
+		enc->hold_output = TRUE;
 		break;
 	case GST_STATE_CHANGE_READY_TO_PAUSED:
-		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_READY_TO_PAUSED");
-		shvideoenc->hold_output = FALSE;
-		gst_shvideo_enc_init_camera_encoder(shvideoenc);
+		GST_DEBUG_OBJECT(enc, "GST_STATE_CHANGE_READY_TO_PAUSED");
+		enc->hold_output = FALSE;
+		gst_shvideo_enc_init_camera_encoder(enc);
 		break;
 	case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
-		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_PAUSED_TO_PLAYING");
-		shvideoenc->hold_output = FALSE;
+		GST_DEBUG_OBJECT(enc, "GST_STATE_CHANGE_PAUSED_TO_PLAYING");
+		enc->hold_output = FALSE;
 		break;
 	default:
 		break;
@@ -455,16 +455,16 @@ gst_shvideo_enc_change_state(GstElement * element, GstStateChange transition)
 
 	switch (transition) {
 	case GST_STATE_CHANGE_PLAYING_TO_PAUSED:
-		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_PLAYING_TO_PAUSED");
-		shvideoenc->hold_output = TRUE;
+		GST_DEBUG_OBJECT(enc, "GST_STATE_CHANGE_PLAYING_TO_PAUSED");
+		enc->hold_output = TRUE;
 		break;
 	case GST_STATE_CHANGE_PAUSED_TO_READY:
-		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_PAUSED_TO_READY");
-		shvideoenc->hold_output = TRUE;
+		GST_DEBUG_OBJECT(enc, "GST_STATE_CHANGE_PAUSED_TO_READY");
+		enc->hold_output = TRUE;
 		break;
 	case GST_STATE_CHANGE_READY_TO_NULL:
-		GST_DEBUG_OBJECT(shvideoenc, "GST_STATE_CHANGE_READY_TO_NULL");
-		shvideoenc->hold_output = TRUE;
+		GST_DEBUG_OBJECT(enc, "GST_STATE_CHANGE_READY_TO_NULL");
+		enc->hold_output = TRUE;
 		break;
 	default:
 		break;
@@ -506,15 +506,15 @@ static void
 gst_shvideo_enc_set_property(GObject * object, guint prop_id,
 				 const GValue * value, GParamSpec * pspec)
 {
-	GstSHVideoCapEnc *shvideoenc = GST_SH_VIDEO_CAPENC(object);
+	GstSHVideoCapEnc *enc = GST_SH_VIDEO_CAPENC(object);
 
 	GST_LOG("%s called", __func__);
 	switch (prop_id) {
 	case PROP_CNTL_FILE:
-		strcpy(shvideoenc->ainfo.ctrl_file_name_buf, g_value_get_string(value));
+		strcpy(enc->ainfo.ctrl_file_name_buf, g_value_get_string(value));
 		break;
 	case PROP_PREVIEW:
-		shvideoenc->preview = g_value_get_enum(value);
+		enc->preview = g_value_get_enum(value);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -531,15 +531,15 @@ gst_shvideo_enc_set_property(GObject * object, guint prop_id,
 static void
 gst_shvideo_enc_get_property(GObject * object, guint prop_id, GValue * value, GParamSpec * pspec)
 {
-	GstSHVideoCapEnc *shvideoenc = GST_SH_VIDEO_CAPENC(object);
+	GstSHVideoCapEnc *enc = GST_SH_VIDEO_CAPENC(object);
 
 	GST_LOG("%s called", __func__);
 	switch (prop_id) {
 	case PROP_CNTL_FILE:
-		g_value_set_string(value, shvideoenc->ainfo.ctrl_file_name_buf);
+		g_value_set_string(value, enc->ainfo.ctrl_file_name_buf);
 		break;
 	case PROP_PREVIEW:
-		g_value_set_enum(value, shvideoenc->preview);
+		g_value_set_enum(value, enc->preview);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -651,27 +651,26 @@ static gboolean gst_shvideo_enc_src_query(GstPad * pad, GstQuery * query)
 }
 
 /** Initializes the SH Hardware encoder
-	@param shvideoenc encoder object
+	@param enc encoder object
 */
-static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * shvideoenc)
+static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * enc)
 {
 	gint ret = 0;
 	glong fmt = 0;
 
-	GST_LOG_OBJECT(shvideoenc, "%s called", __func__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	ret = GetFromCtrlFTop((const char *)
-				  shvideoenc->ainfo.ctrl_file_name_buf, &shvideoenc->ainfo, &fmt);
+				  enc->ainfo.ctrl_file_name_buf, &enc->ainfo, &fmt);
 	if (ret < 0) {
-		GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, FAILED,
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 				  ("Error reading control file."), (NULL));
 	}
 
-	if (!shvideoenc->enc_thread) {
+	if (!enc->enc_thread) {
 		/* We'll have to launch the encoder in 
 		   a separate thread to keep the pipeline running */
-		pthread_create(&shvideoenc->enc_thread, NULL, launch_camera_encoder_thread,
-				   shvideoenc);
+		pthread_create(&enc->enc_thread, NULL, launch_camera_encoder_thread, enc);
 	}
 }
 
@@ -839,97 +838,97 @@ GType gst_shvideo_capenc_get_type(void)
 }
 
 /** Reads the capabilities of the peer element behind source pad
-	@param shvideoenc encoder object
+	@param enc encoder object
 */
-static void gst_shvideocameraenc_read_src_caps(GstSHVideoCapEnc * shvideoenc)
+static void gst_shvideocameraenc_read_src_caps(GstSHVideoCapEnc * enc)
 {
 	GstStructure *structure;
 
-	GST_LOG_OBJECT(shvideoenc, "%s called", __func__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	/* Get the caps of the next element in chain */
-	shvideoenc->out_caps = gst_pad_peer_get_caps(shvideoenc->srcpad);
+	enc->out_caps = gst_pad_peer_get_caps(enc->srcpad);
 
 	/* Any format is ok too */
-	if (!gst_caps_is_any(shvideoenc->out_caps)) {
-		structure = gst_caps_get_structure(shvideoenc->out_caps, 0);
+	if (!gst_caps_is_any(enc->out_caps)) {
+		structure = gst_caps_get_structure(enc->out_caps, 0);
 		if (!strcmp(gst_structure_get_name(structure), "video/mpeg")) {
-			shvideoenc->format = SHCodecs_Format_MPEG4;
+			enc->format = SHCodecs_Format_MPEG4;
 		} else if (!strcmp(gst_structure_get_name(structure), "video/x-h264")) {
-			shvideoenc->format = SHCodecs_Format_H264;
+			enc->format = SHCodecs_Format_H264;
 		}
 
-		gst_structure_get_int(structure, "width", &shvideoenc->width);
-		gst_structure_get_int(structure, "height", &shvideoenc->height);
+		gst_structure_get_int(structure, "width", &enc->width);
+		gst_structure_get_int(structure, "height", &enc->height);
 		gst_structure_get_fraction(structure, "framerate",
-					   &shvideoenc->fps_numerator,
-					   &shvideoenc->fps_denominator);
+					   &enc->fps_numerator,
+					   &enc->fps_denominator);
 	}
 }
 
 
 /** Sets the capabilities of the source pad
-	@param shvideoenc encoder object
+	@param enc encoder object
 	@return TRUE if the capabilities could be set, otherwise FALSE
 */
 static gboolean gst_shvideocameraenc_set_src_caps(GstPad * pad, GstCaps * caps)
 {
 	GstStructure *structure = NULL;
-	GstSHVideoCapEnc *shvideoenc = (GstSHVideoCapEnc *) (GST_OBJECT_PARENT(pad));
+	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) (GST_OBJECT_PARENT(pad));
 	gboolean ret = TRUE;
 
-	GST_LOG_OBJECT(shvideoenc, "%s called", __func__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	if (shvideoenc->encoder != NULL) {
-		GST_DEBUG_OBJECT(shvideoenc, "%s: Encoder already opened", __func__);
+	if (enc->encoder != NULL) {
+		GST_DEBUG_OBJECT(enc, "%s: Encoder already opened", __func__);
 		return FALSE;
 	}
 
 	structure = gst_caps_get_structure(caps, 0);
 
 	if (!strcmp(gst_structure_get_name(structure), "video/x-h264")) {
-		GST_DEBUG_OBJECT(shvideoenc, "codec format is video/x-h264");
-		shvideoenc->format = SHCodecs_Format_H264;
+		GST_DEBUG_OBJECT(enc, "codec format is video/x-h264");
+		enc->format = SHCodecs_Format_H264;
 	} else if (!strcmp(gst_structure_get_name(structure), "video/mpeg")) {
-		GST_DEBUG_OBJECT(shvideoenc, "codec format is video/mpeg");
-		shvideoenc->format = SHCodecs_Format_MPEG4;
+		GST_DEBUG_OBJECT(enc, "codec format is video/mpeg");
+		enc->format = SHCodecs_Format_MPEG4;
 	} else {
-		GST_DEBUG_OBJECT(shvideoenc, "%s failed (not supported: %s)",
+		GST_DEBUG_OBJECT(enc, "%s failed (not supported: %s)",
 				 __func__, gst_structure_get_name(structure));
 		return FALSE;
 	}
 
 	if (!gst_structure_get_fraction(structure, "framerate",
-					&shvideoenc->fps_numerator, &shvideoenc->fps_denominator)) {
-		GST_DEBUG_OBJECT(shvideoenc, "%s failed (no framerate)", __func__);
+					&enc->fps_numerator, &enc->fps_denominator)) {
+		GST_DEBUG_OBJECT(enc, "%s failed (no framerate)", __func__);
 		return FALSE;
 	}
 
-	if (!gst_structure_get_int(structure, "width", &shvideoenc->width)) {
-		GST_DEBUG_OBJECT(shvideoenc, "%s failed (no width)", __func__);
+	if (!gst_structure_get_int(structure, "width", &enc->width)) {
+		GST_DEBUG_OBJECT(enc, "%s failed (no width)", __func__);
 		return FALSE;
 	}
 
-	if (!gst_structure_get_int(structure, "height", &shvideoenc->height)) {
-		GST_DEBUG_OBJECT(shvideoenc, "%s failed (no height)", __func__);
+	if (!gst_structure_get_int(structure, "height", &enc->height)) {
+		GST_DEBUG_OBJECT(enc, "%s failed (no height)", __func__);
 		return FALSE;
 	}
 
 	/* Check for frame size that result in v4l2 capture buffers with the CbCr
 	   plane located at an unsupported memory alignment. */
-	if ((shvideoenc->width * shvideoenc->height) & (CHROMA_ALIGNMENT-1)) {
-		GST_DEBUG_OBJECT(shvideoenc, "%s failed "
+	if ((enc->width * enc->height) & (CHROMA_ALIGNMENT-1)) {
+		GST_DEBUG_OBJECT(enc, "%s failed "
 				"(unsupported size due to Chroma plane alignment)", __func__);
 		return FALSE;
 	}
 
-	if (!gst_pad_set_caps(shvideoenc->srcpad, caps)) {
-		GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, NEGOTIATION,
+	if (!gst_pad_set_caps(enc->srcpad, caps)) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, NEGOTIATION,
 				  ("Source pad not linked."), (NULL));
 		ret = FALSE;
 	}
-	if (!gst_pad_set_caps(gst_pad_get_peer(shvideoenc->srcpad), caps)) {
-		GST_ELEMENT_ERROR((GstElement *) shvideoenc, CORE, NEGOTIATION,
+	if (!gst_pad_set_caps(gst_pad_get_peer(enc->srcpad), caps)) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, NEGOTIATION,
 				  ("Source pad not linked."), (NULL));
 		ret = FALSE;
 	}
