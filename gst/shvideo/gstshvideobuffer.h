@@ -26,6 +26,7 @@
 #include <gst/gst.h>
 
 #include "gstshvideosink.h"
+#include "gstshvideoenc.h"
 #include "gstshvideoresize.h"
 
 #define GST_TYPE_SH_VIDEO_BUFFER (gst_sh_video_buffer_get_type())
@@ -40,6 +41,7 @@
  */
 #define GST_IS_SH_VIDEO_PEER(obj) \
 	(   GST_IS_SH_VIDEO_SINK(gst_pad_get_parent_element(gst_pad_get_peer(obj))) \
+	 || GST_IS_SH_VIDEO_ENC(gst_pad_get_parent_element(gst_pad_get_peer(obj))) \
 	 || GST_IS_SHVIDRESIZE(gst_pad_get_parent_element(gst_pad_get_peer(obj))))
 
 

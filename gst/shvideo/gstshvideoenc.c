@@ -86,6 +86,7 @@
 
 #include "gstshvideoenc.h"
 #include "gstshencdefaults.h"
+#include "gstshvideobuffer.h"
 #include "ControlFileUtil.h"
 
 /**
@@ -2765,7 +2766,7 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 	gint yuv_size, cbcr_size;
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));  
 	unsigned char *pY, *pC;
-	int rc;
+	int rc, phys;
 
 	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
 
@@ -2802,10 +2803,21 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 		return GST_FLOW_OK;
 	}  
 
+	/* Get the input buffer handle */
+	if (GST_IS_SH_VIDEO_BUFFER(buffer)) {
+		GST_LOG("Input buffer is SH type");
+		pY = GST_SH_VIDEO_BUFFER_Y_DATA(buffer);
+		pC = GST_SH_VIDEO_BUFFER_C_DATA(buffer);
+		phys = 1;
+	} else {
+		GST_LOG("Input buffer is not SH type (enc will copy data)");
+		pY = GST_BUFFER_DATA(buffer);
+		pC = pY + yuv_size;
+		phys = 0;
+	}
+
 	/* Encode the frame */
-	pY = GST_BUFFER_DATA(buffer);
-	pC = pY + yuv_size;
-	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, 0);
+	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, phys);
 
 	// TODO check rc
 
