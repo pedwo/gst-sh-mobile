@@ -14,8 +14,9 @@
  * \section enc-examples Example launch lines
  * \subsection enc-examples-1 Encoding from a file to a file
  * \code
- * gst-launch filesrc location=test.yuv ! gst-sh-mobile-enc stream-type=mpeg4
- * width=320 height=240 framerate=300 ! filesink location=test.m4v
+ * gst-launch filesrc location=test.yuv
+ *  ! gst-sh-mobile-enc stream-type=mpeg4 width=320 height=240 framerate=300
+ *  ! filesink location=test.m4v
  * \endcode
  * This is a very simple pipeline where filesrc and filesink elements are used
  * to read the raw data and write the encoded data. In this pipeline the
@@ -24,25 +25,21 @@
  *
  * \subsection enc-examples-2 Encoding from a webcam to a file
  * \code
- * gst-launch v4l2src device=/dev/video0 ! image/jpeg, width=320, height=240,
- * framerate=15/1 ! jpegdec ! ffmpegcolorspace ! gst-sh-mobile-enc
- * stream-type=mpeg4 bitrate=250000 ! filesink location=test.m4v
+ * gst-launch v4l2src device=/dev/video0
+ *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1"
+ *  ! gst-sh-mobile-enc stream-type=h264 bitrate=250000
+ *  ! filesink location=test.264
  * \endcode
  * 
- * \image html encoder_example.jpeg
- * 
  * In this example, webcam is used as the streaming source via v4l2src element.
- * the webcam in this example provides jpeg image data. This pipeline works in
- * push mode, so we need to specify the stream properties using static caps after
- * the v4l2src element. jpegdec decodes the jpeg images and ffmpegcolorspace is
- * used to convert the image data for the encoder. Again, filesink is used to
- * write the encoded video stream into a file.
+ * Again, filesink is used to write the encoded video stream into a file.
  *
  * \subsection enc-examples-3 Encoding from a webcam to network
  * \code
- * gst-launch v4l2src device=/dev/video0 ! image/jpeg, width=320, height=240,
- * framerate=15/1 ! jpegdec ! ffmpegcolorspace ! gst-sh-mobile-enc
- * ! rtpmp4vpay ! udpsink host=192.168.10.10 port=5000 sync=false 
+ * gst-launch v4l2src device=/dev/video0
+ *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1"
+ *  ! gst-sh-mobile-enc
+ *  ! rtpmp4vpay ! udpsink host=192.168.10.10 port=5000 sync=false 
  * \endcode
  * This line is similar to the one above. At this time, the video is not stored
  * in a file but sent over the network using udpsink -element. Before sending,
@@ -77,24 +74,13 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
  *
- * Johannes Lahti <johannes.lahti@nomovok.com>
- * Pablo Virolainen <pablo.virolainen@nomovok.com>
- * Aki Honkasuo <aki.honkasuo@nomovok.com>
- *
  */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <poll.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
 #include <string.h>
-#include <pthread.h>
 
 #include <gst/gst.h>
 
@@ -421,14 +407,6 @@ static gboolean gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event);
 static gboolean gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query);
 
 /** 
- * Callback function for the encoder input
- * @param encoder shcodecs encoder
- * @param user_data Gstreamer SH encoder object
- * @return 0 if encoder should continue. 1 if encoder should pause.
- */
-static int gst_sh_video_enc_get_input(SHCodecs_Encoder * encoder, void *user_data);
-
-/** 
  * Callback function for the encoder output
  * @param encoder shcodecs encoder
  * @param data the encoded video frame
@@ -513,10 +491,6 @@ gst_sh_video_enc_dispose(GObject * object)
 		shcodecs_encoder_close(enc->encoder);
 		enc->encoder = NULL;
 	}
-
-	pthread_mutex_destroy(&enc->mutex);
-	pthread_mutex_destroy(&enc->cond_mutex);
-	pthread_cond_destroy(&enc->thread_condition);
 
 	G_OBJECT_CLASS(parent_class)->dispose(object);
 }
@@ -1286,13 +1260,6 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 
 	enc->encoder = NULL;
 	enc->caps_set = FALSE;
-	enc->enc_thread = 0;
-	enc->buffer_yuv = NULL;
-	enc->buffer_cbcr = NULL;
-
-	pthread_mutex_init(&enc->mutex, NULL);
-	pthread_mutex_init(&enc->cond_mutex, NULL);
-	pthread_cond_init(&enc->thread_condition, NULL);
 
 	enc->format = SHCodecs_Format_NONE;
 	enc->out_caps = NULL;
@@ -2659,7 +2626,6 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 
 	if (strlen(enc->ainfo.ctrl_file_name_buf))
 	{
-
 		ret = GetFromCtrlFTop((const char *)
 				enc->ainfo.ctrl_file_name_buf,
 				&enc->ainfo,
@@ -2715,8 +2681,6 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 	shcodecs_encoder_set_xpic_size(enc->encoder,enc->width);
 	shcodecs_encoder_set_ypic_size(enc->encoder,enc->height);
 
-	shcodecs_encoder_set_input_callback(enc->encoder, 
-					    gst_sh_video_enc_get_input, enc);
 	shcodecs_encoder_set_output_callback(enc->encoder, 
 					     gst_sh_video_enc_write_output, enc);
 
@@ -2800,6 +2764,8 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 {
 	gint yuv_size, cbcr_size;
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));  
+	unsigned char *pY, *pC;
+	int rc;
 
 	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
 
@@ -2823,17 +2789,6 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 		enc->caps_set = TRUE;
 	}
 
-	/* If buffers are not empty we'll have to 
-	   wait until encoder has consumed data */
-	if (enc->buffer_yuv && enc->buffer_cbcr)
-	{
-		pthread_mutex_lock(&enc->cond_mutex);
-		pthread_cond_wait(&enc->thread_condition, &enc->cond_mutex);
-		pthread_mutex_unlock(&enc->cond_mutex);
-	}
-
-	// Lock mutex while handling the buffers
-	pthread_mutex_lock(&enc->mutex);
 	yuv_size = enc->width * enc->height;
 	cbcr_size = enc->width * enc->height / 2;
 
@@ -2847,27 +2802,16 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 		return GST_FLOW_OK;
 	}  
 
-	enc->buffer_yuv = gst_buffer_new_and_alloc(yuv_size);
-	enc->buffer_cbcr = gst_buffer_new_and_alloc(cbcr_size);
+	/* Encode the frame */
+	pY = GST_BUFFER_DATA(buffer);
+	pC = pY + yuv_size;
+	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, 0);
 
-	memcpy(GST_BUFFER_DATA(enc->buffer_yuv), GST_BUFFER_DATA(buffer), yuv_size);
+	// TODO check rc
 
-	memcpy(GST_BUFFER_DATA(enc->buffer_cbcr),
-		   GST_BUFFER_DATA(buffer) + yuv_size, cbcr_size);
-
-	// Buffers are ready to be read
-	pthread_mutex_unlock(&enc->mutex);
-
+	// TODO do this in input release callback
 	gst_buffer_unref(buffer);
 	
-	if (!enc->enc_thread)
-	{
-		/* We'll have to launch the encoder in 
-		   a separate thread to keep the pipeline running */
-		pthread_create(&enc->enc_thread, NULL, 
-				gst_sh_video_launch_encoder_thread, enc);
-	}
-
 	return GST_FLOW_OK;
 }
 
@@ -2897,7 +2841,10 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 {
 	GstFlowReturn ret;
 	gint yuv_size, cbcr_size;
-	GstBuffer* tmp;
+	GstBuffer *buf_y = NULL;
+	GstBuffer *buf_c = NULL;
+	unsigned char *pY, *pC;
+	int rc;
 
 	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
 
@@ -2917,22 +2864,11 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 		enc->caps_set = TRUE;
 	}
 
-	/* If buffers are not empty we'll have to 
-	   wait until encoder has consumed data */
-	if (enc->buffer_yuv && enc->buffer_cbcr)
-	{
-		pthread_mutex_lock(&enc->cond_mutex);
-		pthread_cond_wait(&enc->thread_condition, &enc->cond_mutex);
-		pthread_mutex_unlock(&enc->cond_mutex);
-	}
-
-	// Lock mutex while handling the buffers
-	pthread_mutex_lock(&enc->mutex);
 	yuv_size = enc->width * enc->height;
 	cbcr_size = enc->width * enc->height / 2;
 
 	ret = gst_pad_pull_range(enc->sinkpad, enc->offset,
-			yuv_size, &enc->buffer_yuv);
+			yuv_size, &buf_y);
 
 	if (ret != GST_FLOW_OK) 
 	{
@@ -2942,7 +2878,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
 		return;
 	}
-	else if (GST_BUFFER_SIZE(enc->buffer_yuv) != yuv_size)
+	else if (GST_BUFFER_SIZE(buf_y) != yuv_size)
 	{
 		GST_DEBUG_OBJECT(enc, "Not enough data");
 		gst_pad_pause_task(enc->sinkpad);
@@ -2953,7 +2889,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 
 	enc->offset += yuv_size;
 
-	ret = gst_pad_pull_range(enc->sinkpad, enc->offset, cbcr_size, &tmp);
+	ret = gst_pad_pull_range(enc->sinkpad, enc->offset, cbcr_size, &buf_c);
 
 	if (ret != GST_FLOW_OK) 
 	{
@@ -2963,7 +2899,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
 		return;
 	}  
-	else if (GST_BUFFER_SIZE(tmp) != cbcr_size)
+	else if (GST_BUFFER_SIZE(buf_c) != cbcr_size)
 	{
 		GST_DEBUG_OBJECT(enc, "Not enough data");
 		gst_pad_pause_task(enc->sinkpad);
@@ -2974,83 +2910,17 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 
 	enc->offset += cbcr_size;
 
-	enc->buffer_cbcr = tmp;
 
-	pthread_mutex_unlock(&enc->mutex);
-	
-	if (!enc->enc_thread)
-	{
-		/* We'll have to launch the encoder in 
-		   a separate thread to keep the pipeline running */
-		pthread_create(&enc->enc_thread, NULL, 
-					gst_sh_video_launch_encoder_thread, enc);
-	}
-}
+	/* Encode the frame */
+	pY = GST_BUFFER_DATA(buf_y);
+	pC = GST_BUFFER_DATA(buf_c);
+	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, 0);
 
-void *
-gst_sh_video_launch_encoder_thread(void *data)
-{
-	gint ret;
-	GstSHVideoEnc *enc = (GstSHVideoEnc *)data;
+	// TODO check rc
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
-
-	ret = shcodecs_encoder_run(enc->encoder);
-
-	GST_DEBUG_OBJECT(enc, "shcodecs_encoder_run returned %d\n", ret);
-	GST_DEBUG_OBJECT(enc, "%d frames encoded.", enc->frame_number);
-
-	// We can stop waiting if encoding has ended
-	pthread_mutex_lock(&enc->cond_mutex);
-	pthread_cond_signal(&enc->thread_condition);
-	pthread_mutex_unlock(&enc->cond_mutex);
-
-	// Calling stop task won't do any harm if we are in push mode
-	gst_pad_stop_task(enc->sinkpad);
-	if(!enc->eos)
-	{
-		enc->eos = TRUE;
-		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
-    }
-
-	return NULL;
-}
-
-static int 
-gst_sh_video_enc_get_input(SHCodecs_Encoder * encoder, void *user_data)
-{
-	GstSHVideoEnc *enc = (GstSHVideoEnc *)user_data;
-	gint ret=0;
-
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
-
-	// Lock mutex while reading the buffer  
-	pthread_mutex_lock(&enc->mutex); 
-
-	if (enc->stream_stopped || enc->eos)
-	{
-		GST_DEBUG_OBJECT(enc, "Encoding stop requested, returning 1");
-		ret = 1;
-	}
-	else if (enc->buffer_yuv && enc->buffer_cbcr)
-	{
-		ret = shcodecs_encoder_input_provide(encoder, 
-					 GST_BUFFER_DATA(enc->buffer_yuv),
-					 GST_BUFFER_DATA(enc->buffer_cbcr));
-
-		gst_buffer_unref(enc->buffer_yuv);
-		enc->buffer_yuv = NULL;
-		gst_buffer_unref(enc->buffer_cbcr);
-		enc->buffer_cbcr = NULL;  
-
-		// Signal the main thread that buffers are read
-		pthread_mutex_lock(&enc->cond_mutex);
-		pthread_cond_signal(&enc->thread_condition);
-		pthread_mutex_unlock(&enc->cond_mutex);
-	}
-	pthread_mutex_unlock(&enc->mutex);
-
-	return ret;
+	// TODO do this in input release callback
+	gst_buffer_unref(buf_y);
+	gst_buffer_unref(buf_c);
 }
 
 static int 
@@ -3064,8 +2934,6 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 
 	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data frame number: %d\n", 
 				   __FUNCTION__, length, enc->frame_number);
-
-	pthread_mutex_lock(&enc->mutex); 
 
 	if (enc->stream_stopped)
 	{
@@ -3100,7 +2968,7 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 			old_buf = buf;
 		}
 	}
-	pthread_mutex_unlock(&enc->mutex); 
+
 	return ret;
 }
 
