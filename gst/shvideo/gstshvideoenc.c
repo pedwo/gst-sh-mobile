@@ -2763,7 +2763,6 @@ gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition)
 static GstFlowReturn 
 gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 {
-	gint yuv_size, cbcr_size;
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));  
 	unsigned char *pY, *pC;
 	int rc, phys;
@@ -2790,19 +2789,6 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 		enc->caps_set = TRUE;
 	}
 
-	yuv_size = enc->width * enc->height;
-	cbcr_size = enc->width * enc->height / 2;
-
-	// Check that we have got enough data
-	if (GST_BUFFER_SIZE(buffer) != yuv_size + cbcr_size)
-	{
-		GST_DEBUG_OBJECT(enc, "Not enough data");
-		// If we can't continue we can issue EOS
-		enc->eos = TRUE;
-		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
-		return GST_FLOW_OK;
-	}  
-
 	/* Get the input buffer handle */
 	if (GST_IS_SH_VIDEO_BUFFER(buffer)) {
 		GST_LOG("Input buffer is SH type");
@@ -2810,6 +2796,19 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 		pC = GST_SH_VIDEO_BUFFER_C_DATA(buffer);
 		phys = 1;
 	} else {
+		gint yuv_size = enc->width * enc->height;
+		gint cbcr_size = enc->width * enc->height / 2;
+
+		// Check that we have got enough data
+		if (GST_BUFFER_SIZE(buffer) != yuv_size + cbcr_size)
+		{
+			GST_DEBUG_OBJECT(enc, "Not enough data");
+			// If we can't continue we can issue EOS
+			enc->eos = TRUE;
+			gst_pad_push_event(enc->srcpad, gst_event_new_eos());
+			return GST_FLOW_OK;
+		}  
+
 		GST_LOG("Input buffer is not SH type (enc will copy data)");
 		pY = GST_BUFFER_DATA(buffer);
 		pC = pY + yuv_size;
@@ -2853,8 +2852,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 {
 	GstFlowReturn ret;
 	gint yuv_size, cbcr_size;
-	GstBuffer *buf_y = NULL;
-	GstBuffer *buf_c = NULL;
+	GstBuffer *buffer;
 	unsigned char *pY, *pC;
 	int rc;
 
@@ -2880,7 +2878,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 	cbcr_size = enc->width * enc->height / 2;
 
 	ret = gst_pad_pull_range(enc->sinkpad, enc->offset,
-			yuv_size, &buf_y);
+			yuv_size+cbcr_size, &buffer);
 
 	if (ret != GST_FLOW_OK) 
 	{
@@ -2890,7 +2888,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
 		return;
 	}
-	else if (GST_BUFFER_SIZE(buf_y) != yuv_size)
+	else if (GST_BUFFER_SIZE(buffer) != yuv_size+cbcr_size)
 	{
 		GST_DEBUG_OBJECT(enc, "Not enough data");
 		gst_pad_pause_task(enc->sinkpad);
@@ -2899,40 +2897,19 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 		return;
 	}  
 
-	enc->offset += yuv_size;
+	enc->offset += yuv_size+cbcr_size;
 
-	ret = gst_pad_pull_range(enc->sinkpad, enc->offset, cbcr_size, &buf_c);
-
-	if (ret != GST_FLOW_OK) 
-	{
-		GST_DEBUG_OBJECT(enc, "pull_range failed: %s", gst_flow_get_name(ret));
-		gst_pad_pause_task(enc->sinkpad);
-		enc->eos = TRUE;
-		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
-		return;
-	}  
-	else if (GST_BUFFER_SIZE(buf_c) != cbcr_size)
-	{
-		GST_DEBUG_OBJECT(enc, "Not enough data");
-		gst_pad_pause_task(enc->sinkpad);
-		enc->eos = TRUE;
-		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
-		return;
-	}  
-
-	enc->offset += cbcr_size;
-
+	GST_LOG("Input buffer is not SH type (enc will copy data)");
+	pY = GST_BUFFER_DATA(buffer);
+	pC = pY + yuv_size;
 
 	/* Encode the frame */
-	pY = GST_BUFFER_DATA(buf_y);
-	pC = GST_BUFFER_DATA(buf_c);
 	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, 0);
 
 	// TODO check rc
 
 	// TODO do this in input release callback
-	gst_buffer_unref(buf_y);
-	gst_buffer_unref(buf_c);
+	gst_buffer_unref(buffer);
 }
 
 static int 
