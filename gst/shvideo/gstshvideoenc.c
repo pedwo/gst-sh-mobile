@@ -2817,8 +2817,11 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 
 	/* Encode the frame */
 	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, phys);
-
-	// TODO check rc
+	if (rc != 0) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+				  ("Encode error"), ("%s failed (Error on shcodecs_encode)", __func__));
+		return GST_FLOW_ERROR;
+	}
 
 	// TODO do this in input release callback
 	gst_buffer_unref(buffer);
@@ -2905,8 +2908,11 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 
 	/* Encode the frame */
 	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, 0);
-
-	// TODO check rc
+	if (rc != 0) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+				  ("Encode error"), ("%s failed (Error on shcodecs_encode)", __func__));
+		return;
+	}
 
 	// TODO do this in input release callback
 	gst_buffer_unref(buffer);
