@@ -426,7 +426,6 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 
 	dec->caps_set = FALSE;
 	dec->decoder = NULL;
-	dec->running = FALSE;
 	dec->use_physical = HW_ADDR_AUTO;
 
 	dec->buffer = NULL;
@@ -524,7 +523,14 @@ gst_sh_video_dec_sink_event (GstPad * pad, GstEvent * event)
 	if (GST_EVENT_TYPE (event) == GST_EVENT_EOS) 
 	{
 		GST_DEBUG_OBJECT (dec, "EOS gst event");
-		dec->running = FALSE;
+
+		if (dec->decoder) {
+			GST_DEBUG_OBJECT(dec,"We are done, calling finalize.");
+			shcodecs_decoder_finalize(dec->decoder);
+			GST_DEBUG_OBJECT(dec,
+					 "Stream finalized. Total decoded %d frames.",
+					 shcodecs_decoder_get_frame_count(dec->decoder));
+		}
 	}
 	return gst_pad_push_event(dec->srcpad,event);
 }
@@ -747,7 +753,6 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 
 	if(!dec->push_thread)
 	{
-		dec->running = TRUE;
 		pthread_create( &dec->push_thread, NULL, gst_sh_video_dec_pad_push, dec);
 	}
 
@@ -845,14 +850,6 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 						    GST_BUFFER_SIZE(buffer)-used_bytes);
 	}
 
-	if(!dec->running)
-	{
-		GST_DEBUG_OBJECT(dec,"We are done, calling finalize.");
-		shcodecs_decoder_finalize(dec->decoder);
-		GST_DEBUG_OBJECT(dec,
-				 "Stream finalized. Total decoded %d frames.",
-				 shcodecs_decoder_get_frame_count(dec->decoder));
-	}    
 	gst_buffer_unref(buffer);
 	return ret;
 
