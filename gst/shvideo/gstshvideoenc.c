@@ -420,6 +420,19 @@ static int gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 					void *user_data);
 
 /** 
+ * Callback function for the encoder input used
+ * @param encoder shcodecs encoder
+ * @param y_input the used input video frame (luma)
+ * @param c_input the used input video frame (chroma)
+ * @param user_data Gstreamer SH encoder object
+ * @return 0 if encoder should continue. 1 if encoder should pause.
+ */
+static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
+					unsigned char * y_input,
+					unsigned char * c_input,
+					void * user_data);
+
+/** 
  * GStreamer state handling. We need this for pausing the encoder.
  * @param element GStreamer element
  * @param transition Flag indicating which transition to handle
@@ -2685,6 +2698,9 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 	shcodecs_encoder_set_output_callback(enc->encoder, 
 					     gst_sh_video_enc_write_output, enc);
 
+	shcodecs_encoder_set_input_release_callback(enc->encoder, 
+					     gst_sh_video_enc_input_used, enc);
+
 	if (strlen(enc->ainfo.ctrl_file_name_buf))
 	{
 		ret = GetFromCtrlFtoEncParam(enc->encoder, &enc->ainfo);
@@ -2816,16 +2832,13 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 	}
 
 	/* Encode the frame */
-	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, phys);
+	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, buffer, phys);
 	if (rc != 0) {
 		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 				  ("Encode error"), ("%s failed (Error on shcodecs_encode)", __func__));
 		return GST_FLOW_ERROR;
 	}
 
-	// TODO do this in input release callback
-	gst_buffer_unref(buffer);
-	
 	return GST_FLOW_OK;
 }
 
@@ -2907,15 +2920,12 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 	pC = pY + yuv_size;
 
 	/* Encode the frame */
-	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, 0);
+	rc = shcodecs_encoder_encode_1frame(enc->encoder, pY, pC, buffer, 0);
 	if (rc != 0) {
 		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 				  ("Encode error"), ("%s failed (Error on shcodecs_encode)", __func__));
 		return;
 	}
-
-	// TODO do this in input release callback
-	gst_buffer_unref(buffer);
 }
 
 static int 
@@ -2965,6 +2975,16 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 	}
 
 	return ret;
+}
+
+static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
+					unsigned char * y_input,
+					unsigned char * c_input,
+					void * user_data)
+{
+	GstBuffer *buffer = shcodecs_encoder_get_input_user_data(encoder);
+	gst_buffer_unref(buffer);
+	return 0;
 }
 
 static gboolean
