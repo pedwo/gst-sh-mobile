@@ -21,6 +21,7 @@
 #define  GSTSHVIDEOENC_H
 
 #include <gst/gst.h>
+#include <uiomux/uiomux.h>
 #include <shcodecs/shcodecs_encoder.h>
 
 #include "ControlFileUtil.h"
@@ -47,9 +48,10 @@ struct _GstSHVideoEnc
 	GstElement element;
 	GstPad *sinkpad, *srcpad;
 
+	UIOMux *uiomux;
 	gint offset;
 	SHCodecs_Format format;  
-	SHCodecs_Encoder* encoder;
+	SHCodecs_Encoder *encoder;
 	gint width;
 	gint height;
 	gint fps_numerator;
@@ -57,7 +59,7 @@ struct _GstSHVideoEnc
 
 	APPLI_INFO ainfo;
 	
-	GstCaps* out_caps;
+	GstCaps *out_caps;
 	gboolean caps_set;
 	glong frame_number;
 	GstClockTime timestamp_offset;

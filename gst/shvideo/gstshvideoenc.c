@@ -442,6 +442,10 @@ static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
 static GstStateChangeReturn
 gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition);
 
+static GstFlowReturn
+gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
+    GstCaps * caps, GstBuffer ** buf);
+
 
 static void
 gst_sh_video_enc_init_class(gpointer g_class, gpointer data)
@@ -524,7 +528,7 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 
 	GST_DEBUG_CATEGORY_INIT(gst_sh_mobile_debug, "gst-sh-mobile-enc",
 			0, "Encoder for H264/MPEG4 streams");
-	
+
 	g_object_class_install_property(g_object_class, PROP_CNTL_FILE,
 			g_param_spec_string("cntl-file", 
 					     		 "Control file location", 
@@ -1253,24 +1257,22 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 
 	gst_element_add_pad(GST_ELEMENT(enc), enc->sinkpad);
 
-	gst_pad_set_setcaps_function(enc->sinkpad, 
-				      gst_sh_video_enc_set_caps);
-	gst_pad_set_activate_function(enc->sinkpad, 
- 				       gst_sh_video_enc_activate);
-	gst_pad_set_activatepull_function(enc->sinkpad,
-					   gst_sh_video_enc_activate_pull);
-	gst_pad_set_event_function(enc->sinkpad, 
-				   gst_sh_video_enc_sink_event);
-	gst_pad_set_chain_function(enc->sinkpad, 
-				   gst_sh_video_enc_chain);
+	gst_pad_set_setcaps_function(enc->sinkpad,  gst_sh_video_enc_set_caps);
+	gst_pad_set_activate_function(enc->sinkpad, gst_sh_video_enc_activate);
+	gst_pad_set_activatepull_function(enc->sinkpad, gst_sh_video_enc_activate_pull);
+	gst_pad_set_event_function(enc->sinkpad, gst_sh_video_enc_sink_event);
+	gst_pad_set_chain_function(enc->sinkpad, gst_sh_video_enc_chain);
 	enc->srcpad = gst_pad_new_from_template(
 					gst_element_class_get_pad_template(klass, "src"), "src");
 	gst_pad_use_fixed_caps(enc->srcpad);
 
-	gst_pad_set_query_function(enc->srcpad,
-			GST_DEBUG_FUNCPTR(gst_sh_video_enc_src_query));
+	gst_pad_set_query_function(enc->srcpad, GST_DEBUG_FUNCPTR(gst_sh_video_enc_src_query));
 
 	gst_element_add_pad(GST_ELEMENT(enc), enc->srcpad);
+
+	gst_pad_set_bufferalloc_function (enc->sinkpad, gst_sh_video_enc_sink_buffer_alloc);
+
+	enc->uiomux = uiomux_open();
 
 	enc->encoder = NULL;
 	enc->caps_set = FALSE;
@@ -2774,6 +2776,58 @@ gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition)
 			break;
 	}
 	return ret;
+}
+
+static GstFlowReturn
+gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
+    GstCaps * caps, GstBuffer ** buf)
+{
+	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
+	GstStructure *structure;
+	GstBuffer *outBuf;
+	gint width, height;
+	guint32 fourcc = 0;
+
+	structure = gst_caps_get_structure(caps, 0);
+
+	if (!gst_structure_get_int(structure, "width", &width)) {
+		GST_ERROR("Failed to get width");
+		return GST_FLOW_ERROR;
+	}
+
+	if (!gst_structure_get_int(structure, "height", &height)) {
+		GST_ERROR("Failed to get height");
+		return GST_FLOW_ERROR;
+	}
+
+	gst_structure_get_fourcc(structure, "format", &fourcc);
+	if (fourcc != GST_MAKE_FOURCC('N', 'V', '1', '2')) {
+		GST_ERROR("Requested format isn't NV12");
+		return GST_FLOW_ERROR;
+	}
+
+	if (size != (width * height * 3)/2) {
+		GST_ERROR("Requested buffer size (%lu) does not match encoder format", size);
+		return GST_FLOW_ERROR;
+	}
+
+	GST_LOG("Allocating buffer %dx%d", width, height);
+
+	outBuf = gst_sh_video_buffer_new(enc->uiomux, width, height, V4L2_PIX_FMT_NV12);
+
+	if (outBuf == NULL) {
+		GST_ELEMENT_ERROR(enc, RESOURCE, NO_SPACE_LEFT,
+			("failed to allocate output buffer"), (NULL));
+		return GST_FLOW_ERROR;
+	}
+
+	gst_buffer_set_caps(outBuf, GST_PAD_CAPS(enc->srcpad));
+
+	GST_LOG("allocated py=%p, pc=%p", GST_SH_VIDEO_BUFFER_Y_DATA(outBuf), GST_SH_VIDEO_BUFFER_C_DATA(outBuf));
+
+	*buf = outBuf;
+
+	return GST_FLOW_OK;
 }
 
 static GstFlowReturn 
