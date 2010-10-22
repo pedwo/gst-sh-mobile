@@ -24,6 +24,7 @@
 #include <linux/videodev2.h>
 #include <uiomux/uiomux.h>
 #include <gst/gst.h>
+#include <gst/video/video.h>
 
 #include "gstshvideosink.h"
 #include "gstshvideoresize.h"
@@ -84,6 +85,7 @@ struct _GstSHVideoBufferclass
 #define GST_SH_VIDEO_BUFFER_Y_SIZE(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->y_size)
 #define GST_SH_VIDEO_BUFFER_C_DATA(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->c_data)
 #define GST_SH_VIDEO_BUFFER_C_SIZE(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->c_size)
+#define GST_SH_VIDEO_BUFFER_V4l2_FMT(buf) (GST_SH_VIDEO_BUFFER_CAST(buf)->v4l2format)
 
 /** 
  * Get Gstshbuffer object type
@@ -96,5 +98,31 @@ GType gst_sh_video_buffer_get_type (void);
  */
 GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int v4l2fmt);
 
+
+/***************************** Helper functions *****************************/
+
+/* Create additional video formats - hopefully clear of any others */
+#ifndef GST_VIDEO_FORMAT_NV12
+#define GST_VIDEO_FORMAT_NV12 (1000)
+#endif
+#ifndef GST_VIDEO_FORMAT_NV16
+#define GST_VIDEO_FORMAT_NV16 (1001)
+#endif
+#ifndef GST_VIDEO_FORMAT_RGB16
+#define GST_VIDEO_FORMAT_RGB16 (1002)
+#endif
+
+
+/* Extend gst_video_format_get_size to support NV12, NV16 & RGB16 */
+int gst_sh_video_format_get_size(GstVideoFormat format, int width, int height);
+
+/* Extend gst_video_format_parse_caps to support NV12, NV16 & RGB16 */
+gboolean gst_sh_video_format_parse_caps (
+	GstCaps *caps,
+	GstVideoFormat *format,
+	int *width,
+	int *height);
+
+gboolean gst_caps_to_v4l2_format (GstCaps *caps, int *v4l2format);
 
 #endif //GSTSHVIDEOBUFFER_H

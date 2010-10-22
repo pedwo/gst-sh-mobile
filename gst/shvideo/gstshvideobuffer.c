@@ -57,8 +57,6 @@ GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int 
 	gint size;
 	unsigned long phys;
 
-	GST_LOG("begin new");
-
 	// TODO the size calc should really take into account that the chroma plane needs to
 	// be 32-byte aligned. We should also cover min width/height requirements of all IP
 	// so that the buffer can be used with all HW.
@@ -122,8 +120,6 @@ GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int 
 		GST_SH_VIDEO_BUFFER_C_SIZE(buf) = 0;
 	} else
 		return NULL;
-
-	GST_LOG("end new");
 
 	return GST_BUFFER(buf);
 }
@@ -194,5 +190,95 @@ gst_sh_video_buffer_get_type (void)
 				"GstSHVideoBuffer", &gst_sh_video_buffer_info, 0);
 	}
 	return gst_sh_video_buffer_type;
+}
+
+
+/***************************** Helper functions *****************************/
+
+/* Extend gst_video_format_get_size to support NV12, NV16 & RGB16 */
+int gst_sh_video_format_get_size(GstVideoFormat format, int width, int height)
+{
+	int size = 0;
+
+	if (format == GST_VIDEO_FORMAT_NV12)
+		size = (width * height * 3)/2;
+	else if (format == GST_VIDEO_FORMAT_NV16)
+		size = width * height * 2;
+	else if (format == GST_VIDEO_FORMAT_RGB16)
+		size = width * height * 2;
+	else
+		size = gst_video_format_get_size(format, width, height);
+
+	return size;
+}
+
+/* Extend gst_video_format_parse_caps to support NV12, NV16 & RGB16 */
+gboolean gst_sh_video_format_parse_caps (
+	GstCaps *caps,
+	GstVideoFormat *format,
+	int *width,
+	int *height)
+{
+	GstStructure *structure;
+	guint32 fourcc;
+	gint bpp = 0;
+	gboolean found = FALSE;
+
+	*format = GST_VIDEO_FORMAT_UNKNOWN;
+
+	structure = gst_caps_get_structure(caps, 0);
+
+	if (structure && format) {
+		gst_structure_get_fourcc(structure, "format", &fourcc);
+		gst_structure_get_int(structure, "bpp", &bpp);
+
+		if (fourcc == GST_MAKE_FOURCC('N', 'V', '1', '2')) {
+			*format = GST_VIDEO_FORMAT_NV12;
+		} else if (fourcc == GST_MAKE_FOURCC('N', 'V', '1', '6')) {
+			*format = GST_VIDEO_FORMAT_NV16;
+		} else if (gst_video_format_parse_caps (caps, format, width, height)) {
+			/* Nothing */
+		} else if (gst_structure_has_name (structure, "video/x-raw-rgb")) {
+			if (bpp == 16)
+				*format = GST_VIDEO_FORMAT_RGB16;
+			if (bpp == 32)
+				*format = GST_VIDEO_FORMAT_RGBx;
+		}
+	}
+
+	if (*format != GST_VIDEO_FORMAT_UNKNOWN)
+		found = TRUE;
+
+	if (width)
+		found &= gst_structure_get_int(structure, "width", width);
+	if (height)
+		found &= gst_structure_get_int(structure, "height", height);
+
+	return found;
+}
+
+gboolean gst_caps_to_v4l2_format (GstCaps *caps, int *v4l2format)
+{
+	GstVideoFormat format;
+
+	*v4l2format = 0;
+
+	if (gst_sh_video_format_parse_caps (caps, &format, NULL, NULL)) {
+		if (format == GST_VIDEO_FORMAT_RGB16)
+			*v4l2format = V4L2_PIX_FMT_RGB565;
+		else if (format == GST_VIDEO_FORMAT_RGBx)
+			*v4l2format = V4L2_PIX_FMT_RGB32;
+		else if (format == GST_VIDEO_FORMAT_NV12)
+			*v4l2format = V4L2_PIX_FMT_NV12;
+		else if (format == GST_VIDEO_FORMAT_NV16)
+			*v4l2format = V4L2_PIX_FMT_NV16;
+	}
+
+	if (*v4l2format == 0) {
+		GST_ERROR("failed to get format from cap");
+		return FALSE;
+	}
+
+	return TRUE; 
 }
 

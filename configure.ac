@@ -82,6 +82,18 @@ PKG_CHECK_MODULES(UIOMUX, uiomux >= 1.1.0)
 PKG_CHECK_MODULES(SHVEU, shveu >= 1.3.0)
 PKG_CHECK_MODULES(SHCODECS, shcodecs >= 1.1.0)
 
+dnl
+dnl Check for Blend plugin enabled
+dnl
+AC_ARG_ENABLE(blend, AS_HELP_STRING([--disable-blend], [Disable blend (BEU) plugin]))
+
+AS_IF([test "x$enable_blend" != "xno"], [
+	dnl Blend plugin enabled - what about lisbhbeu?
+    PKG_CHECK_MODULES(SHBEU, shbeu >= 0.0.1, [BLEND=yes],
+		[AC_MSG_WARN([libshbeu not found - blend plugin won't be built])])
+])
+AM_CONDITIONAL(ENABLE_BLEND, [test "x$BLEND" = "xyes"])
+
 
 AC_CONFIG_FILES([Makefile gst/Makefile gst/shvideo/Makefile])
 AC_OUTPUT
