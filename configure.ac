@@ -83,12 +83,25 @@ PKG_CHECK_MODULES(SHVEU, shveu >= 1.3.0)
 PKG_CHECK_MODULES(SHCODECS, shcodecs >= 1.1.0)
 
 dnl
+dnl Check for Scale plugin enabled
+dnl
+AC_ARG_ENABLE(scale, AS_HELP_STRING([--disable-scale], [Disable scale (VEU) plugin]))
+
+AS_IF([test "x$enable_scale" != "xno"], [
+	dnl Scale plugin enabled - what about libshveu?
+    PKG_CHECK_MODULES(SHVEU, shveu >= 1.3.0, [SCALE=yes],
+		[AC_MSG_WARN([libshveu not found - scale plugin won't be built])])
+])
+AM_CONDITIONAL(ENABLE_SCALE, [test "x$SCALE" = "xyes"])
+
+
+dnl
 dnl Check for Blend plugin enabled
 dnl
 AC_ARG_ENABLE(blend, AS_HELP_STRING([--disable-blend], [Disable blend (BEU) plugin]))
 
 AS_IF([test "x$enable_blend" != "xno"], [
-	dnl Blend plugin enabled - what about lisbhbeu?
+	dnl Blend plugin enabled - what about libshbeu?
     PKG_CHECK_MODULES(SHBEU, shbeu >= 0.0.1, [BLEND=yes],
 		[AC_MSG_WARN([libshbeu not found - blend plugin won't be built])])
 ])
