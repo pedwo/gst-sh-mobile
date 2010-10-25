@@ -179,35 +179,6 @@ static GstElementClass *parent_class = NULL;
 GST_DEBUG_CATEGORY_STATIC (gst_sh_mobile_debug);
 #define GST_CAT_DEFAULT gst_sh_mobile_debug
 
-/**
- * \enum gstshvideodecproperties
- * gst-sh-mobile-dec has following properties:
- * - "buffer-size" (gint). Maximum size of the cache buffer in KB. Default: 1000
- * - "hw-buffer" (string). Enables/disables usage of hardware data buffering.
- *   HW buffering makes zero copy functionality possible if gst-sh-mobile-sink
- *   element is connected to the src -pad. Possible values: "yes"/"no"/"auto". 
- *   Default: auto
- */
-enum gstshvideodecproperties
-{
-	PROP_0,
-	PROP_HW_BUFFER,
-	PROP_LAST
-};
-
-#define DEFAULT_MAX_SIZE 1000 * 1024
-
-#define HW_BUFFER_AUTO "auto"
-#define HW_BUFFER_YES  "yes"
-#define HW_BUFFER_NO   "no"
-
-enum
-{
-	HW_ADDR_AUTO,
-	HW_ADDR_YES,
-	HW_ADDR_NO
-};
-
 // STATIC DECLARATIONS
 
 /** 
@@ -241,28 +212,6 @@ static void gst_sh_video_dec_class_init (GstSHVideoDecClass * klass);
  * @param gklass Gstreamer SH video decode class
  */
 static void gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass);
-
-
-/** 
- * The function will set the user defined maximum buffer size value for decoder
- * @param object The object where to get Gstreamer SH video Decoder object
- * @param prop_id The property id
- * @param value In this case maximum buffer size in kilo bytes
- * @param pspec not used in fuction
- */
-static void gst_sh_video_dec_set_property (GObject *object, 
-					 guint prop_id, const GValue *value, 
-					 GParamSpec * pspec);
-
-/** 
- * The function will return the maximum buffer size in kilo bytes from decoder to value
- * @param object The object where to get Gstreamer SH video Decoder object
- * @param prop_id The property id
- * @param value In this case maximum buffer size in kilo bytes
- * @param pspec not used in fuction
- */
-static void gst_sh_video_dec_get_property (GObject * object, guint prop_id,
-					 GValue * value, GParamSpec * pspec);
 
 /** 
  * Event handler for decoder sink events
@@ -394,15 +343,6 @@ gst_sh_video_dec_class_init (GstSHVideoDecClass * klass)
 				 0, "Decoder for H264/MPEG4 streams");
 
 	gobject_class->dispose = gst_sh_video_dec_dispose;
-	gobject_class->set_property = gst_sh_video_dec_set_property;
-	gobject_class->get_property = gst_sh_video_dec_get_property;
-
-	g_object_class_install_property (gobject_class, PROP_HW_BUFFER,
-					 g_param_spec_string ("hw-buffer", 
-							      "HW-buffer", 
-							      "Sets usage of HW buffers (auto(default)/yes/no)",
-							      NULL, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
 }
 
 static void
@@ -427,7 +367,6 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 	dec->caps_set = FALSE;
 	dec->decoder = NULL;
 	dec->running = FALSE;
-	dec->use_physical = HW_ADDR_AUTO;
 
 	dec->buffer = NULL;
 
@@ -438,80 +377,6 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 	sem_init(&dec->push_sem, 0, 0); 
 
 	dec->end = FALSE;
-}
-
-static void
-gst_sh_video_dec_set_property (GObject * object, guint prop_id,
-			     const GValue * value, GParamSpec * pspec)
-{
-	GstSHVideoDec *dec = GST_SH_VIDEO_DEC (object);
-	const gchar* string;
-	
-	GST_LOG_OBJECT(dec,"%s called",__FUNCTION__);
-
-	switch (prop_id) 
-	{
-		case PROP_HW_BUFFER:
-		{
-			string = g_value_get_string (value);
-
-			if(!strcmp(string,HW_BUFFER_AUTO))
-			{
-				dec->use_physical = HW_ADDR_AUTO;
-			}
-			else if(!strcmp(string,HW_BUFFER_YES))
-			{
-				dec->use_physical = HW_ADDR_YES;
-			}
-			else if(!strcmp(string,HW_BUFFER_NO))
-			{
-				dec->use_physical = HW_ADDR_NO; 
-			}
-			break;
-		}
-		default:
-		{
-			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-			break;
-		}
-	}
-}
-
-static void
-gst_sh_video_dec_get_property (GObject * object, guint prop_id,
-			     GValue * value, GParamSpec * pspec)
-{
-	GstSHVideoDec *dec = GST_SH_VIDEO_DEC (object);
-
-	GST_DEBUG_OBJECT(dec,"%s called",__FUNCTION__);
-
-	switch (prop_id) 
-	{
-		case PROP_HW_BUFFER:
-		{
-			switch (dec->use_physical)
-			{      
-				case HW_ADDR_AUTO:
-				{
-				  g_value_set_string(value, HW_BUFFER_AUTO);
-				  break;
-				}
-				case HW_ADDR_NO:
-				{
-				  g_value_set_string(value, HW_BUFFER_NO);
-				  break;
-				}
-				case HW_ADDR_YES:
-				{
-				  g_value_set_string(value, HW_BUFFER_YES);
-				  break;
-				}
-			}
-			break;
-		}
-	default:
-		G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-	}
 }
 
 static gboolean
@@ -688,27 +553,6 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 	/* Set frame by frame as it is natural for GStreamer data flow */
 	shcodecs_decoder_set_frame_by_frame(dec->decoder,1);
 
-	/* Autodetect Gstshvideosink */
-	if(dec->use_physical == HW_ADDR_AUTO)
-	{
-		if(GST_IS_SH_VIDEO_PEER(dec->srcpad))
-		{
-			dec->use_physical = HW_ADDR_YES;
-			GST_DEBUG_OBJECT(dec,"use_physical auto detected to YES");  
-		}
-		else
-		{
-			dec->use_physical = HW_ADDR_NO;
-			GST_DEBUG_OBJECT(dec,"use_physical auto detected to NO");  
-		}
-	}
-
-	/* Use physical addresses for playback */
-	if(dec->use_physical == HW_ADDR_YES)
-	{
-		shcodecs_decoder_set_use_physical(dec->decoder,1);
-	}
-
 	shcodecs_decoder_set_decoded_callback(dec->decoder,
 						gst_shcodecs_decoded_callback,
 						(void*)dec);
@@ -866,36 +710,25 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
 {
 	GstSHVideoDec *dec = (GstSHVideoDec *) user_data;
 	GstFlowReturn ret;
+	unsigned long phys_y;
+	unsigned long phys_c;
 	
-	gint offset = shcodecs_decoder_get_frame_count(dec->decoder);
+	gint offset = shcodecs_decoder_get_frame_count(decoder);
 
-	sem_wait(&dec->dec_sem); 
-	GST_LOG_OBJECT(dec,"%s called",__FUNCTION__);  
+	sem_wait(&dec->dec_sem);
 
-	if(dec->use_physical == HW_ADDR_YES)
-	{
-		GST_LOG_OBJECT(dec,"Using own buffer");  
-		dec->push_buf = (GstBuffer *) gst_mini_object_new (GST_TYPE_SH_VIDEO_BUFFER);
-		GST_SH_VIDEO_BUFFER_Y_DATA(dec->push_buf) = y_buf;    
-		GST_SH_VIDEO_BUFFER_Y_SIZE(dec->push_buf) = y_size;    
-		GST_SH_VIDEO_BUFFER_C_DATA(dec->push_buf) = c_buf;    
-		GST_SH_VIDEO_BUFFER_C_SIZE(dec->push_buf) = c_size;    
-		GST_BUFFER_OFFSET(dec->push_buf) = offset; 
-	}
-	else
-	{
-		GST_LOG_OBJECT(dec,"Using GST buffer");  
-		ret = gst_pad_alloc_buffer(dec->srcpad,offset,y_size + c_size,
-					   gst_pad_get_caps(dec->srcpad),&dec->push_buf);
-		if (ret != GST_FLOW_OK || GST_BUFFER_SIZE(dec->push_buf) != y_size + c_size) 
-		{
-			GST_LOG_OBJECT(dec,"Src pad didn't allocate buffer");  
-			dec->push_buf = gst_buffer_new_and_alloc(y_size+c_size);
-			GST_BUFFER_OFFSET(dec->push_buf) = offset; 
-		}
-		memcpy(GST_BUFFER_DATA(dec->push_buf),y_buf,y_size);
-		memcpy(GST_BUFFER_DATA(dec->push_buf)+y_size,c_buf,c_size);
-	}
+	shcodecs_decoder_get_physical_buf(decoder, &phys_y, &phys_c);
+
+	GST_LOG("Y=%p (0x%lX), C=%p (0x%lX)", y_buf, phys_y, c_buf, phys_c);
+
+	dec->push_buf = (GstBuffer *) gst_mini_object_new (GST_TYPE_SH_VIDEO_BUFFER);
+	GST_SH_VIDEO_BUFFER_Y_DATA(dec->push_buf) = phys_y;
+	GST_SH_VIDEO_BUFFER_Y_SIZE(dec->push_buf) = y_size;
+	GST_SH_VIDEO_BUFFER_C_DATA(dec->push_buf) = phys_c;
+	GST_SH_VIDEO_BUFFER_C_SIZE(dec->push_buf) = c_size;
+	GST_BUFFER_DATA(dec->push_buf) = y_buf;
+	GST_BUFFER_SIZE(dec->push_buf) = y_size + c_size;
+	GST_BUFFER_OFFSET(dec->push_buf) = offset;
 
 	GST_BUFFER_CAPS(dec->push_buf) = gst_caps_copy(GST_PAD_CAPS(dec->srcpad));
 	GST_BUFFER_DURATION(dec->push_buf) = GST_SECOND * dec->fps_denominator / dec->fps_numerator;
