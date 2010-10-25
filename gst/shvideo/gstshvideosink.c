@@ -1,16 +1,17 @@
 /**
  * \page sink gst-sh-mobile-sink
- * gst-sh-mobile-sink - Video sink on SuperH environment.
+ * gst-sh-mobile-sink - HW accelerated video sink.
  *
  * \section sink-description Description
- * Basic video sink for the Renesas SuperH chipset.
+ * Video sink for the Renesas SuperH chipset.
  * 
  * \section sink-examples Example launch lines
  *
  * \subsection sink-example-1 Displaying a test stream
- *
  * \code
- * gst-launch videotestsrc !  gst-sh-mobile-sink
+ * gst-launch \
+ *  videotestsrc \
+ *  ! gst-sh-mobile-sink
  * \endcode
  * This is the simplest pipeline which can be used to test the 
  * gst-sh-mobile-sink element. Videotestsrc provides video streams in various 
@@ -18,10 +19,13 @@
  *
  *
  * \subsection sink-example-2 Displaying an Ogg video
- *
  * \code
- * gst-launch filesrc location=/mnt/usb/theora-test.ogg ! oggdemux ! theoradec
- * ! ffmpegcolorspace ! gst-sh-mobile-sink width=400 height=240 x=100 y=100
+ * gst-launch \
+ *  filesrc location=/mnt/usb/theora-test.ogg \
+ *  ! oggdemux \
+ *  ! theoradec \
+ *  ! ffmpegcolorspace \
+ *  ! gst-sh-mobile-sink "width=400 height=240 x=100 y=100"
  * \endcode
  * OGG video stream read from a file using filesrc element and then demuxed with
  * oggdemux. The  Theora video elementary stream is then decoded using theoradec
@@ -30,14 +34,12 @@
  *
  *
  * \subsection sink-example-3 Displaying an AVI video + audio playback
- *
  * \code
- * gst-launch filesrc location=test.avi ! avidemux name=demux demux.audio_00
- * ! queue ! decodebin ! audioconvert ! audioresample ! autoaudiosink
- * demux.video_00 ! queue ! gst-sh-mobile-dec ! gst-sh-mobile-sink
+ * gst-launch \
+ *  filesrc location=test.avi ! avidemux name=demux \
+ *  demux.audio_00 ! queue ! decodebin ! audioconvert ! audioresample ! autoaudiosink \
+ *  demux.video_00 ! queue ! gst-sh-mobile-dec ! gst-sh-mobile-sink
  * \endcode
- *
- * \image html decoder_example.jpeg
  *
  * Filesrc element is used to read the file, which this time is an avi
  * wrapped video containing both audio and video streams. avidemux element is

@@ -1,11 +1,13 @@
-/*
+/**
+ * \page resize gst-sh-mobile-resize
  * "gst-sh-mobile-resize" element. Resizes video frames using the VEU hardware resizer
  * (via libshveu).
  *
+ * \section resize-description Description
  * In Gstreamer terminology, the element implements an out of place transform
  * (i.e. filter) on raw video frames.
  *
- * Example usage:
+ * \subsection resize-examples-1 Resize a test source
  * \code
  *     gst-launch \
  *       videotestsrc \
@@ -16,11 +18,14 @@
  * \endcode
  *
  * This plugin supports the following formats on input and output:
+ * \code
  *       "video/x-raw-rgb, bpp=16"
  *       "video/x-raw-rgb, bpp=32"
  *       "video/x-raw-yuv, format=(fourcc)NV12"
  *       "video/x-raw-yuv, format=(fourcc)NV16"
+ * \endcode
  *
+ * \section mixer-license License
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either

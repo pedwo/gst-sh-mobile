@@ -14,8 +14,11 @@
  * \subsection dec-example-1 Decoding from a file to a file
  * 
  * \code
- * gst-launch filesrc location=test.m4v ! video/mpeg, width=320, height=240,
- * framerate=30/1, mpegversion=4 ! gst-sh-mobile-dec ! filesink location=test.raw
+ * gst-launch \
+ *  filesrc location=test.m4v \
+ *  ! "video/mpeg, width=320, height=240, framerate=30/1, mpegversion=4" \
+ *  ! gst-sh-mobile-dec \
+ *  ! filesink location=test.raw
  * \endcode
  * In this pipeline we use filesrc element to read the source file, 
  * which is a MPEG4 video elementary stream. After filesrc we add static caps 
@@ -23,15 +26,14 @@
  * The last element in the pipeline is filesink, which writes the output YUV-data
  * into a file.
  *
- * \subsection dec-example-2 Decoding an AVI -video with audio&video playback
+ * \subsection dec-example-2 Decoding an AVI file with audio & video playback
  *
  * \code
- * gst-launch filesrc location=test.avi ! avidemux name=demux demux.audio_00 ! 
- * queue ! decodebin ! audioconvert ! audioresample ! autoaudiosink 
- * demux.video_00 ! queue ! gst-sh-mobile-dec ! gst-sh-mobile-sink
+ * gst-launch \
+ * filesrc location=test.avi ! avidemux name=demux \
+ *  demux.audio_00 ! queue ! decodebin ! audioconvert ! audioresample ! autoaudiosink \
+ *  demux.video_00 ! queue ! gst-sh-mobile-dec ! gst-sh-mobile-sink
  * \endcode
- *
- * \image html decoder_example.jpeg
  *
  * Filesrc element is used to read the file again, which this time is an AVI
  * wrapped video containing both audio and video stream. avidemux element is 
@@ -54,9 +56,12 @@
  * \subsection dec-example-3 Decoding a video stream from net
  *  
  * \code
- * gst-launch udpsrc port=5000 caps="application/x-rtp,clock-rate=90000"
- * ! gstrtpjitterbuffer latency=0 ! rtpmp4vdepay ! video/mpeg,width=320,
- * height=240,framerate=15/1 ! gst-sh-mobile-dec ! gst-sh-mobile-sink 
+ * gst-launch \
+ *  udpsrc port=5000 caps="application/x-rtp,clock-rate=90000" \
+ *  ! gstrtpjitterbuffer latency=0 ! rtpmp4vdepay \
+ *  ! "video/mpeg, width=320, height=240, framerate=15/1" \
+ *  ! gst-sh-mobile-dec \
+ *  ! gst-sh-mobile-sink 
  * \endcode
  * Here the video stream is received from udpsrc element. gstrtpjitterbuffer
  * element is used to take care of ordering and storing the received RTP

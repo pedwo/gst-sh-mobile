@@ -1,4 +1,4 @@
-/*
+/**
  * \page mixer gst-sh-mobile-mixer
  * gst-sh-mobile-mixer - SH video mixer plugin. Blends frames using
  * the Renesas BEU hardware (via libshbeu).
@@ -10,9 +10,11 @@
  * and the framerate of the fastest incoming one.
  *
  * Based on the Generic video mixer plugin (gst-plugins-good)
+ *
  * Copyright (C) 2004 Wim Taymans <wim@fluendo.com>
  *
  * Modified by Phil Edworthy <phil.edworthy@renesas.com>
+ *
  * Overview of changes:
  *  - Replaced blend functions with shbeu library.
  *  - Limited to 3 sink pads.
@@ -22,16 +24,20 @@
  *  - Supported formats changed.
  *
  * This element supports the following formats on input:
+ * \code
  *       "video/x-raw-rgb, bpp=16"
  *       "video/x-raw-rgb, bpp=32"
  *       "video/x-raw-yuv, format=(fourcc)NV12"
  *       "video/x-raw-yuv, format=(fourcc)NV16"
+* \endcode
  *
  * This element supports the following formats on output:
+ * \code
  *       "video/x-raw-rgb, bpp=16"
  *       "video/x-raw-rgb, bpp=32"
  *       "video/x-raw-yuv, format=(fourcc)NV12"
  *       "video/x-raw-yuv, format=(fourcc)NV16"
+* \endcode
  *
  * Individual parameters for each input stream can be configured on
  * the #GstSHVideoMixerPad.

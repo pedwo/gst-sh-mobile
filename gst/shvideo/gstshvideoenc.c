@@ -3,7 +3,7 @@
  * gst-sh-mobile-enc - Encodes raw YUV image data to MPEG4/H264 video stream on
  * SuperH environment using libshcodecs HW codec.
  *
- * \section dec-description Description
+ * \section enc-description Description
  * This element is designed to use the HW video processing modules of the Renesas
  * SuperH chipset to encode mpeg4/h264 video streams. This element is not usable
  * in any other environments and it requires libshcodes HW codec to be installed.
@@ -14,8 +14,11 @@
  * \section enc-examples Example launch lines
  * \subsection enc-examples-1 Encoding from a file to a file
  * \code
- * gst-launch filesrc location=test.yuv ! gst-sh-mobile-enc stream-type=mpeg4
- * width=320 height=240 framerate=300 ! filesink location=test.m4v
+ * gst-launch \
+ *  filesrc location=test.yuv \
+ *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=30/1" 
+ *  ! gst-sh-mobile-enc stream-type=mpeg4 \
+ *  ! filesink location=test.m4v
  * \endcode
  * This is a very simple pipeline where filesrc and filesink elements are used
  * to read the raw data and write the encoded data. In this pipeline the
@@ -24,25 +27,25 @@
  *
  * \subsection enc-examples-2 Encoding from a webcam to a file
  * \code
- * gst-launch v4l2src device=/dev/video0 ! image/jpeg, width=320, height=240,
- * framerate=15/1 ! jpegdec ! ffmpegcolorspace ! gst-sh-mobile-enc
- * stream-type=mpeg4 bitrate=250000 ! filesink location=test.m4v
+ * gst-launch \
+ *  v4l2src device=/dev/video0 \
+ *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1" 
+ *  ! queue ! gst-sh-mobile-enc stream-type=mpeg4 bitrate=250000 \
+ *  ! filesink location=test.m4v
  * \endcode
  * 
- * \image html encoder_example.jpeg
- * 
- * In this example, webcam is used as the streaming source via v4l2src element.
- * the webcam in this example provides jpeg image data. This pipeline works in
- * push mode, so we need to specify the stream properties using static caps after
- * the v4l2src element. jpegdec decodes the jpeg images and ffmpegcolorspace is
- * used to convert the image data for the encoder. Again, filesink is used to
- * write the encoded video stream into a file.
+ * In this example, a camera is used as the streaming source via v4l2src element.
+ * This pipeline works in push mode, so we need to specify the stream properties
+ * using static caps after the v4l2src element. Again, filesink is used to write
+ * the encoded video stream into a file.
  *
  * \subsection enc-examples-3 Encoding from a webcam to network
  * \code
- * gst-launch v4l2src device=/dev/video0 ! image/jpeg, width=320, height=240,
- * framerate=15/1 ! jpegdec ! ffmpegcolorspace ! gst-sh-mobile-enc
- * ! rtpmp4vpay ! udpsink host=192.168.10.10 port=5000 sync=false 
+ * gst-launch \
+ *  v4l2src device=/dev/video0 \
+ *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1" 
+ *  ! queue ! gst-sh-mobile-enc \
+ *  ! rtpmp4vpay ! udpsink host=192.168.10.10 port=5000 sync=false 
  * \endcode
  * This line is similar to the one above. At this time, the video is not stored
  * in a file but sent over the network using udpsink -element. Before sending,
@@ -50,9 +53,11 @@
  *
  * The following line allows playback of the video in PC:
  * \code
- * gst-launch udpsrc port=5000 caps="application/x-rtp, clock-rate=90000"
- * ! gstrtpjitterbuffer latency=0 ! rtpmp4vdepay ! video/mpeg, width=320,
- * height=240, framerate=15/1 ! ffdec_mpeg4 ! ffmpegcolorspace ! ximagesink 
+ * gst-launch \
+ *  udpsrc port=5000 caps="application/x-rtp, clock-rate=90000" \
+ *  ! gstrtpjitterbuffer latency=0 ! rtpmp4vdepay \
+ *  ! "video/mpeg, width=320, height=240, framerate=15/1" \
+ *  ! ffdec_mpeg4 ! ffmpegcolorspace ! ximagesink 
  * \endcode
  * 
  * \section enc-properties Properties

@@ -1,16 +1,31 @@
 /**
- * \mainpage gst-sh-mobile - GStreamer plugin for SuperH
+ * \mainpage gst-sh-mobile - GStreamer plugins for Renesas devices.
  *
- * This plugin includes following elements:
+ * This software package provides GStreamer plugins for hardware
+ * accelerated video operations. They have been tested on the SH7724
+ * (SH-Mobile R2R) device with an MS7724 development board. However,
+ * they will work with any Renesas device that is supported by the
+ * libshveu, libshbeu and libshcodecs software.
+ *
+ * This package consists of 3 plugins:
+ *
+ * The shvideo plugin includes following elements:
  * - \subpage dec "gst-sh-mobile-dec - MPEG4/H264 HW decoder"
  * - \subpage enc "gst-sh-mobile-enc - MPEG4/H264 HW encoder"
  * - \subpage sink "gst-sh-mobile-sink - Image sink"
+ *
+ * The scale plugin includes following elements:
+ * - \subpage resize "gst-sh-mobile-resize - HW video resize/rotate"
+ * 
+ * The blend plugin includes following elements:
+ * - \subpage mixer "gst-sh-mobile-mixer - HW video blend/overlay"
  * 
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either
  * version 2 of the License, or (at your option) any later version.
  *
+ * \section main-license License
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -23,6 +38,7 @@
  * \author Pablo Virolainen <pablo.virolainen@nomovok.com>
  * \author Johannes Lahti <johannes.lahti@nomovok.com>
  * \author Aki Honkasuo <aki.honkasuo@nomovok.com>
+ * \author Phil Edworthy <phil.edworthy@renesas.com>
  *
  */
 #ifdef HAVE_CONFIG_H
