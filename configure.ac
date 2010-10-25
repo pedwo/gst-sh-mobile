@@ -25,6 +25,13 @@ dnl TODO required version of libtool
 dnl LT_PREREQ([2.2.6])
 LT_INIT
 
+dnl Check for doxygen
+AC_CHECK_PROG(HAVE_DOXYGEN, doxygen, true, false)
+AM_CONDITIONAL(HAVE_DOXYGEN,$HAVE_DOXYGEN)
+if test $HAVE_DOXYGEN = "false"; then
+	AC_MSG_WARN([*** doxygen not found, docs will not be built])
+fi
+
 dnl give error and exit if we don't have pkgconfig
 AC_CHECK_PROG(HAVE_PKGCONFIG, pkg-config, [ ], [
   AC_MSG_ERROR([You need to have pkg-config installed!])
@@ -108,7 +115,13 @@ AS_IF([test "x$enable_blend" != "xno"], [
 AM_CONDITIONAL(ENABLE_BLEND, [test "x$BLEND" = "xyes"])
 
 
-AC_CONFIG_FILES([Makefile gst/Makefile gst/shvideo/Makefile])
+AC_CONFIG_FILES([
+Makefile
+gst/Makefile
+gst/shvideo/Makefile
+doc/Makefile
+doc/Doxyfile
+])
 AC_OUTPUT
 
 

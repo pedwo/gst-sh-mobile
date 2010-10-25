@@ -26,8 +26,6 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-#include "gstshvideosink.h"
-
 #define GST_TYPE_SH_VIDEO_BUFFER (gst_sh_video_buffer_get_type())
 #define GST_IS_SH_VIDEO_BUFFER(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_SH_VIDEO_BUFFER))
 #define GST_SH_VIDEO_BUFFER(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_SH_VIDEO_BUFFER, GstSHVideoBuffer))
