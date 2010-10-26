@@ -100,8 +100,6 @@ GST_DEBUG_CATEGORY (gst_sh_videomixer_debug);
 #define GST_SH_VIDEO_MIXER_STATE_UNLOCK(mix) \
 	(g_mutex_unlock(GST_SH_VIDEO_MIXER_GET_STATE_LOCK (mix)))
 
-GType gst_sh_videomixer_get_type (void);
-
 static void gst_sh_videomixer_pad_class_init (GstSHVideoMixerPadClass * klass);
 static void gst_sh_videomixer_pad_init (GstSHVideoMixerPad * mixerpad);
 
@@ -1414,18 +1412,3 @@ gst_sh_videomixer_change_state (GstElement * element, GstStateChange transition)
 	return ret;
 }
 
-static gboolean
-plugin_init (GstPlugin * plugin)
-{
-	GST_DEBUG_CATEGORY_INIT (gst_sh_videomixer_debug, "gst-sh-mobile-mixer", 0,
-			"SH video mixer");
-
-	return gst_element_register (plugin, "gst-sh-mobile-mixer", GST_RANK_PRIMARY,
-			GST_TYPE_SH_VIDEO_MIXER);
-}
-
-GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-		GST_VERSION_MINOR,
-		"gst-sh-mobile-mixer",
-		"SH Video mixer", plugin_init, VERSION, "LGPL", "Renesas SH Video",
-		"")

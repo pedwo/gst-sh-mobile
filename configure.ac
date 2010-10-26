@@ -99,6 +99,9 @@ AS_IF([test "x$enable_scale" != "xno"], [
     PKG_CHECK_MODULES(SHVEU, shveu >= 1.3.0, [SCALE=yes],
 		[AC_MSG_WARN([libshveu not found - scale plugin won't be built])])
 ])
+if test "x$SCALE" = "xyes" ; then
+	AC_DEFINE(ENABLE_SCALE, [], [Scale])
+fi
 AM_CONDITIONAL(ENABLE_SCALE, [test "x$SCALE" = "xyes"])
 
 
@@ -112,6 +115,9 @@ AS_IF([test "x$enable_blend" != "xno"], [
     PKG_CHECK_MODULES(SHBEU, shbeu >= 0.0.1, [BLEND=yes],
 		[AC_MSG_WARN([libshbeu not found - blend plugin won't be built])])
 ])
+if test "x$BLEND" = "xyes" ; then
+	AC_DEFINE(ENABLE_BLEND, [], [Blend])
+fi
 AM_CONDITIONAL(ENABLE_BLEND, [test "x$BLEND" = "xyes"])
 
 

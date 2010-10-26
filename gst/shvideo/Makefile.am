@@ -1,47 +1,36 @@
+OUR_SOURCES=
+OUR_CFLAGS=
+OUR_LIBS=
+OUR_LDFLAGS=
+
 if ENABLE_SCALE
-SCALE_PLUGINS = libgstshvideoscale.la
+OUR_SOURCES += gstshvideoresize.c
+OUR_CFLAGS += $(SHVEU_CFLAGS)
+OUR_LIBS += $(SHVEU_LIBS)
+OUR_LDFLAGS += $(SHVEU_LDFLAGS)
 endif
 
 if ENABLE_BLEND
-BLEND_PLUGINS = libgstshvideomixer.la
+OUR_SOURCES += shvideomixer.c
+OUR_CFLAGS += $(SHBEU_CFLAGS)
+OUR_LIBS += $(SHBEU_LIBS)
+OUR_LDFLAGS += $(SHBEU_LDFLAGS)
 endif
 
-plugin_LTLIBRARIES = libgstshvideo.la $(SCALE_PLUGINS) $(BLEND_PLUGINS)
+plugin_LTLIBRARIES = libgstshvideo.la
 
 AM_CFLAGS = -I $(srcdir)
 
 libgstshvideo_la_SOURCES = gstshvideoplugin.c gstshvideodec.c gstshvideoenc.c gstshvideosink.c gstshvideocapenc.c \
-	ControlFileUtil.c gstshvideobuffer.c display.c capture.c thrqueue.c
+	ControlFileUtil.c gstshvideobuffer.c display.c capture.c thrqueue.c $(OUR_SOURCES)
 
 libgstshvideo_la_CFLAGS = $(GST_CFLAGS) \
-	$(SHCODECS_CFLAGS) $(SHVEU_CFLAGS) $(UIOMUX_CFLAGS)
+	$(SHCODECS_CFLAGS) $(SHVEU_CFLAGS) $(OUR_CFLAGS) $(UIOMUX_CFLAGS)
 libgstshvideo_la_LIBADD = $(GST_LIBS) \
-	$(SHCODECS_LIBS) $(SHVEU_LIBS) $(UIOMUX_LIBS)
+	$(SHCODECS_LIBS) $(SHVEU_LIBS) $(OUR_LIBS) $(UIOMUX_LIBS)
 libgstshvideo_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -lrt -lgstvideo-0.10 \
-	$(SHCODECS_LDFLAGS) $(SHVEU_LDFLAGS) $(UIOMUX_LDFLAGS)
+	$(SHCODECS_LDFLAGS) $(SHVEU_LDFLAGS) $(OUR_LDFLAGS) $(UIOMUX_LDFLAGS)
 libgstshvideo_la_LIBTOOLFLAGS = --tag=disable-static
-
-
-libgstshvideoscale_la_SOURCES = gstshvideoresize.c gstshvideobuffer.c
-
-libgstshvideoscale_la_CFLAGS = $(GST_CFLAGS) \
-	$(SHVEU_CFLAGS) $(UIOMUX_CFLAGS)
-libgstshvideoscale_la_LIBADD = $(GST_LIBS) \
-	$(SHVEU_LIBS) $(UIOMUX_LIBS)
-libgstshvideoscale_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -lgstvideo-0.10 \
-	$(SHVEU_LDFLAGS) $(UIOMUX_LDFLAGS)
-libgstshvideoscale_la_LIBTOOLFLAGS = --tag=disable-static
-
-
-libgstshvideomixer_la_SOURCES = shvideomixer.c gstshvideobuffer.c
-
-libgstshvideomixer_la_CFLAGS = $(GST_CFLAGS) \
-	$(SHBEU_CFLAGS) $(UIOMUX_CFLAGS)
-libgstshvideomixer_la_LIBADD = $(GST_LIBS) \
-	$(SHBEU_LIBS) $(UIOMUX_LIBS)
-libgstshvideomixer_la_LDFLAGS = $(GST_PLUGIN_LDFLAGS) -lgstvideo-0.10 \
-	$(SHBSEU_LDFLAGS) $(UIOMUX_LDFLAGS)
-libgstshvideomixer_la_LIBTOOLFLAGS = --tag=disable-static
 
 
 noinst_HEADERS = \

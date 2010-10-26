@@ -9,15 +9,12 @@
  *
  * This package consists of 3 plugins:
  *
- * The shvideo plugin includes following elements:
+ * The plugin includes following elements:
  * - \subpage dec "gst-sh-mobile-dec - MPEG4/H264 HW decoder"
  * - \subpage enc "gst-sh-mobile-enc - MPEG4/H264 HW encoder"
  * - \subpage sink "gst-sh-mobile-sink - Image sink"
- *
- * The scale plugin includes following elements:
+ * Optional elements:
  * - \subpage resize "gst-sh-mobile-resize - HW video resize/rotate"
- * 
- * The blend plugin includes following elements:
  * - \subpage mixer "gst-sh-mobile-mixer - HW video blend/overlay"
  * 
  * This library is free software; you can redistribute it and/or
@@ -49,6 +46,12 @@
 #include "gstshvideoenc.h"
 #include "gstshvideodec.h"
 #include "gstshvideocapenc.h"
+#ifdef ENABLE_SCALE
+#include "gstshvideoresize.h"
+#endif
+#ifdef ENABLE_BLEND
+#include "shvideomixer.h"
+#endif
 
 gboolean
 gst_sh_video_plugin_init (GstPlugin * plugin)
@@ -68,6 +71,18 @@ gst_sh_video_plugin_init (GstPlugin * plugin)
   if (!gst_element_register (plugin, "gst-sh-mobile-camera-enc", GST_RANK_PRIMARY,
           GST_TYPE_SH_VIDEO_CAPENC))
     return FALSE;
+
+#ifdef ENABLE_SCALE
+  if (!gst_element_register (plugin, "gst-sh-mobile-resize", GST_RANK_PRIMARY,
+          GST_TYPE_SHVIDRESIZE))
+    return FALSE;
+#endif
+
+#ifdef ENABLE_BLEND
+  if (!gst_element_register (plugin, "gst-sh-mobile-mixer", GST_RANK_PRIMARY,
+          GST_TYPE_SH_VIDEO_MIXER))
+    return FALSE;
+#endif
 
   return TRUE;
 }

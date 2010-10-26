@@ -507,18 +507,3 @@ static gboolean gst_shvidresize_exit_resize(GstSHVidresize *vidresize)
 	return TRUE;
 }
 
-static gboolean
-plugin_init (GstPlugin * plugin)
-{
-	GST_DEBUG_CATEGORY_INIT (gst_shvidresize_debug, "gst-sh-mobile-resize", 0,
-			"SH video scale");
-
-	return gst_element_register (plugin, "gst-sh-mobile-resize", GST_RANK_PRIMARY,
-			GST_TYPE_SHVIDRESIZE);
-}
-
-GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-		GST_VERSION_MINOR,
-		"gst-sh-mobile-resize",
-		"SH Video scale", plugin_init, VERSION, "LGPL", "Renesas SH Video",
-		"")
