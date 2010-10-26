@@ -2713,6 +2713,13 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
     }
 
 	enc->encoder = shcodecs_encoder_init(enc->width, enc->height, enc->format);
+	if (!enc->encoder) {
+		GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
+			("shcodecs_encoder_init failed!"),
+			("Stream format:%d, width:%d, height:%d and framerate: %d/%d", 
+			 enc->format, enc->width, enc->height,
+			 enc->fps_numerator, enc->fps_denominator));
+	}
 
 	shcodecs_encoder_set_frame_rate(enc->encoder,
 	 	(enc->fps_numerator / enc->fps_denominator) * 10);
