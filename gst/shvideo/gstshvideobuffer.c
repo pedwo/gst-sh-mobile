@@ -282,3 +282,19 @@ gboolean gst_caps_to_v4l2_format (GstCaps *caps, int *v4l2format)
 	return TRUE; 
 }
 
+int get_v4l2_format (GstVideoFormat format)
+{
+	int v4l2format = 0;
+
+	if (format == GST_VIDEO_FORMAT_RGB16)
+		v4l2format = V4L2_PIX_FMT_RGB565;
+	else if (format == GST_VIDEO_FORMAT_RGBx)
+		v4l2format = V4L2_PIX_FMT_RGB32;
+	else if (format == GST_VIDEO_FORMAT_NV12)
+		v4l2format = V4L2_PIX_FMT_NV12;
+	else if (format == GST_VIDEO_FORMAT_NV16)
+		v4l2format = V4L2_PIX_FMT_NV16;
+
+	return v4l2format;
+}
+

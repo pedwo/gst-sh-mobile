@@ -204,61 +204,6 @@ static void gst_shvidresize_init (GstSHVidresize *vidresize)
 }
 
 
-/*****************************************************************************/
-
-/*
- * Helper: get_spec
- */
-static gboolean get_spec (GstCaps *cap, gint *width,
-	gint *height, int *v4l2format)
-{
-	GstStructure *structure;
-	guint32 fourcc;
-	gint bpp;
-	structure = gst_caps_get_structure(cap, 0);
-
-	GST_LOG("begin");
-
-	if (!gst_structure_get_int(structure, "width", width)) {
-		GST_ERROR("Failed to get width");
-		return FALSE;
-	}
-
-	if (!gst_structure_get_int(structure, "height", height)) {
-		GST_ERROR("Failed to get height");
-		return FALSE;
-	}
-
-	*v4l2format = 0;
-
-	if (gst_structure_get_fourcc(structure, "format", &fourcc)) {
-		if (fourcc == GST_MAKE_FOURCC('N', 'V', '1', '2')) {
-			*v4l2format = V4L2_PIX_FMT_NV12;
-		} else if (fourcc == GST_MAKE_FOURCC('N', 'V', '1', '6')) {
-			*v4l2format = V4L2_PIX_FMT_NV16;
-		}
-	} else {
-		if (gst_structure_get_int(structure, "bpp", &bpp)) {
-			if (bpp == 16)
-				*v4l2format = V4L2_PIX_FMT_RGB565;
-			if (bpp == 32)
-				*v4l2format = V4L2_PIX_FMT_RGB32;
-		}
-	}
-
-
-	if (*v4l2format == 0) {
-		GST_ERROR("failed to get format from cap");
-		return FALSE;
-	}
-
-	GST_LOG("end");
-
-	return TRUE; 
-}
-
-/*****************************************************************************/
-
 /*
  * GstBaseTransformClass::prepare_output_buffer
  * Optional. Subclasses can override this to do their own allocation of
@@ -270,16 +215,15 @@ static GstFlowReturn gst_shvidresize_prepare_output_buffer (GstBaseTransform
 	*trans, GstBuffer *inBuf, gint size, GstCaps *caps, GstBuffer **outBuf)
 {
 	GstSHVidresize *vidresize = GST_SHVIDRESIZE(trans);
+	GstVideoFormat format;
 	gint width, height;
 	int v4l2fmt;
 
-	GST_LOG("begin");
-
-	/* Get the width, height & format from the caps */
-	if (!get_spec(caps, &width, &height, &v4l2fmt)) {
-		GST_ERROR("Failed to get resolution");
+	if (!gst_sh_video_format_parse_caps (caps, &format, &width, &height)) {
+		GST_ERROR("Failed to parse caps");
 		return FALSE;
 	}
+	v4l2fmt = get_v4l2_format(format);
 
 	GST_LOG("output size = %dx%d, format=%d", width, height, v4l2fmt);
 
@@ -295,8 +239,6 @@ static GstFlowReturn gst_shvidresize_prepare_output_buffer (GstBaseTransform
 
 	GST_LOG("allocated dst py=%p, pc=%p", GST_SH_VIDEO_BUFFER_Y_DATA(*outBuf), GST_SH_VIDEO_BUFFER_C_DATA(*outBuf));
 
-	GST_LOG("end");   
-
 	return GST_FLOW_OK;
 }
 
@@ -308,22 +250,16 @@ static GstFlowReturn gst_shvidresize_prepare_output_buffer (GstBaseTransform
 static gboolean gst_shvidresize_get_unit_size (GstBaseTransform *trans,
 	GstCaps *caps, guint *size)
 {
+	GstVideoFormat format;
 	gint height, width;
-	int v4l2fmt;
 
-	GST_LOG("begin");
-
-	if (!get_spec(caps, &width, &height, &v4l2fmt)) {
-		GST_ERROR("Failed to get resolution");
+	if (!gst_sh_video_format_parse_caps (caps, &format, &width, &height)) {
+		GST_ERROR("Failed to parse caps");
 		return FALSE;
 	}
 
-	// TODO calc buf size
-	*size =1;
+	*size = gst_sh_video_format_get_size(format, width, height);
 
-	GST_LOG("setting unit_size = %d", *size);
-
-	GST_LOG("end"); 
 	return TRUE; 
 }
 
@@ -447,36 +383,30 @@ static gboolean gst_shvidresize_set_caps (GstBaseTransform *trans,
 {
 	GstSHVidresize      *vidresize  = GST_SHVIDRESIZE(trans);
 	gboolean            ret         = FALSE;
-
-	GST_LOG("begin");
+	GstVideoFormat format;
 
 	/* parse input cap */
-	if (!get_spec(in, &vidresize->srcWidth,
-			&vidresize->srcHeight, &vidresize->srcColorSpace)) {
+	if (!gst_sh_video_format_parse_caps (in, &format, &vidresize->srcWidth, &vidresize->srcHeight)) {
 		GST_ELEMENT_ERROR(vidresize, RESOURCE, FAILED,
 			("failed to get input resolution"), (NULL));
 		goto exit;
 	}
-
+	vidresize->srcColorSpace = get_v4l2_format(format);
 	GST_LOG("input: %dx%d", vidresize->srcWidth, vidresize->srcHeight);
 
 
 	/* parse output cap */
-	if (!get_spec(out, &vidresize->dstWidth,
-			&vidresize->dstHeight, &vidresize->dstColorSpace)) {
+	if (!gst_sh_video_format_parse_caps (out, &format, &vidresize->dstWidth, &vidresize->dstHeight)) {
 		GST_ELEMENT_ERROR(vidresize, RESOURCE, FAILED,
 			("failed to get output resolution"), (NULL));
 		goto exit;
 	}
-
+	vidresize->dstColorSpace = get_v4l2_format(format);
 	GST_LOG("output: %dx%d", vidresize->dstWidth, vidresize->dstHeight);
-
-	// TODO If allocating a buffer pool, here would be a good place
 
 	ret = TRUE;
 
 exit:
-	GST_LOG("end");
 	return ret;
 }
 

@@ -114,4 +114,6 @@ gboolean gst_sh_video_format_parse_caps (
 
 gboolean gst_caps_to_v4l2_format (GstCaps *caps, int *v4l2format);
 
+int get_v4l2_format (GstVideoFormat format);
+
 #endif //GSTSHVIDEOBUFFER_H
