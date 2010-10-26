@@ -91,7 +91,8 @@
 #include "gstshvideobuffer.h"
 #include "shvideomixer.h"
 
-GST_DEBUG_CATEGORY (gst_sh_videomixer_debug);
+GST_DEBUG_CATEGORY_STATIC (gst_sh_video_mixer_debug);
+#define GST_CAT_DEFAULT gst_sh_video_mixer_debug
 
 #define GST_SH_VIDEO_MIXER_GET_STATE_LOCK(mix) \
 	(GST_SH_VIDEO_MIXER(mix)->state_lock)
@@ -136,6 +137,9 @@ gst_sh_videomixer_pad_class_init (GstSHVideoMixerPadClass * klass)
 
 	gobject_class->set_property = gst_sh_videomixer_pad_set_property;
 	gobject_class->get_property = gst_sh_videomixer_pad_get_property;
+
+	GST_DEBUG_CATEGORY_INIT(gst_sh_video_mixer_debug, "gst-sh-mobile-mixer",
+			0, "SH Video Mixer");
 
 	g_object_class_install_property (gobject_class, PROP_PAD_ZORDER,
 			g_param_spec_uint ("zorder", "Z-Order", "Z Order of the picture",

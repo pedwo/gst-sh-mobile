@@ -123,8 +123,8 @@ static GstStaticPadTemplate src_factory =
 			   "height = (int) [48, 720],"
 			   "framerate = (fraction) [0, 30]"));
 
-GST_DEBUG_CATEGORY_STATIC(gst_sh_mobile_debug);
-#define GST_CAT_DEFAULT gst_sh_mobile_debug
+GST_DEBUG_CATEGORY_STATIC(gst_sh_video_capenc_debug);
+#define GST_CAT_DEFAULT gst_sh_video_capenc_debug
 
 static GstElementClass *parent_class = NULL;
 
@@ -360,7 +360,7 @@ static void gst_shvideo_enc_class_init(GstSHVideoCapEncClass * klass)
 	gstelement_class->set_clock = gst_shvideoenc_set_clock;
 	gstelement_class->change_state = gst_shvideo_enc_change_state;
 
-	GST_DEBUG_CATEGORY_INIT(gst_sh_mobile_debug,
+	GST_DEBUG_CATEGORY_INIT(gst_sh_video_capenc_debug,
 				"gst-sh-mobile-camera-enc", 0, "Encoder for H264/MPEG4 streams");
 
 	g_object_class_install_property(gobject_class, PROP_CNTL_FILE,

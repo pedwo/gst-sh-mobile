@@ -181,8 +181,8 @@ static GstStaticPadTemplate dec_src_factory =
 
 static GstElementClass *parent_class = NULL;
 
-GST_DEBUG_CATEGORY_STATIC (gst_sh_mobile_debug);
-#define GST_CAT_DEFAULT gst_sh_mobile_debug
+GST_DEBUG_CATEGORY_STATIC (gst_sh_video_dec_debug);
+#define GST_CAT_DEFAULT gst_sh_video_dec_debug
 
 // STATIC DECLARATIONS
 
@@ -344,7 +344,7 @@ gst_sh_video_dec_class_init (GstSHVideoDecClass * klass)
 	gobject_class = (GObjectClass *) klass;
 	gstelement_class = (GstElementClass *) klass;
 
-	GST_DEBUG_CATEGORY_INIT (gst_sh_mobile_debug, "gst-sh-mobile-dec",
+	GST_DEBUG_CATEGORY_INIT (gst_sh_video_dec_debug, "gst-sh-mobile-dec",
 				 0, "Decoder for H264/MPEG4 streams");
 
 	gobject_class->dispose = gst_sh_video_dec_dispose;

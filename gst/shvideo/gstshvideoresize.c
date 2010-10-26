@@ -59,8 +59,8 @@
 #include "gstshvideobuffer.h"
 
 /* Declare variable used to categorize GST_LOG output */
-GST_DEBUG_CATEGORY_STATIC (gst_shvidresize_debug);
-#define GST_CAT_DEFAULT gst_shvidresize_debug
+GST_DEBUG_CATEGORY_STATIC (gst_sh_video_resize_debug);
+#define GST_CAT_DEFAULT gst_sh_video_resize_debug
 
 #undef GST_VIDEO_SIZE_RANGE
 #define GST_VIDEO_SIZE_RANGE "(int) [ 16, 4092]"
@@ -137,10 +137,8 @@ GType gst_shvidresize_get_type(void)
 			"gst-sh-mobile-resize", &object_info, (GTypeFlags)0);
 
 		/* Initialize GST_LOG for this object */
-		GST_DEBUG_CATEGORY_INIT(gst_shvidresize_debug,
+		GST_DEBUG_CATEGORY_INIT(gst_sh_video_resize_debug,
 			"gst-sh-mobile-resize", 0, "SH Video Resize");
-
-		GST_LOG("initialized get_type");
 	}
 
 	return object_type;
@@ -189,8 +187,6 @@ static void gst_shvidresize_class_init(GstSHVidresizeClass *klass)
 	trans_class->prepare_output_buffer = GST_DEBUG_FUNCPTR(gst_shvidresize_prepare_output_buffer);
 	trans_class->passthrough_on_same_caps = TRUE;
 	parent_class = g_type_class_peek_parent (klass);
-
-	GST_LOG("finished class init");
 }
 
 /*

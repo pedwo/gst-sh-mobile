@@ -161,8 +161,8 @@ static GstStaticPadTemplate enc_src_factory =
 						)
 				 );
 
-GST_DEBUG_CATEGORY_STATIC(gst_sh_mobile_debug);
-#define GST_CAT_DEFAULT gst_sh_mobile_debug
+GST_DEBUG_CATEGORY_STATIC(gst_sh_video_enc_debug);
+#define GST_CAT_DEFAULT gst_sh_video_enc_debug
 
 static GstElementClass *parent_class = NULL;
 
@@ -539,7 +539,7 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 	g_object_class->set_property = gst_sh_video_enc_set_property;
 	g_object_class->get_property = gst_sh_video_enc_get_property;
 
-	GST_DEBUG_CATEGORY_INIT(gst_sh_mobile_debug, "gst-sh-mobile-enc",
+	GST_DEBUG_CATEGORY_INIT(gst_sh_video_enc_debug, "gst-sh-mobile-enc",
 			0, "Encoder for H264/MPEG4 streams");
 	
 	g_object_class_install_property(g_object_class, PROP_CNTL_FILE,

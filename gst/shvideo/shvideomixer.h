@@ -29,10 +29,6 @@
 #include <shbeu/shbeu.h>
 #include "shvideomixerpad.h"
 
-GST_DEBUG_CATEGORY_EXTERN (gst_sh_videomixer_debug);
-#define GST_CAT_DEFAULT gst_sh_videomixer_debug
-
-
 G_BEGIN_DECLS
 
 #define GST_TYPE_SH_VIDEO_MIXER (gst_sh_videomixer_get_type())
