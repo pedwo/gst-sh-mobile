@@ -1295,6 +1295,8 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	enc->stream_stopped = FALSE;
 	enc->eos = FALSE;
 
+	enc->buffered_output = NULL;
+
 	/* PROPERTIES */
 	/* common */
 	enc->bitrate = 0;
@@ -2956,7 +2958,6 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 {
 	GstSHVideoEnc *enc = (GstSHVideoEnc *) user_data;
 	GstBuffer *buf = NULL;
-	static GstBuffer *old_buf = NULL;
 	gint ret = 0;
 
 	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data frame number: %d\n", 
@@ -2973,9 +2974,9 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 		buf = gst_buffer_new();
 		gst_buffer_set_data(buf, data, length);
 
-		if (old_buf != NULL) {
-			buf = gst_buffer_join(old_buf, buf);
-			old_buf = NULL;
+		if (enc->buffered_output != NULL) {
+			buf = gst_buffer_join(enc->buffered_output, buf);
+			enc->buffered_output = NULL;
 		}
 		frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
 
@@ -2992,7 +2993,7 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 				ret = -1;
 			}
 		} else {
-			old_buf = buf;
+			enc->buffered_output = buf;
 		}
 	}
 

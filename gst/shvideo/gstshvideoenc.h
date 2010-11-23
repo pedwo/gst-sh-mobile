@@ -67,6 +67,8 @@ struct _GstSHVideoEnc
 	gboolean stream_stopped;
 	gboolean eos;
 
+	GstBuffer *buffered_output;
+
 	/* PROPERTIES */
 	/* common */
 	glong bitrate;
