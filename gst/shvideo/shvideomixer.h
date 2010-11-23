@@ -70,10 +70,9 @@ struct _GstSHVideoMixer
   /* the master pad */
   GstSHVideoMixerPad *master;
 
-  GstVideoFormat fmt;
-
   gint in_width, in_height;
   gint out_width, out_height;
+  gint out_format;
   gboolean setcaps;
   gboolean sendseg;
 

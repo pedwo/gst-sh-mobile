@@ -60,7 +60,6 @@ typedef struct _GstSHVideoSinkClass GstSHVideoSinkClass;
  * \var zoom_factor Zoom -setting. (See properties)
  * \var display Helper module for display on framebuffer
  * \var uiomux Memory functions that the VEU can use
- * \var shveu VEU (Video Engine Unit)
  */
 struct _GstSHVideoSink
 {
@@ -79,8 +78,6 @@ struct _GstSHVideoSink
 
 	DISPLAY *display;
 	UIOMux *uiomux;
-	void *veu_mem_user;
-	unsigned long veu_mem_phys;
 };
 
 /**

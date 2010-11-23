@@ -82,29 +82,19 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
  *
- * Johannes Lahti <johannes.lahti@nomovok.com>
- * Pablo Virolainen <pablo.virolainen@nomovok.com>
- * Aki Honkasuo <aki.honkasuo@nomovok.com>
- *
  */
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <poll.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
 #include <string.h>
-#include <pthread.h>
 
 #include <gst/gst.h>
 
 #include "gstshvideoenc.h"
 #include "gstshencdefaults.h"
+#include "gstshvideobuffer.h"
 #include "ControlFileUtil.h"
 
 /**
@@ -426,14 +416,6 @@ static gboolean gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event);
 static gboolean gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query);
 
 /** 
- * Callback function for the encoder input
- * @param encoder shcodecs encoder
- * @param user_data Gstreamer SH encoder object
- * @return 0 if encoder should continue. 1 if encoder should pause.
- */
-static int gst_sh_video_enc_get_input(SHCodecs_Encoder * encoder, void *user_data);
-
-/** 
  * Callback function for the encoder output
  * @param encoder shcodecs encoder
  * @param data the encoded video frame
@@ -446,6 +428,19 @@ static int gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 					void *user_data);
 
 /** 
+ * Callback function for the encoder input used
+ * @param encoder shcodecs encoder
+ * @param y_input the used input video frame (luma)
+ * @param c_input the used input video frame (chroma)
+ * @param user_data Gstreamer SH encoder object
+ * @return 0 if encoder should continue. 1 if encoder should pause.
+ */
+static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
+					unsigned char * y_input,
+					unsigned char * c_input,
+					void * user_data);
+
+/** 
  * GStreamer state handling. We need this for pausing the encoder.
  * @param element GStreamer element
  * @param transition Flag indicating which transition to handle
@@ -454,6 +449,10 @@ static int gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
  */
 static GstStateChangeReturn
 gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition);
+
+static GstFlowReturn
+gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
+    GstCaps * caps, GstBuffer ** buf);
 
 
 static void
@@ -513,15 +512,10 @@ gst_sh_video_enc_dispose(GObject * object)
 {
 	GstSHVideoEnc *enc = GST_SH_VIDEO_ENC(object);
 
-	if (enc->encoder != NULL)
-	{
+	if (enc->encoder != NULL) {
 		shcodecs_encoder_close(enc->encoder);
 		enc->encoder = NULL;
 	}
-
-	pthread_mutex_destroy(&enc->mutex);
-	pthread_mutex_destroy(&enc->cond_mutex);
-	pthread_cond_destroy(&enc->thread_condition);
 
 	G_OBJECT_CLASS(parent_class)->dispose(object);
 }
@@ -541,7 +535,7 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 
 	GST_DEBUG_CATEGORY_INIT(gst_sh_video_enc_debug, "gst-sh-mobile-enc",
 			0, "Encoder for H264/MPEG4 streams");
-	
+
 	g_object_class_install_property(g_object_class, PROP_CNTL_FILE,
 			g_param_spec_string("cntl-file", 
 					     		 "Control file location", 
@@ -1262,7 +1256,7 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 {
 	GstElementClass *klass = GST_ELEMENT_GET_CLASS(enc);
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	enc->sinkpad = gst_pad_new_from_template(
 						gst_element_class_get_pad_template(klass, "sink"), 
@@ -1270,34 +1264,25 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 
 	gst_element_add_pad(GST_ELEMENT(enc), enc->sinkpad);
 
-	gst_pad_set_setcaps_function(enc->sinkpad, 
-				      gst_sh_video_enc_set_caps);
-	gst_pad_set_activate_function(enc->sinkpad, 
- 				       gst_sh_video_enc_activate);
-	gst_pad_set_activatepull_function(enc->sinkpad,
-					   gst_sh_video_enc_activate_pull);
-	gst_pad_set_event_function(enc->sinkpad, 
-				   gst_sh_video_enc_sink_event);
-	gst_pad_set_chain_function(enc->sinkpad, 
-				   gst_sh_video_enc_chain);
+	gst_pad_set_setcaps_function(enc->sinkpad,  gst_sh_video_enc_set_caps);
+	gst_pad_set_activate_function(enc->sinkpad, gst_sh_video_enc_activate);
+	gst_pad_set_activatepull_function(enc->sinkpad, gst_sh_video_enc_activate_pull);
+	gst_pad_set_event_function(enc->sinkpad, gst_sh_video_enc_sink_event);
+	gst_pad_set_chain_function(enc->sinkpad, gst_sh_video_enc_chain);
 	enc->srcpad = gst_pad_new_from_template(
 					gst_element_class_get_pad_template(klass, "src"), "src");
 	gst_pad_use_fixed_caps(enc->srcpad);
 
-	gst_pad_set_query_function(enc->srcpad,
-			GST_DEBUG_FUNCPTR(gst_sh_video_enc_src_query));
+	gst_pad_set_query_function(enc->srcpad, GST_DEBUG_FUNCPTR(gst_sh_video_enc_src_query));
 
 	gst_element_add_pad(GST_ELEMENT(enc), enc->srcpad);
 
+	gst_pad_set_bufferalloc_function (enc->sinkpad, gst_sh_video_enc_sink_buffer_alloc);
+
+	enc->uiomux = uiomux_open();
+
 	enc->encoder = NULL;
 	enc->caps_set = FALSE;
-	enc->enc_thread = 0;
-	enc->buffer_yuv = NULL;
-	enc->buffer_cbcr = NULL;
-
-	pthread_mutex_init(&enc->mutex, NULL);
-	pthread_mutex_init(&enc->cond_mutex, NULL);
-	pthread_cond_init(&enc->thread_condition, NULL);
 
 	enc->format = SHCodecs_Format_NONE;
 	enc->out_caps = NULL;
@@ -1419,7 +1404,7 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 	GstSHVideoEnc *enc = GST_SH_VIDEO_ENC(object);
 	const gchar* string;
 	
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	switch (prop_id) 
 	{
@@ -1957,7 +1942,7 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 {
 	GstSHVideoEnc *enc = GST_SH_VIDEO_ENC(object);
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	switch (prop_id) 
 	{
@@ -2496,10 +2481,9 @@ gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event)
 {
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));  
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	if (GST_EVENT_TYPE (event) == GST_EVENT_EOS) 
-	{
+	if (GST_EVENT_TYPE (event) == GST_EVENT_EOS) {
 		enc->eos = TRUE;
 	}
 
@@ -2513,14 +2497,13 @@ gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps)
 	GstStructure *structure;
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
 
-    if (enc->caps_set)
-	{
+    if (enc->caps_set) {
 		return TRUE;
 	}
 
 	ret = TRUE;
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	// get input size
 	structure = gst_caps_get_structure(caps, 0);
@@ -2530,21 +2513,18 @@ gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps)
 						 &enc->fps_numerator, 
 						 &enc->fps_denominator);
 
-	if (!ret) 
-	{
+	if (!ret) {
 		return ret;
 	}
 
 	gst_sh_video_enc_read_src_caps(enc);
 	gst_sh_video_enc_init_encoder(enc);
 
-	if (!gst_caps_is_any(enc->out_caps))
-	{
+	if (!gst_caps_is_any(enc->out_caps)) {
 		ret = gst_sh_video_enc_set_src_caps(enc);
 	}
 		
-	if (ret) 
-	{
+	if (ret) {
 		enc->caps_set = TRUE;
 	}
 
@@ -2556,7 +2536,7 @@ gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc)
 {
 	GstStructure *structure;
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	// get the caps of the previous element in chain
 	enc->out_caps = gst_pad_peer_get_caps(enc->sinkpad);
@@ -2564,16 +2544,13 @@ gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc)
 	if (!gst_caps_is_any(enc->out_caps))
 	{
 		structure = gst_caps_get_structure(enc->out_caps, 0);
-        if (!enc->width)
-		{
+        if (!enc->width) {
 	    	gst_structure_get_int(structure, "width", &enc->width);
 		}
-        if (!enc->height)
-		{
+        if (!enc->height) {
 		    gst_structure_get_int(structure, "height", &enc->height);
 		}
-        if (!enc->fps_numerator)
-		{
+        if (!enc->fps_numerator) {
 		    gst_structure_get_fraction(structure, "framerate", 
 										 &enc->fps_numerator, 
 										 &enc->fps_denominator);
@@ -2586,7 +2563,7 @@ gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc)
 {
 	GstStructure *structure;
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	// get the caps of the next element in chain
 	enc->out_caps = gst_pad_peer_get_caps(enc->srcpad);
@@ -2595,13 +2572,9 @@ gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc)
 		enc->format == SHCodecs_Format_NONE)
 	{
 		structure = gst_caps_get_structure(enc->out_caps, 0);
-		if (!strcmp(gst_structure_get_name(structure), "video/mpeg")) 
-		{
+		if (!strcmp(gst_structure_get_name(structure), "video/mpeg")) {
 			enc->format = SHCodecs_Format_MPEG4;
-		}
-		else if (!strcmp(gst_structure_get_name(structure), 
-				  "video/x-h264")) 
-		{
+		} else if (!strcmp(gst_structure_get_name(structure), "video/x-h264")) {
 			enc->format = SHCodecs_Format_H264;
 		}
 	}
@@ -2613,39 +2586,32 @@ gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc)
 	GstCaps* caps = NULL;
 	gboolean ret = TRUE;
 	
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	if (enc->format == SHCodecs_Format_MPEG4)
-	{
+	if (enc->format == SHCodecs_Format_MPEG4) {
 		caps = gst_caps_new_simple("video/mpeg", "width", G_TYPE_INT, 
 				enc->width, "height", G_TYPE_INT, 
 				enc->height, "framerate", 
 				GST_TYPE_FRACTION, enc->fps_numerator, 
 				enc->fps_denominator, "mpegversion", 
 				G_TYPE_INT, 4, NULL);
-	}
-	else if (enc->format == SHCodecs_Format_H264)
-	{
+	} else if (enc->format == SHCodecs_Format_H264) {
 		caps = gst_caps_new_simple("video/x-h264", "width", G_TYPE_INT, 
 				enc->width, "height", G_TYPE_INT, 
 				enc->height, "framerate", 
 				GST_TYPE_FRACTION, enc->fps_numerator, 
 				enc->fps_denominator, NULL);
-	}
-	else
-	{
+	} else {
 		GST_ELEMENT_ERROR((GstElement*)enc, CORE, NEGOTIATION,
 					("Format undefined."), (NULL));
 	}
 
-	if (!gst_pad_set_caps(enc->srcpad, caps))
-	{
+	if (!gst_pad_set_caps(enc->srcpad, caps)) {
 		GST_ELEMENT_ERROR((GstElement*)enc, CORE, NEGOTIATION,
 					("Source pad not linked."), (NULL));
 		ret = FALSE;
 	}
-	if (!gst_pad_set_caps(gst_pad_get_peer(enc->srcpad), caps))
-	{
+	if (!gst_pad_set_caps(gst_pad_get_peer(enc->srcpad), caps)) {
 		GST_ELEMENT_ERROR((GstElement*)enc, CORE, NEGOTIATION,
 					("Source pad not linked."), (NULL));
 		ret = FALSE;
@@ -2660,43 +2626,36 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 	gint ret = 0;
 	glong fmt = 0;
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	if (strlen(enc->ainfo.ctrl_file_name_buf))
 	{
-
 		ret = GetFromCtrlFTop((const char *)
 				enc->ainfo.ctrl_file_name_buf,
 				&enc->ainfo,
 				&fmt);
-		if (ret < 0) 
-		{
+		if (ret < 0) {
 			GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
 				  ("Error reading the top of control file."), 
 				  (NULL));
 		}
 
-		if (enc->format == SHCodecs_Format_NONE)
-		{
+		if (enc->format == SHCodecs_Format_NONE) {
 			enc->format = fmt;
 		}
 
-		if (!enc->width)
-		{
+		if (!enc->width) {
 			enc->width = enc->ainfo.xpic;
 		}
 
-		if (!enc->height)
-		{
+		if (!enc->height) {
 			enc->height = enc->ainfo.ypic;
 		}
-		if (!enc->fps_numerator)
-		{
+		if (!enc->fps_numerator) {
 			enc->fps_numerator = enc->ainfo.frame_rate;
 		}
 
-		if (!enc->fps_denominator)
-		{
+		if (!enc->fps_denominator) {
 			enc->fps_denominator = 10;
 		}
 	}
@@ -2727,17 +2686,17 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 	shcodecs_encoder_set_xpic_size(enc->encoder,enc->width);
 	shcodecs_encoder_set_ypic_size(enc->encoder,enc->height);
 
-	shcodecs_encoder_set_input_callback(enc->encoder, 
-					    gst_sh_video_enc_get_input, enc);
 	shcodecs_encoder_set_output_callback(enc->encoder, 
 					     gst_sh_video_enc_write_output, enc);
+
+	shcodecs_encoder_set_input_release_callback(enc->encoder, 
+					     gst_sh_video_enc_input_used, enc);
 
 	if (strlen(enc->ainfo.ctrl_file_name_buf))
 	{
 		ret = GetFromCtrlFtoEncParam(enc->encoder, &enc->ainfo);
 		
-		if (ret < 0) 
-		{
+		if (ret < 0) {
 			GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
 				  ("Error reading parameters from control file."), 
 				  (NULL));
@@ -2745,8 +2704,7 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 	}
 	else
 	{
-		if (!gst_sh_video_enc_set_encoding_properties(enc))
-		{
+		if (!gst_sh_video_enc_set_encoding_properties(enc)) {
 			GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
 				  ("Setting SHCodecs encoder properties failed."), 
 				  (NULL));
@@ -2766,7 +2724,7 @@ gst_sh_video_enc_activate(GstPad * pad)
 	gboolean ret;
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 	if (gst_pad_check_pull_range(pad)) 
 	{
 		GST_LOG_OBJECT(enc, "PULL mode");
@@ -2788,8 +2746,7 @@ gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition)
 
 	ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, 
 							      transition);
-	if (ret == GST_STATE_CHANGE_FAILURE)
-	{
+	if (ret == GST_STATE_CHANGE_FAILURE) {
 		return ret;
 	}
 
@@ -2807,50 +2764,88 @@ gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition)
 	return ret;
 }
 
+static GstFlowReturn
+gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
+    GstCaps * caps, GstBuffer ** buf)
+{
+	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
+	GstStructure *structure;
+	GstBuffer *outBuf;
+	gint width, height;
+	guint32 fourcc = 0;
+
+	structure = gst_caps_get_structure(caps, 0);
+
+	if (!gst_structure_get_int(structure, "width", &width)) {
+		GST_ERROR("Failed to get width");
+		return GST_FLOW_ERROR;
+	}
+
+	if (!gst_structure_get_int(structure, "height", &height)) {
+		GST_ERROR("Failed to get height");
+		return GST_FLOW_ERROR;
+	}
+
+	gst_structure_get_fourcc(structure, "format", &fourcc);
+	if (fourcc != GST_MAKE_FOURCC('N', 'V', '1', '2')) {
+		GST_ERROR("Requested format isn't NV12");
+		return GST_FLOW_ERROR;
+	}
+
+	if (size != (width * height * 3)/2) {
+		GST_ERROR("Requested buffer size (%lu) does not match encoder format", size);
+		return GST_FLOW_ERROR;
+	}
+
+	GST_LOG("Allocating buffer %dx%d", width, height);
+
+	outBuf = gst_sh_video_buffer_new(enc->uiomux, width, height, REN_NV12);
+
+	if (outBuf == NULL) {
+		GST_ELEMENT_ERROR(enc, RESOURCE, NO_SPACE_LEFT,
+			("failed to allocate output buffer"), (NULL));
+		return GST_FLOW_ERROR;
+	}
+
+	gst_buffer_set_caps(outBuf, GST_PAD_CAPS(enc->srcpad));
+
+	*buf = outBuf;
+
+	return GST_FLOW_OK;
+}
+
 static GstFlowReturn 
 gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 {
-	gint yuv_size, cbcr_size;
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));  
+	unsigned char *py, *pc;
+	int rc;
+	gint luma_size, chroma_size;
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	if (enc->stream_stopped)
-	{
+	if (enc->stream_stopped) {
 		return GST_FLOW_UNEXPECTED;
 	}
 
-	if (!enc->caps_set)
-	{
+	if (!enc->caps_set) {
 		gst_sh_video_enc_read_sink_caps(enc);
 		gst_sh_video_enc_read_src_caps(enc);
 		gst_sh_video_enc_init_encoder(enc);
-		if (!gst_caps_is_any(enc->out_caps))
-		{
-			if (!gst_sh_video_enc_set_src_caps(enc))
-			{
+
+		if (!gst_caps_is_any(enc->out_caps)) {
+			if (!gst_sh_video_enc_set_src_caps(enc)) {
 				return GST_FLOW_UNEXPECTED;
 			}
 		}
 		enc->caps_set = TRUE;
 	}
 
-	/* If buffers are not empty we'll have to 
-	   wait until encoder has consumed data */
-	if (enc->buffer_yuv && enc->buffer_cbcr)
-	{
-		pthread_mutex_lock(&enc->cond_mutex);
-		pthread_cond_wait(&enc->thread_condition, &enc->cond_mutex);
-		pthread_mutex_unlock(&enc->cond_mutex);
-	}
-
-	// Lock mutex while handling the buffers
-	pthread_mutex_lock(&enc->mutex);
-	yuv_size = enc->width * enc->height;
-	cbcr_size = enc->width * enc->height / 2;
+	luma_size = enc->width * enc->height;
+	chroma_size = luma_size / 2;
 
 	// Check that we have got enough data
-	if (GST_BUFFER_SIZE(buffer) != yuv_size + cbcr_size)
+	if (GST_BUFFER_SIZE(buffer) != luma_size + chroma_size)
 	{
 		GST_DEBUG_OBJECT(enc, "Not enough data");
 		// If we can't continue we can issue EOS
@@ -2859,25 +2854,15 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 		return GST_FLOW_OK;
 	}  
 
-	enc->buffer_yuv = gst_buffer_new_and_alloc(yuv_size);
-	enc->buffer_cbcr = gst_buffer_new_and_alloc(cbcr_size);
+	py = GST_BUFFER_DATA(buffer);
+	pc = py + luma_size;
 
-	memcpy(GST_BUFFER_DATA(enc->buffer_yuv), GST_BUFFER_DATA(buffer), yuv_size);
-
-	memcpy(GST_BUFFER_DATA(enc->buffer_cbcr),
-		   GST_BUFFER_DATA(buffer) + yuv_size, cbcr_size);
-
-	// Buffers are ready to be read
-	pthread_mutex_unlock(&enc->mutex);
-
-	gst_buffer_unref(buffer);
-	
-	if (!enc->enc_thread)
-	{
-		/* We'll have to launch the encoder in 
-		   a separate thread to keep the pipeline running */
-		pthread_create(&enc->enc_thread, NULL, 
-				gst_sh_video_launch_encoder_thread, enc);
+	/* Encode the frame */
+	rc = shcodecs_encoder_encode_1frame(enc->encoder, py, pc, buffer);
+	if (rc != 0) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+				  ("Encode error"), ("%s failed (Error on shcodecs_encode)", __func__));
+		return GST_FLOW_ERROR;
 	}
 
 	return GST_FLOW_OK;
@@ -2887,19 +2872,15 @@ static gboolean
 gst_sh_video_enc_activate_pull(GstPad  *pad,
 					 gboolean active)
 {
-	GstSHVideoEnc *enc = 
-		(GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
+	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	if (active) 
-	{
+	if (active) {
 		enc->offset = 0;
 		return gst_pad_start_task(pad,
 				(GstTaskFunction)gst_sh_video_enc_loop, enc);
-	} 
-	else 
-	{
+	} else {
 		return gst_pad_stop_task(pad);
 	}
 }
@@ -2908,20 +2889,20 @@ static void
 gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 {
 	GstFlowReturn ret;
-	gint yuv_size, cbcr_size;
-	GstBuffer* tmp;
+	gint luma_size, chroma_size;
+	GstBuffer *buffer;
+	unsigned char *py, *pc;
+	int rc;
 
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	if (!enc->caps_set)
 	{
 		gst_sh_video_enc_read_sink_caps(enc);
 		gst_sh_video_enc_read_src_caps(enc);
 		gst_sh_video_enc_init_encoder(enc);
-		if (!gst_caps_is_any(enc->out_caps))
-		{
-			if (!gst_sh_video_enc_set_src_caps(enc))
-			{
+		if (!gst_caps_is_any(enc->out_caps)) {
+			if (!gst_sh_video_enc_set_src_caps(enc)) {
 				gst_pad_pause_task(enc->sinkpad);
 				return;
 			}
@@ -2929,22 +2910,11 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 		enc->caps_set = TRUE;
 	}
 
-	/* If buffers are not empty we'll have to 
-	   wait until encoder has consumed data */
-	if (enc->buffer_yuv && enc->buffer_cbcr)
-	{
-		pthread_mutex_lock(&enc->cond_mutex);
-		pthread_cond_wait(&enc->thread_condition, &enc->cond_mutex);
-		pthread_mutex_unlock(&enc->cond_mutex);
-	}
-
-	// Lock mutex while handling the buffers
-	pthread_mutex_lock(&enc->mutex);
-	yuv_size = enc->width * enc->height;
-	cbcr_size = enc->width * enc->height / 2;
+	luma_size = enc->width * enc->height;
+	chroma_size = enc->width * enc->height / 2;
 
 	ret = gst_pad_pull_range(enc->sinkpad, enc->offset,
-			yuv_size, &enc->buffer_yuv);
+			luma_size+chroma_size, &buffer);
 
 	if (ret != GST_FLOW_OK) 
 	{
@@ -2954,7 +2924,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
 		return;
 	}
-	else if (GST_BUFFER_SIZE(enc->buffer_yuv) != yuv_size)
+	else if (GST_BUFFER_SIZE(buffer) != luma_size+chroma_size)
 	{
 		GST_DEBUG_OBJECT(enc, "Not enough data");
 		gst_pad_pause_task(enc->sinkpad);
@@ -2963,106 +2933,21 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 		return;
 	}  
 
-	enc->offset += yuv_size;
+	enc->offset += luma_size+chroma_size;
 
-	ret = gst_pad_pull_range(enc->sinkpad, enc->offset, cbcr_size, &tmp);
+	GST_LOG("Input buffer is not SH type (enc will copy data)");
+	py = GST_BUFFER_DATA(buffer);
+	pc = py + luma_size;
 
-	if (ret != GST_FLOW_OK) 
-	{
-		GST_DEBUG_OBJECT(enc, "pull_range failed: %s", gst_flow_get_name(ret));
-		gst_pad_pause_task(enc->sinkpad);
-		enc->eos = TRUE;
-		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
+	GST_DEBUG_OBJECT(enc, "py=%p, pc=%p", py, pc);
+
+	/* Encode the frame */
+	rc = shcodecs_encoder_encode_1frame(enc->encoder, py, pc, buffer);
+	if (rc != 0) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+				  ("Encode error"), ("%s failed (Error on shcodecs_encode)", __func__));
 		return;
-	}  
-	else if (GST_BUFFER_SIZE(tmp) != cbcr_size)
-	{
-		GST_DEBUG_OBJECT(enc, "Not enough data");
-		gst_pad_pause_task(enc->sinkpad);
-		enc->eos = TRUE;
-		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
-		return;
-	}  
-
-	enc->offset += cbcr_size;
-
-	enc->buffer_cbcr = tmp;
-
-	pthread_mutex_unlock(&enc->mutex);
-	
-	if (!enc->enc_thread)
-	{
-		/* We'll have to launch the encoder in 
-		   a separate thread to keep the pipeline running */
-		pthread_create(&enc->enc_thread, NULL, 
-					gst_sh_video_launch_encoder_thread, enc);
 	}
-}
-
-void *
-gst_sh_video_launch_encoder_thread(void *data)
-{
-	gint ret;
-	GstSHVideoEnc *enc = (GstSHVideoEnc *)data;
-
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
-
-	ret = shcodecs_encoder_run(enc->encoder);
-
-	GST_DEBUG_OBJECT(enc, "shcodecs_encoder_run returned %d\n", ret);
-	GST_DEBUG_OBJECT(enc, "%d frames encoded.", enc->frame_number);
-
-	// We can stop waiting if encoding has ended
-	pthread_mutex_lock(&enc->cond_mutex);
-	pthread_cond_signal(&enc->thread_condition);
-	pthread_mutex_unlock(&enc->cond_mutex);
-
-	// Calling stop task won't do any harm if we are in push mode
-	gst_pad_stop_task(enc->sinkpad);
-	if(!enc->eos)
-	{
-		enc->eos = TRUE;
-		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
-    }
-
-	return NULL;
-}
-
-static int 
-gst_sh_video_enc_get_input(SHCodecs_Encoder * encoder, void *user_data)
-{
-	GstSHVideoEnc *enc = (GstSHVideoEnc *)user_data;
-	gint ret=0;
-
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
-
-	// Lock mutex while reading the buffer  
-	pthread_mutex_lock(&enc->mutex); 
-
-	if (enc->stream_stopped || enc->eos)
-	{
-		GST_DEBUG_OBJECT(enc, "Encoding stop requested, returning 1");
-		ret = 1;
-	}
-	else if (enc->buffer_yuv && enc->buffer_cbcr)
-	{
-		ret = shcodecs_encoder_input_provide(encoder, 
-					 GST_BUFFER_DATA(enc->buffer_yuv),
-					 GST_BUFFER_DATA(enc->buffer_cbcr));
-
-		gst_buffer_unref(enc->buffer_yuv);
-		enc->buffer_yuv = NULL;
-		gst_buffer_unref(enc->buffer_cbcr);
-		enc->buffer_cbcr = NULL;  
-
-		// Signal the main thread that buffers are read
-		pthread_mutex_lock(&enc->cond_mutex);
-		pthread_cond_signal(&enc->thread_condition);
-		pthread_mutex_unlock(&enc->cond_mutex);
-	}
-	pthread_mutex_unlock(&enc->mutex);
-
-	return ret;
 }
 
 static int 
@@ -3075,9 +2960,7 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 	gint ret = 0;
 
 	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data frame number: %d\n", 
-				   __FUNCTION__, length, enc->frame_number);
-
-	pthread_mutex_lock(&enc->mutex); 
+				   __func__, length, enc->frame_number);
 
 	if (enc->stream_stopped)
 	{
@@ -3112,535 +2995,298 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 			old_buf = buf;
 		}
 	}
-	pthread_mutex_unlock(&enc->mutex); 
+
 	return ret;
+}
+
+static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
+					unsigned char * y_input,
+					unsigned char * c_input,
+					void * user_data)
+{
+	GstBuffer *buffer = shcodecs_encoder_get_input_user_data(encoder);
+	gst_buffer_unref(buffer);
+	return 0;
 }
 
 static gboolean
 gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query)
 {
-	GstSHVideoEnc *enc = 
-		(GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 	return gst_pad_query_default(pad, query);
 }
 
 gboolean 
 gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc)
 {
-	GST_LOG_OBJECT(enc, "%s called", __FUNCTION__);
+	GST_LOG_OBJECT(enc, "%s called", __func__);
 	
 	//Stream dependent defaults
     if (enc->format == SHCodecs_Format_H264)
 	{
 		if (!enc->bitrate)
-		{
 			enc->bitrate = DEFAULT_BITRATE_H264;
-		}
 		if (!enc->search_mode)
-		{
 			enc->search_mode = DEFAULT_SEARCH_MODE_H264;
-		}
 		if (!enc->i_vop_quant_initial_value)
-		{
 			enc->i_vop_quant_initial_value = DEFAULT_I_VOP_QUANT_INITIAL_VALUE_H264;
-		}
 		if (!enc->p_vop_quant_initial_value)
-		{
 			enc->p_vop_quant_initial_value = DEFAULT_P_VOP_QUANT_INITIAL_VALUE_H264;
-		}
 		if (!enc->clip_d_quant_frame)
-		{
 			enc->clip_d_quant_frame = DEFAULT_CLIP_D_QUANT_FRAME_H264;
-		}
 		if (!enc->quant_min_i_vop_under_range)
-		{
 			enc->quant_min_i_vop_under_range = DEFAULT_QUANT_MIN_I_VOP_UNDER_RANGE_H264;
-		}
 		if (!enc->quant_min)
-		{
 			enc->quant_min = DEFAULT_QUANT_MIN_H264;
-		}
 		if (!enc->quant_max)
-		{
 			enc->quant_max = DEFAULT_QUANT_MAX_H264;
-		}
 	}
 	else
 	{
 		if (!enc->bitrate)
-		{
 			enc->bitrate = DEFAULT_BITRATE_MPEG4;
-		}
 		if (!enc->search_mode)
-		{
 			enc->search_mode = DEFAULT_SEARCH_MODE_MPEG4;
-		}
 		if (!enc->i_vop_quant_initial_value)
-		{
 			enc->i_vop_quant_initial_value = DEFAULT_I_VOP_QUANT_INITIAL_VALUE_MPEG4;
-		}
 		if (!enc->p_vop_quant_initial_value)
-		{
 			enc->p_vop_quant_initial_value = DEFAULT_P_VOP_QUANT_INITIAL_VALUE_MPEG4;
-		}
 		if (!enc->clip_d_quant_frame)
-		{
 			enc->clip_d_quant_frame = DEFAULT_CLIP_D_QUANT_FRAME_MPEG4;
-		}
 		if (!enc->quant_min_i_vop_under_range)
-		{
 			enc->quant_min_i_vop_under_range = DEFAULT_QUANT_MIN_I_VOP_UNDER_RANGE_MPEG4;
-		}
 		if (!enc->quant_min)
-		{
 			enc->quant_min = DEFAULT_QUANT_MIN_MPEG4;
-		}
 		if (!enc->quant_max)
-		{
 			enc->quant_max = DEFAULT_QUANT_MAX_MPEG4;
-		}
 	}
 
   	// COMMON
 	if (shcodecs_encoder_set_bitrate(enc->encoder, enc->bitrate) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_I_vop_interval(enc->encoder, enc->i_vop_interval) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_mv_mode(enc->encoder, enc->mv_mode) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_fcode_forward(enc->encoder, enc->fcode_forward) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_search_mode(enc->encoder, enc->search_mode) == -1)
-	{
 		return FALSE;
-	}
 
 	if (shcodecs_encoder_set_search_time_fixed(enc->encoder, enc->search_time_fixed) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_ratecontrol_skip_enable(enc->encoder, enc->ratecontrol_skip_enable) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_ratecontrol_use_prevquant(enc->encoder, enc->ratecontrol_use_prevquant) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_ratecontrol_respect_type(enc->encoder, enc->ratecontrol_respect_type) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_ratecontrol_intra_thr_changeable(enc->encoder, enc->ratecontrol_intra_thr_changeable) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_control_bitrate_length(enc->encoder, enc->control_bitrate_length) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_intra_macroblock_refresh_cycle(enc->encoder, enc->intra_macroblock_refresh_cycle) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_video_format(enc->encoder, enc->video_format) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_frame_num_resolution(enc->encoder, enc->frame_num_resolution) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_noise_reduction(enc->encoder, enc->noise_reduction) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_reaction_param_coeff(enc->encoder, enc->reaction_param_coeff) == -1)
-	{
 		return FALSE;
-	}
 	if (shcodecs_encoder_set_weightedQ_mode(enc->encoder, enc->weighted_q_mode) == -1)
-	{
 		return FALSE;
-	}
 
     if (enc->format == SHCodecs_Format_H264)
 	{
 		if (shcodecs_encoder_set_h264_Ivop_quant_initial_value(enc->encoder, enc->i_vop_quant_initial_value) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_Pvop_quant_initial_value(enc->encoder, enc->p_vop_quant_initial_value) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_use_dquant(enc->encoder, enc->use_d_quant) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_clip_dquant_next_mb(enc->encoder, enc->clip_d_quant_next_mb) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_clip_dquant_frame(enc->encoder, enc->clip_d_quant_frame) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_quant_min(enc->encoder, enc->quant_min) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_quant_min_Ivop_under_range(enc->encoder, enc->quant_min_i_vop_under_range) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_quant_max(enc->encoder, enc->quant_max) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_ratecontrol_cpb_skipcheck_enable(enc->encoder, enc->ratecontrol_cpb_skipcheck_enable) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_ratecontrol_cpb_Ivop_noskip(enc->encoder, enc->ratecontrol_cpb_i_vop_noskip) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_ratecontrol_cpb_remain_zero_skip_enable(enc->encoder, enc->ratecontrol_cpb_remain_zero_skip_enable) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_ratecontrol_cpb_offset(enc->encoder, enc->ratecontrol_cpb_offset) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_ratecontrol_cpb_offset_rate(enc->encoder, enc->ratecontrol_cpb_offset_rate) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_ratecontrol_cpb_buffer_mode(enc->encoder, enc->ratecontrol_cpb_buffer_mode) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_ratecontrol_cpb_max_size(enc->encoder, enc->ratecontrol_cpb_max_size) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_ratecontrol_cpb_buffer_unit_size(enc->encoder, enc->ratecontrol_cpb_buffer_unit_size) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_intra_thr_1(enc->encoder, enc->intra_thr_1) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_intra_thr_2(enc->encoder, enc->intra_thr_2) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_sad_intra_bias(enc->encoder, enc->sad_intra_bias) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_regularly_inserted_I_type(enc->encoder, enc->regularly_inserted_i_type) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_call_unit(enc->encoder, enc->call_unit) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_use_slice(enc->encoder, enc->use_slice) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_slice_size_mb(enc->encoder, enc->slice_size_mb) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_slice_size_bit(enc->encoder, enc->slice_size_bit) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_slice_type_value_pattern(enc->encoder, enc->slice_type_value_pattern) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_use_mb_partition(enc->encoder, enc->use_mb_partition) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_mb_partition_vector_thr(enc->encoder, enc->mb_partition_vector_thr) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_deblocking_mode(enc->encoder, enc->deblocking_mode) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_use_deblocking_filter_control(enc->encoder, enc->use_deblocking_filter_control) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_deblocking_alpha_offset(enc->encoder, enc->deblocking_alpha_offset) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_deblocking_beta_offset(enc->encoder, enc->deblocking_beta_offset) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_me_skip_mode(enc->encoder, enc->me_skip_mode) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_put_start_code(enc->encoder, enc->put_start_code) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_param_changeable(enc->encoder, enc->param_changeable) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_changeable_max_bitrate(enc->encoder, enc->changeable_max_bitrate) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_seq_param_set_id(enc->encoder, enc->seq_param_set_id) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_profile(enc->encoder, enc->profile) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_constraint_set_flag(enc->encoder, enc->constraint_set_flag) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_level_type(enc->encoder, enc->level_type) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_level_value(enc->encoder, enc->level_value) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_out_vui_parameters(enc->encoder, enc->out_vui_parameters) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_chroma_qp_index_offset(enc->encoder, enc->chroma_qp_index_offset) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_h264_constrained_intra_pred(enc->encoder, enc->constrained_intra_pred) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_ref_frame_num(enc->encoder, enc->ref_frame_num) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_output_filler_enable(enc->encoder, enc->output_filler_enable) == -1)
-		{
 			return FALSE;
-		}
 	}
 	else
 	{
 		if (shcodecs_encoder_set_mpeg4_out_vos(enc->encoder, enc->out_vos) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_out_gov(enc->encoder, enc->out_gov) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_aspect_ratio_info_type(enc->encoder, enc->aspect_ratio_info_type) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_aspect_ratio_info_value(enc->encoder, enc->aspect_ratio_info_value) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_vos_profile_level_type(enc->encoder, enc->vos_profile_level_type) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_vos_profile_level_value(enc->encoder, enc->vos_profile_level_value) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_out_visual_object_identifier(enc->encoder, enc->out_visual_object_identifier) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_visual_object_verid(enc->encoder, enc->visual_object_verid) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_visual_object_priority(enc->encoder, enc->visual_object_priority) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_video_object_type_indication(enc->encoder, enc->video_object_type_indication) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_out_object_layer_identifier(enc->encoder, enc->out_object_layer_identifier) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_video_object_layer_verid(enc->encoder, enc->video_object_layer_verid) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_video_object_layer_priority(enc->encoder, enc->video_object_layer_priority) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_error_resilience_mode(enc->encoder, enc->error_resilience_mode) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_video_packet_size_mb(enc->encoder, enc->video_packet_size_mb) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_video_packet_size_bit(enc->encoder, enc->video_packet_size_bit) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_video_packet_header_extention(enc->encoder, enc->video_packet_header_extention) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_data_partitioned(enc->encoder, enc->data_partitioned) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_reversible_vlc(enc->encoder, enc->reversible_vlc) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_high_quality(enc->encoder, enc->high_quality) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_param_changeable(enc->encoder, enc->param_changeable) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_changeable_max_bitrate(enc->encoder, enc->changeable_max_bitrate) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_Ivop_quant_initial_value(enc->encoder, enc->i_vop_quant_initial_value) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_Pvop_quant_initial_value(enc->encoder, enc->p_vop_quant_initial_value) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_use_dquant(enc->encoder, enc->use_d_quant) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_clip_dquant_frame(enc->encoder, enc->clip_d_quant_frame) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_quant_min(enc->encoder, enc->quant_min) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_quant_min_Ivop_under_range(enc->encoder, enc->quant_min_i_vop_under_range) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_quant_max(enc->encoder, enc->quant_max) == -1)
-		{
 			return FALSE;
-		}
 
 		//	THESE WERE COMMENTED OUT IN THE CONTROL FILE UTILS
 		//if (shcodecs_encoder_set_mpeg4_ratecontrol_rcperiod_skipcheck_enable(enc->encoder, enc->) == -1)
-		//{
 		//return FALSE;
-		//}
 		//if (shcodecs_encoder_set_mpeg4_ratecontrol_rcperiod_Ivop_noskip(enc->encoder, enc->) == -1)
-		//{
 		//return FALSE;
-		//}
 
 		if (shcodecs_encoder_set_mpeg4_ratecontrol_vbv_skipcheck_enable(enc->encoder, enc->ratecontrol_vbv_skipcheck_enable) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_ratecontrol_vbv_Ivop_noskip(enc->encoder, enc->ratecontrol_vbv_i_vop_noskip) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_ratecontrol_vbv_remain_zero_skip_enable(enc->encoder, enc->ratecontrol_vbv_remain_zero_skip_enable) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_ratecontrol_vbv_buffer_unit_size(enc->encoder, enc->ratecontrol_vbv_buffer_unit_size) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_ratecontrol_vbv_buffer_mode(enc->encoder, enc->ratecontrol_vbv_buffer_mode) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_ratecontrol_vbv_max_size(enc->encoder, enc->ratecontrol_vbv_max_size) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_ratecontrol_vbv_offset(enc->encoder, enc->ratecontrol_vbv_offset) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_ratecontrol_vbv_offset_rate(enc->encoder, enc->ratecontrol_vbv_offset_rate) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_quant_type(enc->encoder, enc->quant_type) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_use_AC_prediction(enc->encoder, enc->use_ac_prediction) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_vop_min_mode(enc->encoder, enc->vop_min_mode) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_vop_min_size(enc->encoder, enc->vop_min_size) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_intra_thr(enc->encoder, enc->intra_thr) == -1)
-		{
 			return FALSE;
-		}
 		if (shcodecs_encoder_set_mpeg4_b_vop_num(enc->encoder, enc->b_vop_num) == -1)
-		{
 			return FALSE;
-		}			
 	}
 
 	return TRUE;

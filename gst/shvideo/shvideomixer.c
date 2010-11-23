@@ -484,8 +484,6 @@ gst_sh_videomixer_reset (GstSHVideoMixer * mix)
 	mix->segment_position = 0;
 	mix->segment_rate = 1.0;
 
-	mix->fmt = GST_VIDEO_FORMAT_UNKNOWN;
-
 	mix->last_ts = 0;
 
 	/* clean up collect data */
@@ -962,21 +960,23 @@ gst_sh_videomixer_blend_buffers (GstSHVideoMixer * mix, GstBuffer * outbuf)
 {
 	GSList *walk;
 	int sink_index = 0;
-	GstBuffer *in_sh_buf[3] = { NULL };
-	beu_surface_t dst;
-	beu_surface_t src[3];
-	beu_surface_t *psrc[3] = { NULL };
-	beu_surface_t *curr;
+	struct shbeu_surface dst;
+	struct shbeu_surface src[3];
+	struct shbeu_surface *psrc[3] = { NULL };
+	struct shbeu_surface *curr;
 
 	GST_LOG("***** Start *****");
 
 	/* Output buffer is always SH video buffer */
-	dst.format = GST_SH_VIDEO_BUFFER_V4l2_FMT(outbuf);
-	dst.width = mix->out_width;
-	dst.height = mix->out_height;
-	dst.pitch = mix->out_width;
-	dst.py = (unsigned long)GST_SH_VIDEO_BUFFER_Y_DATA(outbuf);
-	dst.pc = (unsigned long)GST_SH_VIDEO_BUFFER_C_DATA(outbuf);
+	dst.s.format = mix->out_format;
+	dst.s.w = mix->out_width;
+	dst.s.h = mix->out_height;
+	dst.s.pitch = mix->out_width;
+	dst.s.py = GST_BUFFER_DATA(outbuf);
+	dst.s.pc = get_c_addr(dst.s.py, dst.s.format, mix->out_width, mix->out_height);
+	dst.s.pa = NULL;
+
+	GST_LOG("output buffer=%p (%dx%d)", dst.s.py, dst.s.w, dst.s.h);
 
 	walk = mix->sinkpads;
 	while (walk) {								/* We walk with this list because it's ordered */
@@ -995,56 +995,25 @@ gst_sh_videomixer_blend_buffers (GstSHVideoMixer * mix, GstBuffer * outbuf)
 
 			timestamp = GST_BUFFER_TIMESTAMP (in_buf);
 
-			stream_time =
-					gst_segment_to_stream_time (seg, GST_FORMAT_TIME, timestamp);
+			stream_time = gst_segment_to_stream_time (seg, GST_FORMAT_TIME, timestamp);
 
 			/* sync object properties on stream time */
 			if (GST_CLOCK_TIME_IS_VALID (stream_time))
 				gst_object_sync_values (G_OBJECT (pad), stream_time);
 
-			GST_LOG("%s: Input buffer=%p (%dx%d) alpha=%f", __func__, GST_BUFFER_DATA (in_buf), pad->in_width, pad->in_height, pad->alpha);
+			GST_LOG("Input buffer=%p (%dx%d) alpha=%f", GST_BUFFER_DATA (in_buf), pad->in_width, pad->in_height, pad->alpha);
 
 			psrc[sink_index] = &src[sink_index];
 			curr = psrc[sink_index];
 
-			gst_caps_to_v4l2_format(gst_pad_get_negotiated_caps (GST_PAD (pad)), &curr->format);
-			curr->width = pad->in_width;
-			curr->height = pad->in_height;
-			curr->pitch = pad->in_width;
+			gst_caps_to_renesas_format(gst_pad_get_negotiated_caps (GST_PAD (pad)), &curr->s.format);
+			curr->s.w = pad->in_width;
+			curr->s.h = pad->in_height;
+			curr->s.pitch = pad->in_width;
 
-
-			if (GST_IS_SH_VIDEO_BUFFER(in_buf)) {
-				/* Can be passed straight to hardware */
-				GST_LOG("Input buffer is SH type");
-				in_sh_buf[sink_index] = in_buf;
-			} else {
-				GST_LOG("Input buffer is not SH type (will copy data)");
-
-				/* If we are receiving data from a non-SH video buffer, allocate
-				   one and copy the data over. */
-				in_sh_buf[sink_index] = gst_sh_video_buffer_new(
-					mix->uiomux,
-					curr->width,
-					curr->height,
-					curr->format);
-
-				if (in_sh_buf[sink_index] == NULL) {
-					GST_ELEMENT_ERROR(mix, RESOURCE, NO_SPACE_LEFT,
-						("failed to create input SH buffer"), (NULL));
-					return;
-				}
-
-				memcpy(GST_BUFFER_DATA(in_sh_buf[sink_index]), GST_BUFFER_DATA(in_buf), GST_BUFFER_SIZE(in_buf));
-
-				gst_buffer_copy_metadata (in_sh_buf[sink_index], in_buf,
-					GST_BUFFER_COPY_FLAGS | GST_BUFFER_COPY_TIMESTAMPS);
-			}
-
-			curr->py = (unsigned long)GST_SH_VIDEO_BUFFER_Y_DATA(in_sh_buf[sink_index]);
-			curr->pc = (unsigned long)GST_SH_VIDEO_BUFFER_C_DATA(in_sh_buf[sink_index]);
-			curr->pa = NULL;
-
-			GST_LOG("Input %d Y phys addr=0x%lX", sink_index, curr->py);
+			curr->s.py = GST_BUFFER_DATA(in_buf);
+			curr->s.pc = get_c_addr(curr->s.py, curr->s.format, pad->in_width, pad->in_height);
+			curr->s.pa = NULL;
 
 			curr->alpha = (int)(pad->alpha * 255.0);
 			curr->x = pad->xpos;
@@ -1054,16 +1023,16 @@ gst_sh_videomixer_blend_buffers (GstSHVideoMixer * mix, GstBuffer * outbuf)
 			if (pad == mix->master) {
 				gint64 running_time;
 
-				running_time =
-						gst_segment_to_running_time (seg, GST_FORMAT_TIME, timestamp);
+				running_time = gst_segment_to_running_time (seg, GST_FORMAT_TIME, timestamp);
 
 				/* outgoing buffers need the running_time */
 				GST_BUFFER_TIMESTAMP (outbuf) = running_time;
 				GST_BUFFER_DURATION (outbuf) = GST_BUFFER_DURATION (in_buf);
 
 				mix->last_ts = running_time;
-				if (GST_BUFFER_DURATION_IS_VALID (outbuf))
+				if (GST_BUFFER_DURATION_IS_VALID (outbuf)) {
 					mix->last_ts += GST_BUFFER_DURATION (outbuf);
+				}
 			}
 
 			sink_index++;
@@ -1090,10 +1059,6 @@ gst_sh_videomixer_blend_buffers (GstSHVideoMixer * mix, GstBuffer * outbuf)
 		walk = g_slist_next (walk);
 
 		if (in_buf != NULL) {
-			if (!GST_IS_SH_VIDEO_BUFFER(in_buf)) {
-				GST_LOG("Unref SH buffer Y phys addr=0x%lX", (unsigned long)GST_SH_VIDEO_BUFFER_Y_DATA(in_sh_buf[sink_index]));
-				gst_buffer_unref(in_sh_buf[sink_index]);
-			}
 			sink_index++;
 		}
 	}
@@ -1146,7 +1111,7 @@ gst_sh_videomixer_collected (GstCollectPads * pads, GstSHVideoMixer * mix)
 	GstFlowReturn ret = GST_FLOW_OK;
 	GstBuffer *outbuf = NULL;
 	gboolean eos = FALSE;
-	int v4l2fmt;
+	int renfmt;
 	GstCaps *src_caps;
 
 	g_return_val_if_fail (GST_IS_VIDEO_MIXER (mix), GST_FLOW_ERROR);
@@ -1187,15 +1152,18 @@ gst_sh_videomixer_collected (GstCollectPads * pads, GstSHVideoMixer * mix)
 		gst_pad_set_caps(mix->srcpad,src_caps);
 	}
 
-	if (!gst_caps_to_v4l2_format(gst_pad_get_negotiated_caps (GST_PAD (mix->srcpad)), &v4l2fmt)) {
-		GST_LOG("Can't get v4l2 format from src caps");
+	if (!gst_caps_to_renesas_format(gst_pad_get_negotiated_caps (GST_PAD (mix->srcpad)), &renfmt)) {
+		GST_LOG("Can't get ren format from src caps");
 		goto error;
 	}
-	outbuf = gst_sh_video_buffer_new(mix->uiomux, mix->out_width, mix->out_height, v4l2fmt);
+	mix->out_format = renfmt;
+
+	outbuf = gst_sh_video_buffer_new(mix->uiomux, mix->out_width, mix->out_height, renfmt);
 	if (!outbuf) {
 		GST_LOG("Failed to allocate SH buffer");
 		goto error;
 	}
+
 	GST_BUFFER_OFFSET(outbuf) = GST_BUFFER_OFFSET_NONE;
 	GST_BUFFER_CAPS(outbuf) = gst_pad_get_negotiated_caps (GST_PAD (mix->srcpad));
 

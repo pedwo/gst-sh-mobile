@@ -15,18 +15,14 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
  *
- * @author Johannes Lahti <johannes.lahti@nomovok.com>
- * @author Pablo Virolainen <pablo.virolainen@nomovok.com>
- * @author Aki Honkasuo <aki.honkasuo@nomovok.com>
- *
  */
 
 #ifndef  GSTSHVIDEOENC_H
 #define  GSTSHVIDEOENC_H
 
 #include <gst/gst.h>
+#include <uiomux/uiomux.h>
 #include <shcodecs/shcodecs_encoder.h>
-#include <pthread.h>
 
 #include "ControlFileUtil.h"
 
@@ -51,12 +47,11 @@ struct _GstSHVideoEnc
 {
 	GstElement element;
 	GstPad *sinkpad, *srcpad;
-	GstBuffer *buffer_yuv;
-	GstBuffer *buffer_cbcr;
 
+	UIOMux *uiomux;
 	gint offset;
 	SHCodecs_Format format;  
-	SHCodecs_Encoder* encoder;
+	SHCodecs_Encoder *encoder;
 	gint width;
 	gint height;
 	gint fps_numerator;
@@ -64,18 +59,13 @@ struct _GstSHVideoEnc
 
 	APPLI_INFO ainfo;
 	
-	GstCaps* out_caps;
+	GstCaps *out_caps;
 	gboolean caps_set;
 	glong frame_number;
 	GstClockTime timestamp_offset;
 
 	gboolean stream_stopped;
 	gboolean eos;
-
-	pthread_t enc_thread;
-	pthread_mutex_t mutex;
-	pthread_mutex_t cond_mutex;
-	pthread_cond_t  thread_condition;
 
 	/* PROPERTIES */
 	/* common */
@@ -218,12 +208,6 @@ void gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc);
  * @return TRUE if the capabilities could be set, otherwise FALSE
  */
 gboolean gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc);
-
-/** 
- * Launches the encoder in an own thread
- * @param data encoder object
- */
-void* gst_sh_video_launch_encoder_thread(void *data);
 
 /** 
  * Sets the properties of the hardware encoder

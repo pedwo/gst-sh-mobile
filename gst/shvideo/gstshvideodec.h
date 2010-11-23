@@ -78,7 +78,6 @@ struct _GstSHVideoDec
 	SHCodecs_Decoder * decoder;
 
 	gboolean caps_set;
-	gboolean running;
 	gboolean end;
 
 	GstBuffer* buffer;

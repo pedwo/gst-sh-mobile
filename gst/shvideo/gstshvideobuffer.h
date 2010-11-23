@@ -26,12 +26,14 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
+// TODO video formats, structs & helper functions shoudl be moved out of libshveu
+#include <shveu/shveu.h>
+
 #define GST_TYPE_SH_VIDEO_BUFFER (gst_sh_video_buffer_get_type())
 #define GST_IS_SH_VIDEO_BUFFER(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_SH_VIDEO_BUFFER))
 #define GST_SH_VIDEO_BUFFER(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_SH_VIDEO_BUFFER, GstSHVideoBuffer))
 #define GST_SH_VIDEO_BUFFER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_SH_VIDEO_BUFFER, GstSHVideoBufferclass))
 #define GST_SH_VIDEO_BUFFER_CAST(obj)  ((GstSHVideoBuffer *)(obj))
-
 
 typedef struct _GstSHVideoBuffer GstSHVideoBuffer;
 typedef struct _GstSHVideoBufferclass GstSHVideoBufferclass;
@@ -40,23 +42,15 @@ typedef struct _GstSHVideoBufferclass GstSHVideoBufferclass;
  * \struct _GstSHVideoBuffer
  * \brief SuperH HW buffer for YUV-data
  * \var buffer Parent buffer
- * \var y_data Pointer to the Y-data
- * \var y_size Size of the Y-data
- * \var c_data Pointer to the C-data
- * \var c_size Size of the C-data
  */
 struct _GstSHVideoBuffer 
 {
 	GstBuffer buffer;
 
 	UIOMux *uiomux;
-	int v4l2format;
+	int format;
 	int allocated;
 	gint allocated_size;
-	guint8   *y_data;
-	guint    y_size;
-	guint8   *c_data;
-	guint    c_size;
 };
 
 /**
@@ -68,14 +62,6 @@ struct _GstSHVideoBufferclass
 	GstBufferClass parent;
 };
 
-// Some macros
-
-#define GST_SH_VIDEO_BUFFER_Y_DATA(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->y_data)
-#define GST_SH_VIDEO_BUFFER_Y_SIZE(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->y_size)
-#define GST_SH_VIDEO_BUFFER_C_DATA(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->c_data)
-#define GST_SH_VIDEO_BUFFER_C_SIZE(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->c_size)
-#define GST_SH_VIDEO_BUFFER_V4l2_FMT(buf) (GST_SH_VIDEO_BUFFER_CAST(buf)->v4l2format)
-
 /** 
  * Get Gstshbuffer object type
  * @return object type
@@ -85,7 +71,7 @@ GType gst_sh_video_buffer_get_type (void);
 /**
  * Allocate a buffer that can be directly accessed by the SH hardware
  */
-GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int v4l2fmt);
+GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int fmt);
 
 
 /***************************** Helper functions *****************************/
@@ -112,8 +98,10 @@ gboolean gst_sh_video_format_parse_caps (
 	int *width,
 	int *height);
 
-gboolean gst_caps_to_v4l2_format (GstCaps *caps, int *v4l2format);
+gboolean gst_caps_to_renesas_format (GstCaps *caps, ren_vid_format_t *ren_format);
 
-int get_v4l2_format (GstVideoFormat format);
+int get_renesas_format (GstVideoFormat format);
+
+void *get_c_addr (void *y, ren_vid_format_t ren_format, int width, int height);
 
 #endif //GSTSHVIDEOBUFFER_H

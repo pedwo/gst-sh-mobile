@@ -323,7 +323,7 @@ gst_sh_video_dec_dispose (GObject * object)
 {
 	GstSHVideoDec *dec = GST_SH_VIDEO_DEC (object);
 
-	GST_LOG_OBJECT(dec,"%s called\n",__FUNCTION__);  
+	GST_LOG_OBJECT(dec,"%s called\n", __func__);  
 
 	if (dec->decoder != NULL) 
 	{
@@ -355,15 +355,13 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 {
 	GstElementClass *kclass = GST_ELEMENT_GET_CLASS (dec);
 
-	GST_LOG_OBJECT(dec,"%s called",__FUNCTION__);
+	GST_LOG_OBJECT(dec,"%s called", __func__);
 
 	dec->sinkpad = gst_pad_new_from_template(gst_element_class_get_pad_template(kclass,"sink"),"sink");
 	gst_pad_set_setcaps_function(dec->sinkpad, gst_sh_video_dec_setcaps);
-	gst_pad_set_chain_function(dec->sinkpad,GST_DEBUG_FUNCPTR(gst_sh_video_dec_chain));
-	gst_pad_set_event_function (dec->sinkpad,
-				    GST_DEBUG_FUNCPTR (gst_sh_video_dec_sink_event));
+	gst_pad_set_chain_function(dec->sinkpad, GST_DEBUG_FUNCPTR(gst_sh_video_dec_chain));
+	gst_pad_set_event_function (dec->sinkpad, GST_DEBUG_FUNCPTR(gst_sh_video_dec_sink_event));
 	gst_element_add_pad(GST_ELEMENT(dec),dec->sinkpad);
-
 
 	dec->srcpad = gst_pad_new_from_template(gst_element_class_get_pad_template(kclass,"src"),"src");
 	gst_element_add_pad(GST_ELEMENT(dec),dec->srcpad);
@@ -371,7 +369,6 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 
 	dec->caps_set = FALSE;
 	dec->decoder = NULL;
-	dec->running = FALSE;
 
 	dec->buffer = NULL;
 
@@ -389,12 +386,19 @@ gst_sh_video_dec_sink_event (GstPad * pad, GstEvent * event)
 {
 	GstSHVideoDec *dec = (GstSHVideoDec *) (GST_OBJECT_PARENT (pad));
 
-	GST_DEBUG_OBJECT(dec,"%s called event %i",__FUNCTION__,GST_EVENT_TYPE(event));
+	GST_DEBUG_OBJECT(dec,"%s called event %i", __func__,GST_EVENT_TYPE(event));
 
 	if (GST_EVENT_TYPE (event) == GST_EVENT_EOS) 
 	{
 		GST_DEBUG_OBJECT (dec, "EOS gst event");
-		dec->running = FALSE;
+
+		if (dec->decoder) {
+			GST_DEBUG_OBJECT(dec,"We are done, calling finalize.");
+			shcodecs_decoder_finalize(dec->decoder);
+			GST_DEBUG_OBJECT(dec,
+					 "Stream finalized. Total decoded %d frames.",
+					 shcodecs_decoder_get_frame_count(dec->decoder));
+		}
 	}
 	return gst_pad_push_event(dec->srcpad,event);
 }
@@ -408,35 +412,27 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 	gboolean ret = TRUE;
 	const GValue *value;
 
-	GST_LOG_OBJECT(dec,"%s called",__FUNCTION__);
+	GST_LOG_OBJECT(dec,"%s called", __func__);
 
-	if (dec->decoder!=NULL) 
-	{
-		GST_DEBUG_OBJECT(dec,"%s: Decoder already opened",__FUNCTION__);
+	if (dec->decoder != NULL) {
+		GST_DEBUG_OBJECT(dec,"%s: Decoder already opened", __func__);
 		return FALSE;
 	}
 
 	structure = gst_caps_get_structure (sink_caps, 0);
 
-	if (!strcmp (gst_structure_get_name (structure), "video/x-h264")) 
-	{
+	if (!strcmp (gst_structure_get_name (structure), "video/x-h264")) {
 		GST_INFO_OBJECT(dec, "codec format is video/x-h264");
 		dec->format = SHCodecs_Format_H264;
-	}
-	else
-	{
+	} else {
 		if (!strcmp (gst_structure_get_name (structure), "video/x-divx") ||
 		    !strcmp (gst_structure_get_name (structure), "video/x-xvid") ||
-		    !strcmp (gst_structure_get_name (structure), "video/mpeg")
-		    ) 
-		{
+		    !strcmp (gst_structure_get_name (structure), "video/mpeg")) {
 			GST_INFO_OBJECT (dec, "codec format is video/mpeg");
 			dec->format = SHCodecs_Format_MPEG4;
-		} 
-		else 
-		{
+		} else {
 			GST_INFO_OBJECT(dec,"%s failed (not supported: %s)",
-					__FUNCTION__,
+					__func__,
 					gst_structure_get_name (structure));
 			return FALSE;
 		}
@@ -519,39 +515,33 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 		GST_DEBUG_OBJECT(dec, "%s codec_data not found\n", __func__);
 	}
 
-	if(gst_structure_get_fraction (structure, "framerate", 
-					&dec->fps_numerator, 
-					&dec->fps_denominator))
+	if (gst_structure_get_fraction (structure, "framerate", 
+					&dec->fps_numerator, &dec->fps_denominator))
 	{    
 		GST_INFO_OBJECT(dec,"Framerate: %d/%d",dec->fps_numerator,
 				dec->fps_denominator);
-	}
-	else
-	{
-		GST_INFO_OBJECT(dec,"%s failed (no framerate)",__FUNCTION__);
+	} else {
+		GST_INFO_OBJECT(dec,"%s failed (no framerate)", __func__);
 		return FALSE;
 	}
 
 	if (gst_structure_get_int (structure, "width",  &dec->width)
 	    && gst_structure_get_int (structure, "height", &dec->height))
 	{
-		GST_INFO_OBJECT(dec,"%s initializing decoder %dx%d",__FUNCTION__,
+		GST_INFO_OBJECT(dec,"%s initializing decoder %dx%d", __func__,
 				dec->width,dec->height);
 		dec->decoder=shcodecs_decoder_init(dec->width,dec->height,
 						   dec->format);
-	} 
-	else 
-	{
-		GST_INFO_OBJECT(dec,"%s failed (no width/height)",__FUNCTION__);
+	} else {
+		GST_INFO_OBJECT(dec,"%s failed (no width/height)", __func__);
 		return FALSE;
 	}
 
-	if (dec->decoder==NULL) 
-	{
+	if (dec->decoder == NULL) {
 		GST_ELEMENT_ERROR((GstElement*)dec,CORE,FAILED,
 				  ("Error on shdecodecs_decoder_init."), 
 				  ("%s failed (Error on shdecodecs_decoder_init)",
-				   __FUNCTION__));
+				   __func__));
 		return FALSE;
 	}
 
@@ -560,7 +550,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 
 	shcodecs_decoder_set_decoded_callback(dec->decoder,
 						gst_shcodecs_decoded_callback,
-						(void*)dec);
+						dec);
 
 	/* Set SRC caps */
 	src_caps = gst_caps_new_simple ("video/x-raw-yuv", 
@@ -571,8 +561,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 					"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator, 
 					NULL);
 
-	if(!gst_pad_set_caps(dec->srcpad,src_caps))
-	{
+	if (!gst_pad_set_caps(dec->srcpad,src_caps)) {
 		GST_ELEMENT_ERROR((GstElement*)dec,CORE,NEGOTIATION,
 				  ("Source pad not linked."), (NULL));
 		ret = FALSE;
@@ -582,7 +571,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 
 	dec->caps_set = TRUE;
 
-	GST_LOG_OBJECT(dec,"%s ok",__FUNCTION__);
+	GST_LOG_OBJECT(dec,"%s ok", __func__);
 	return ret;
 }
 
@@ -594,9 +583,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	gint used_bytes;
 	GstBuffer* buffer = GST_BUFFER(inbuffer);
 
-	if(!dec->push_thread)
-	{
-		dec->running = TRUE;
+	if (!dec->push_thread) {
 		pthread_create( &dec->push_thread, NULL, gst_sh_video_dec_pad_push, dec);
 	}
 
@@ -649,16 +636,13 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	}
 
 	/* Buffering */
-	if(!dec->buffer)
-	{
+	if (!dec->buffer) {
 		GST_DEBUG_OBJECT(dec,
 				 "First frame in buffer. Size %d timestamp: %llu duration: %llu",
 				 GST_BUFFER_SIZE(buffer),
 				 GST_TIME_AS_MSECONDS(GST_BUFFER_TIMESTAMP (buffer)),
 				 GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (buffer)));
-	}  
-	else
-	{
+	} else {
 		GST_LOG_OBJECT(dec,
 			       "Joining buffers. Size %d timestamp: %llu duration: %llu",
 			       GST_BUFFER_SIZE(buffer),
@@ -678,30 +662,19 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 
 	GST_DEBUG_OBJECT(dec, "used_bytes. %d bytes", used_bytes);
 	if (used_bytes < 0) {
-
 		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
 				  ("Decode error"), ("%s failed (Error on shcodecs_decode)",
 							 __func__));
-
 		return GST_FLOW_ERROR;
 	}
 
 	// Preserve the data that was not used
-	if(GST_BUFFER_SIZE(buffer) != used_bytes)
-	{    
+	if (GST_BUFFER_SIZE(buffer) != used_bytes) {    
 		dec->buffer = gst_buffer_create_sub(buffer,
 						    used_bytes,
 						    GST_BUFFER_SIZE(buffer)-used_bytes);
 	}
 
-	if(!dec->running)
-	{
-		GST_DEBUG_OBJECT(dec,"We are done, calling finalize.");
-		shcodecs_decoder_finalize(dec->decoder);
-		GST_DEBUG_OBJECT(dec,
-				 "Stream finalized. Total decoded %d frames.",
-				 shcodecs_decoder_get_frame_count(dec->decoder));
-	}    
 	gst_buffer_unref(buffer);
 	return ret;
 
@@ -715,31 +688,31 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
 {
 	GstSHVideoDec *dec = (GstSHVideoDec *) user_data;
 	GstFlowReturn ret;
-	unsigned long phys_y;
-	unsigned long phys_c;
-	
-	gint offset = shcodecs_decoder_get_frame_count(decoder);
+	gint offset = shcodecs_decoder_get_frame_count(dec->decoder);
 
-	sem_wait(&dec->dec_sem);
+	/* We require the chroma plane of the video decoder output frame to follow the luma
+	   plane - without this, it is not possible for standard GStreamer elements
+	   to use the buffers */
+	if (c_buf != (y_buf + y_size)) {
+		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
+				  ("Decode error"), ("Decoded frame chroma plane does not follow luma plane!"));
+		return -1;
+	} 
 
-	shcodecs_decoder_get_physical_buf(decoder, &phys_y, &phys_c);
+	sem_wait(&dec->dec_sem); 
+	GST_LOG_OBJECT(dec,"%s called", __func__);  
 
-	GST_LOG("Y=%p (0x%lX), C=%p (0x%lX)", y_buf, phys_y, c_buf, phys_c);
-
+	/* Wrap the video decoder output buffer in a GST buffer */
 	dec->push_buf = (GstBuffer *) gst_mini_object_new (GST_TYPE_SH_VIDEO_BUFFER);
-	GST_SH_VIDEO_BUFFER_Y_DATA(dec->push_buf) = phys_y;
-	GST_SH_VIDEO_BUFFER_Y_SIZE(dec->push_buf) = y_size;
-	GST_SH_VIDEO_BUFFER_C_DATA(dec->push_buf) = phys_c;
-	GST_SH_VIDEO_BUFFER_C_SIZE(dec->push_buf) = c_size;
+	GST_BUFFER_MALLOCDATA(dec->push_buf) = NULL;
 	GST_BUFFER_DATA(dec->push_buf) = y_buf;
 	GST_BUFFER_SIZE(dec->push_buf) = y_size + c_size;
-	GST_BUFFER_OFFSET(dec->push_buf) = offset;
 
+	GST_BUFFER_OFFSET(dec->push_buf) = offset; 
 	GST_BUFFER_CAPS(dec->push_buf) = gst_caps_copy(GST_PAD_CAPS(dec->srcpad));
 	GST_BUFFER_DURATION(dec->push_buf) = GST_SECOND * dec->fps_denominator / dec->fps_numerator;
 	GST_BUFFER_TIMESTAMP(dec->push_buf) = offset * GST_BUFFER_DURATION(dec->push_buf);
 	GST_BUFFER_OFFSET_END(dec->push_buf) = offset;
-
 
 	GST_LOG_OBJECT (dec, "Pushing frame number: %d time: %" GST_TIME_FORMAT, 
 			offset, 
@@ -747,7 +720,7 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
 
 	sem_post(&dec->push_sem);
 
-	return 0; //0 means continue decoding
+	return 0; /* continue decoding */
 }
 
 static void *
@@ -760,16 +733,16 @@ gst_sh_video_dec_pad_push (void *data)
 	while(1)
 	{
 		sem_wait(&dec->push_sem);
-		GST_LOG_OBJECT(dec,"%s called\n",__FUNCTION__);
+		GST_LOG_OBJECT(dec,"%s called\n", __func__);
 
 		ret = gst_pad_push (dec->srcpad, dec->push_buf);
 
-		if (ret != GST_FLOW_OK) 
-		{
+		if (ret != GST_FLOW_OK) {
 			GST_DEBUG_OBJECT (dec, "pad_push failed: %s", gst_flow_get_name (ret));
 		}
 
-		if(dec->end) break;
+		if (dec->end)
+			break;
 		sem_post(&dec->dec_sem);
 	}
 

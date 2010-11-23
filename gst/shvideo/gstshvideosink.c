@@ -323,8 +323,6 @@ gst_sh_video_sink_dispose (GObject * object)
 {
 	GstSHVideoSink *sink = GST_SH_VIDEO_SINK (object);
 
-	GST_LOG_OBJECT(sink,"%s called\n",__FUNCTION__);  
-
 	G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
@@ -393,8 +391,6 @@ gst_sh_video_sink_class_init (GstSHVideoSinkClass * klass)
 static void
 gst_sh_video_sink_init (GstSHVideoSink * sink, GstSHVideoSinkClass * gklass)
 {
-	GST_LOG_OBJECT(sink,"%s called",__FUNCTION__);
-
 	sink->fps_numerator = 0;
 	sink->fps_denominator = 1;
 
@@ -406,9 +402,6 @@ gst_sh_video_sink_init (GstSHVideoSink * sink, GstSHVideoSinkClass * gklass)
 	sink->dst_height = 0;
 	sink->dst_x = 0;
 	sink->dst_y = 0;
-
-	sink->veu_mem_user = NULL;
-	sink->veu_mem_phys = 0;
 }
 
 
@@ -419,8 +412,6 @@ gst_sh_video_sink_set_property (GObject * object, guint prop_id,
 	GstSHVideoSink *sink = GST_SH_VIDEO_SINK (object);
 	const gchar* string;
    
-	GST_LOG_OBJECT(sink,"%s called",__FUNCTION__);
-
 	switch (prop_id)
 	{
 		case PROP_WIDTH:
@@ -447,19 +438,19 @@ gst_sh_video_sink_set_property (GObject * object, guint prop_id,
 		{
 			string = g_value_get_string (value);
 
-			if(!strcmp(string,ZOOM_FACTOR_ORIG))
+			if (!strcmp(string,ZOOM_FACTOR_ORIG))
 			{
 				sink->zoom_factor = ZOOM_ORIG;
 			}
-			else if(!strcmp(string,ZOOM_FACTOR_FULL))
+			else if (!strcmp(string,ZOOM_FACTOR_FULL))
 			{
 				sink->zoom_factor = ZOOM_FULL;
 			}
-			else if(!strcmp(string,ZOOM_FACTOR_DOUBLE))
+			else if (!strcmp(string,ZOOM_FACTOR_DOUBLE))
 			{
 				sink->zoom_factor = ZOOM_DOUBLE;
 			}
-			else if(!strcmp(string,ZOOM_FACTOR_HALF))
+			else if (!strcmp(string,ZOOM_FACTOR_HALF))
 			{
 				sink->zoom_factor = ZOOM_HALF;
 			}
@@ -478,8 +469,6 @@ gst_sh_video_sink_get_property (GObject * object, guint prop_id,
 				  GValue * value, GParamSpec * pspec)
 {
 	GstSHVideoSink *sink = GST_SH_VIDEO_SINK (object);
-
-	GST_DEBUG_OBJECT(sink,"%s called",__FUNCTION__);
 
 	switch (prop_id) 
 	{
@@ -570,8 +559,6 @@ gst_sh_video_sink_getcaps (GstBaseSink * bsink)
 {
 	GstSHVideoSink *sink = GST_SH_VIDEO_SINK (bsink);
 
-	GST_LOG_OBJECT(sink,"%s called",__FUNCTION__);
-
 	return gst_caps_copy (gst_pad_get_pad_template_caps (bsink->sinkpad));
 }
 
@@ -581,25 +568,20 @@ gst_sh_video_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 	GstStructure *structure = NULL;
 	GstSHVideoSink *sink = GST_SH_VIDEO_SINK (bsink);
 
-	GST_DEBUG_OBJECT(sink,"%s called",__FUNCTION__);
-
 	structure = gst_caps_get_structure (caps, 0);
 
-	if(!gst_structure_get_fraction (structure, "framerate", 
+	if (!gst_structure_get_fraction (structure, "framerate", 
 					&sink->fps_numerator, 
 					&sink->fps_denominator))
 	{
-		GST_DEBUG_OBJECT(sink,"%s failed (no framerate)",__FUNCTION__);
+		GST_DEBUG_OBJECT(sink,"failed (no framerate)");
 		return FALSE;
 	}
 
-	if (!(gst_structure_get_int (structure, "width",  
-					 &sink->video_sink.width)
-		  && gst_structure_get_int (structure, 
-						"height", &sink->video_sink.height))) 
+	if (!(gst_structure_get_int (structure, "width", &sink->video_sink.width)
+		  && gst_structure_get_int (structure, "height", &sink->video_sink.height))) 
 	{
-		GST_DEBUG_OBJECT(sink,"%s failed (no width/height)",
-				 __FUNCTION__);
+		GST_DEBUG_OBJECT(sink,"failed (no width/height)");
 		return FALSE;
 	}
 
@@ -608,7 +590,7 @@ gst_sh_video_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 			 sink->video_sink.width,
 			 sink->video_sink.height);
 
-	if(!sink->dst_width && !sink->dst_height 
+	if (!sink->dst_width && !sink->dst_height 
 	   && sink->zoom_factor != ZOOM_ORIG)
 	{
 		switch(sink->zoom_factor)
@@ -634,27 +616,21 @@ gst_sh_video_sink_setcaps (GstBaseSink * bsink, GstCaps * caps)
 		}
 	}  
 
-	if(!sink->dst_width)
-	{
+	if (!sink->dst_width) {
 		sink->dst_width = sink->video_sink.width;
 	}
-	if(!sink->dst_height)
-	{
+	if (!sink->dst_height) {
 		sink->dst_height = sink->video_sink.height;
 	}
 
-	if(sink->dst_width < MIN_W_AND_H)
-	{
+	if (sink->dst_width < MIN_W_AND_H) {
 		sink->dst_width = MIN_W_AND_H;
 	}
-	if(sink->dst_height < MIN_W_AND_H)
-	{
+	if (sink->dst_height < MIN_W_AND_H) {
 		sink->dst_height = MIN_W_AND_H;
 	}
 
 	sink->caps_set = TRUE;
-
-	GST_LOG_OBJECT(sink,"%s ok",__FUNCTION__);
 
 	return TRUE;
 }
@@ -673,7 +649,7 @@ gst_sh_video_sink_get_times (GstBaseSink * bsink, GstBuffer * buf,
 	{
 		*start = GST_BUFFER_TIMESTAMP (buf);
 		if (GST_BUFFER_DURATION_IS_VALID (buf) && 
-	GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (buf)) > 0 )
+		    GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (buf)) > 0 )
 		{
 			*end = *start + GST_BUFFER_DURATION (buf);
 		} 
@@ -690,8 +666,7 @@ gst_sh_video_sink_get_times (GstBaseSink * bsink, GstBuffer * buf,
 			{
 				 GST_ELEMENT_ERROR((GstElement*)sink,
 					 CORE,FAILED,("No framerate set."), 
-				 ("%s failed (No framerate set for playback)",
-				__FUNCTION__));        
+				 ("failed (No framerate set for playback)"));        
 			}
 		}
 		GST_LOG_OBJECT(sink,"Times given, start: %dms end:%dms",
@@ -702,8 +677,7 @@ gst_sh_video_sink_get_times (GstBaseSink * bsink, GstBuffer * buf,
 	{
 		GST_ELEMENT_ERROR((GstElement*)sink,
 			CORE,FAILED,("No timestamp given."),
-			("%s failed (No timestamp set for the buffer)",
-			__FUNCTION__));	   
+			("failed (No timestamp set for the buffer)"));	   
 	}
 }
 
@@ -711,49 +685,21 @@ static GstFlowReturn
 gst_sh_video_sink_show_frame (GstBaseSink * bsink, GstBuffer * buf)
 {
 	GstSHVideoSink *sink = GST_SH_VIDEO_SINK (bsink);
+	struct ren_vid_surface frame;
 
-	GST_LOG_OBJECT(sink,"%s called",__FUNCTION__);
+	GST_LOG_OBJECT(sink,"called");
 
 	g_return_val_if_fail (buf != NULL, GST_FLOW_ERROR);
 
-	if(GST_IS_SH_VIDEO_BUFFER(buf))
-	{
-		GST_LOG_OBJECT(sink,"Got own buffer with HW adrresses");
-		display_update(sink->display,
-				(unsigned long)GST_SH_VIDEO_BUFFER_Y_DATA(buf),
-				(unsigned long)GST_SH_VIDEO_BUFFER_C_DATA(buf),
-				sink->video_sink.width,
-				sink->video_sink.height,
-				sink->video_sink.width,
-				V4L2_PIX_FMT_NV12);
+	frame.format = REN_NV12;
+	frame.w = sink->video_sink.width;
+	frame.h = sink->video_sink.height;
+	frame.pitch = sink->video_sink.width;
+	frame.py = GST_BUFFER_DATA(buf);
+	frame.pc = frame.py + frame.w * frame.h;
+	frame.pa = NULL;
 
-	}
-	else
-	{
-		GST_LOG_OBJECT(sink,"Got userland buffer -> memcpy");
-
-		if (!sink->veu_mem_user)
-		{
-			sink->veu_mem_user = uiomux_malloc(sink->uiomux, UIOMUX_SH_VEU,
-				(sink->video_sink.width*sink->video_sink.height * 3)/2, getpagesize());
-			if (!sink->veu_mem_user)
-			{
-				GST_DEBUG_OBJECT(sink,"%s not enough space in VEU mem",__FUNCTION__);
-				return GST_FLOW_UNEXPECTED;
-			} 
-			sink->veu_mem_phys = uiomux_virt_to_phys(sink->uiomux, UIOMUX_SH_VEU, sink->veu_mem_user);
-		}
-
-		memcpy(sink->veu_mem_user,GST_BUFFER_DATA(buf),
-			GST_BUFFER_SIZE(buf));
-		display_update(sink->display,
-				sink->veu_mem_phys,
-				sink->veu_mem_phys + (sink->video_sink.width*sink->video_sink.height),
-				sink->video_sink.width,
-				sink->video_sink.height,
-				sink->video_sink.width,
-				V4L2_PIX_FMT_NV12);
-	}
+	display_update(sink->display, &frame);
 
 	return GST_FLOW_OK;
 }
@@ -767,43 +713,36 @@ gst_sh_video_sink_buffer_alloc (GstBaseSink *bsink, guint64 offset, guint size,
 	GstSHVideoSink *sink = GST_SH_VIDEO_SINK (bsink);
 	gint width, height;
 	void *user;
-	unsigned long phys;
 
-	GST_LOG_OBJECT(sink,"Buffer requested. Offset: %lld, size: %d",offset,size);
+	GST_LOG_OBJECT(sink,"Buffer requested. Offset: %lld, size: %d", offset,size);
 
-	if(size<=0)
-	{
-		GST_DEBUG_OBJECT(sink,"%s failed (no size for buffer)",__FUNCTION__);
+	if (size<=0) {
+		GST_DEBUG_OBJECT(sink,"failed (no size for buffer)");
 		return GST_FLOW_UNEXPECTED;
 	}
 
 	structure = gst_caps_get_structure (caps, 0);
 
 	if (!(gst_structure_get_int (structure, "width",  &width)
-	&& gst_structure_get_int (structure, "height", &height))) 
+	    && gst_structure_get_int (structure, "height", &height))) 
 	{
-		GST_DEBUG_OBJECT(sink,"%s failed (no width/height)",__FUNCTION__);
+		GST_DEBUG_OBJECT(sink,"failed (no width/height)");
 		return GST_FLOW_UNEXPECTED;
 	}
 
 	GST_LOG_OBJECT(sink,"Frame width: %d heigth: %d",width,height);
 
-	// Using HW buffer from VEU
+	/* Using HW buffer */
 	user = uiomux_malloc(sink->uiomux, UIOMUX_SH_VEU, size, getpagesize());
 	if (!user)
 	{
-		GST_DEBUG_OBJECT(sink,"%s not enough space in VEU mem",__FUNCTION__);
+		GST_DEBUG_OBJECT(sink,"not enough space in VEU mem");
 		return GST_FLOW_UNEXPECTED;
 	} 
-	phys = uiomux_virt_to_phys(sink->uiomux, UIOMUX_SH_VEU, user);
 
 	*buf = (GstBuffer *) gst_mini_object_new (GST_TYPE_SH_VIDEO_BUFFER);
-	GST_BUFFER_DATA(*buf) = GST_BUFFER_MALLOCDATA(*buf) = user;   
-	GST_BUFFER_SIZE(*buf) = size;   
-	GST_SH_VIDEO_BUFFER_Y_DATA(*buf) = (guint8*)phys;
-	GST_SH_VIDEO_BUFFER_Y_SIZE(*buf) = width*height; 
-	GST_SH_VIDEO_BUFFER_C_DATA(*buf) = (guint8*)(phys+GST_SH_VIDEO_BUFFER_Y_SIZE(*buf));
-	GST_SH_VIDEO_BUFFER_C_SIZE(*buf) = GST_SH_VIDEO_BUFFER_Y_SIZE(*buf)/2; 
+	GST_BUFFER_DATA(*buf) = GST_BUFFER_MALLOCDATA(*buf) = user;
+	GST_BUFFER_SIZE(*buf) = size;
 
 	return GST_FLOW_OK;
 }

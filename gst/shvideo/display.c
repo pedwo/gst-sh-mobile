@@ -12,7 +12,7 @@
 #include <sys/mman.h>
 #include <string.h>
 #include <linux/fb.h>
-#include <linux/videodev2.h>	/* For pixel formats */
+#include <uiomux/uiomux.h>
 #include <shveu/shveu.h>
 
 #include "display.h"
@@ -30,18 +30,14 @@ struct DISPLAY {
 	int fb_handle;
 	struct fb_fix_screeninfo fb_fix;
 	struct fb_var_screeninfo fb_var;
-	unsigned long fb_base;
-	unsigned long back_buf_phys;
+	unsigned char *back_buf;
 	unsigned char *iomem;
 	int fb_index;
 	int lcd_w;
 	int lcd_h;
 
 	int fullscreen;
-	int out_w;
-	int out_h;
-	int out_x;
-	int out_y;
+	struct ren_vid_rect dst_sel;
 
 	SHVEU *veu;
 };
@@ -101,10 +97,13 @@ DISPLAY *display_open(void)
 		memset(disp->iomem, 0, size);
 	}
 
+	/* Register the framebuffer with UIOMux */
+	uiomux_register (disp->iomem, disp->fb_fix.smem_start, size);
+
 	disp->lcd_w = disp->fb_var.xres;
 	disp->lcd_h = disp->fb_var.yres;
 
-	disp->back_buf_phys = disp->fb_base = disp->fb_fix.smem_start;
+	disp->back_buf = disp->iomem;
 	disp->fb_index = 0;
 	display_flip(disp);
 
@@ -128,7 +127,7 @@ void display_close(DISPLAY *disp)
 
 int display_get_format(DISPLAY *disp)
 {
-	return V4L2_PIX_FMT_RGB565;
+	return REN_RGB565;
 }
 
 int display_get_width(DISPLAY *disp)
@@ -141,15 +140,10 @@ int display_get_height(DISPLAY *disp)
 	return disp->lcd_h;
 }
 
-unsigned char *display_get_back_buff_virt(DISPLAY *disp)
+unsigned char *display_get_back_buff(DISPLAY *disp)
 {
 	int frame_offset = RGB_BPP * (1-disp->fb_index) * disp->lcd_w * disp->lcd_h;
 	return (disp->iomem + frame_offset);
-}
-
-unsigned long display_get_back_buff_phys(DISPLAY *disp)
-{
-	return disp->back_buf_phys;
 }
 
 int display_flip(DISPLAY *disp)
@@ -165,9 +159,9 @@ int display_flip(DISPLAY *disp)
 		return 0;
 
 	/* Point to the back buffer */
-	disp->back_buf_phys = disp->fb_base;
+	disp->back_buf = disp->iomem;
 	if (disp->fb_index!=0)
-		disp->back_buf_phys += disp->fb_fix.line_length * disp->fb_var.yres;
+		disp->back_buf += disp->fb_fix.line_length * disp->fb_var.yres;
 
 	disp->fb_index = (disp->fb_index+1) & 1;
 
@@ -180,47 +174,71 @@ int display_flip(DISPLAY *disp)
 
 int display_update(
 	DISPLAY *disp,
-	unsigned long py,
-	unsigned long pc,
-	int w,
-	int h,
-	int pitch,
-	int v4l_fmt)
+	struct ren_vid_surface *src)
 {
 	float scale, aspect_x, aspect_y;
-	int dst_w, dst_h;
-	int x1, y1, x2, y2;
 	int ret;
+	struct ren_vid_surface src2 = *src;
+	struct ren_vid_surface dst;
+	struct ren_vid_rect src_sel;
+	struct ren_vid_rect dst_sel;
+
+	dst.format = REN_RGB565;
+	dst.w = disp->lcd_w;
+	dst.h = disp->lcd_h;
+	dst.pitch = disp->lcd_w;
+	dst.py = disp->back_buf;
+	dst.pc = dst.py + (disp->lcd_w * disp->lcd_h);
+	dst.pa = NULL;
 
 	if (disp->fullscreen) {
 		/* Stick with the source aspect ratio */
-		aspect_x = (float) disp->lcd_w / w;
-		aspect_y = (float) disp->lcd_h / h;
+		aspect_x = (float) disp->lcd_w / src->w;
+		aspect_y = (float) disp->lcd_h / src->h;
 		if (aspect_x > aspect_y) {
 			scale = aspect_y;
 		} else {
 			scale = aspect_x;
 		}
 
-		dst_w = (int) (w * scale);
-		dst_h = (int) (h * scale);
+		/* Center it */
+		dst_sel.w = (int) (src->w * scale);
+		dst_sel.h = (int) (src->h * scale);
+		dst_sel.x = (disp->lcd_w - dst.w)/2;
+		dst_sel.y = (disp->lcd_h - dst.h)/2;
+		get_sel_surface(&dst, &dst, &dst_sel);
 
-		x1 = disp->lcd_w/2 - dst_w/2;
-		y1 = disp->lcd_h/2 - dst_h/2;
-		x2 = x1 + dst_w;
-		y2 = y1 + dst_h;
 	} else {
-		x1 = disp->out_x;
-		y1 = disp->out_y;
-		x2 = x1 + disp->out_w;
-		y2 = y1 + disp->out_h;
+		dst_sel = disp->dst_sel;
+
+		src_sel.w = src->w;
+		src_sel.h = src->h;
+		src_sel.x = 0;
+		src_sel.y = 0;
+
+		/* TODO Handle output off-surface to the left or above by using part of the input */
+
+		/* Handle output off-surface to the right or below by cropping the input & output */
+		if ((dst_sel.x + dst_sel.w) > disp->lcd_w) {
+			src_sel.w = (int)((disp->lcd_w - dst_sel.x) / scale);
+			dst_sel.w = disp->lcd_w - dst_sel.x;
+		}
+		if ((dst_sel.y + dst_sel.h) > disp->lcd_h) {
+			src_sel.h = (int)((disp->lcd_h - dst_sel.y) / scale);
+			dst_sel.h = disp->lcd_h - dst_sel.y;
+		}
+
+		if (src_sel.w <= 0 || src_sel.h <= 0)
+			return 0;
+		if (dst_sel.w <= 0 || dst_sel.h <= 0)
+			return 0;
+
+		get_sel_surface(&src2, src,  &src_sel);
+		get_sel_surface(&dst,  &dst, &dst_sel);
 	}
 
-	shveu_crop(disp->veu, 1, x1, y1, x2, y2);
-
-	ret = shveu_rescale(disp->veu,
-		py, pc,	(long) w, (long) h, v4l_fmt,
-		disp->back_buf_phys, 0, disp->lcd_w, disp->lcd_h, V4L2_PIX_FMT_RGB565);
+	/* Hardware resize */
+	ret = shveu_resize(disp->veu, &src2, &dst);
 
 	if (!ret)
 		display_flip(disp);
@@ -236,9 +254,9 @@ void display_set_fullscreen(DISPLAY *disp)
 void display_set_position(DISPLAY *disp, int w, int h, int x, int y)
 {
 	disp->fullscreen = 0;
-	disp->out_w = w;
-	disp->out_h = h;
-	disp->out_x = x;
-	disp->out_y = y;
+	disp->dst_sel.w = w;
+	disp->dst_sel.h = h;
+	disp->dst_sel.x = x;
+	disp->dst_sel.y = y;
 }
 

@@ -47,26 +47,26 @@ typedef struct _GstSHVidresizeClass GstSHVidresizeClass;
 /* _GstSHVidresize object */
 struct _GstSHVidresize
 {
-        /* gStreamer infrastructure */
-        GstBaseTransform  element;
-        GstPad            *sinkpad;
-        GstPad            *srcpad;
+	/* gStreamer infrastructure */
+	GstBaseTransform  element;
+	GstPad            *sinkpad;
+	GstPad            *srcpad;
 
-        /* Element state */
-        gint              srcWidth;
-        gint              srcHeight;
-        gint              dstWidth;
-        gint              dstHeight;
-        int               srcColorSpace;
-        int               dstColorSpace;
+	/* Element state */
+	gint              srcWidth;
+	gint              srcHeight;
+	gint              dstWidth;
+	gint              dstHeight;
+	int               srcColorSpace;
+	int               dstColorSpace;
 	UIOMux           *uiomux;
-        SHVEU            *veu;
+	SHVEU            *veu;
 };
 
 /* _GstSHVidresizeClass object */
 struct _GstSHVidresizeClass 
 {
-  GstBaseTransformClass parent_class;
+	GstBaseTransformClass parent_class;
 };
 
 /* External function enclarations */

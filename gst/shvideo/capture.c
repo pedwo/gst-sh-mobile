@@ -36,7 +36,6 @@ typedef enum {
 
 struct buffer {
 	void *start;              	/* User space addr */
-	unsigned char *phys_addr;	/* Only used for USERPTR I/O */
 	size_t length;
 	struct v4l2_buffer v4l2buf;
 };
@@ -50,7 +49,6 @@ struct capture_ {
 	int width;
 	int height;
 	unsigned int pixel_format;
-	int use_physical;
 	UIOMux *uiomux;
 } sh_ceu;
 
@@ -158,10 +156,7 @@ read_frame(capture * cap, capture_callback cb, void *user_data)
 		assert(i < cap->n_buffers);
 		memcpy(&cap->buffers[buf.index].v4l2buf, &buf, sizeof(struct v4l2_buffer));
 
-		if (cap->use_physical)
-			cb(cap, cap->buffers[i].phys_addr, buf.length, user_data);
-		else
-			cb(cap, cap->buffers[i].start, buf.length, user_data);
+		cb(cap, cap->buffers[i].start, buf.length, user_data);
 
 		break;
 	}
@@ -172,19 +167,11 @@ read_frame(capture * cap, capture_callback cb, void *user_data)
 void
 capture_queue_buffer(capture * cap, const void * buffer_data)
 {
-	int i;
+	unsigned int i;
 
-	if (cap->use_physical) {
-		for (i = 0; i < cap->n_buffers; ++i) {
-			if (cap->buffers[i].phys_addr == buffer_data) {
-				goto found;
-			}
-		}
-	} else {
-		for (i = 0; i < cap->n_buffers; ++i) {
-			if (cap->buffers[i].start == buffer_data) {
-				goto found;
-			}
+	for (i = 0; i < cap->n_buffers; ++i) {
+		if (cap->buffers[i].start == buffer_data) {
+			goto found;
 		}
 	}
 
@@ -194,15 +181,6 @@ capture_queue_buffer(capture * cap, const void * buffer_data)
 found:
 	if (-1 == xioctl(cap->fd, VIDIOC_QBUF, &cap->buffers[i].v4l2buf))
 		errno_exit("VIDIOC_QBUF");
-}
-
-int
-capture_set_use_physical(capture * cap, int use_physical)
-{
-	if (!cap) return -1;
-
-	cap->use_physical = use_physical;
-	return 0;
 }
 
 void
@@ -456,16 +434,12 @@ init_userp(capture * cap, unsigned int buffer_size)
 
 	for (cap->n_buffers = 0; cap->n_buffers < req.count; ++cap->n_buffers) {
 		void *user;
-		unsigned long phys;
 
 		/* Get user memory from UIO */
-		user = uiomux_malloc(cap->uiomux, UIOMUX_SH_VEU,
-               buffer_size, page_size);
-		phys = uiomux_virt_to_phys(cap->uiomux, UIOMUX_SH_VEU, user);
+		user = uiomux_malloc(cap->uiomux, UIOMUX_SH_VEU, buffer_size, page_size);
 
 		cap->buffers[cap->n_buffers].length = buffer_size;
 		cap->buffers[cap->n_buffers].start = user;
-		cap->buffers[cap->n_buffers].phys_addr = (void *)phys;
 
 		if (!cap->buffers[cap->n_buffers].start) {
 			fprintf(stderr, "Out of memory\n");
@@ -654,7 +628,6 @@ static capture *capture_open_mode(const char *device_name, int width, int height
 	cap->io = mode;
 	cap->width = width;
 	cap->height = height;
-	cap->use_physical = 0;
 
 	open_device(cap);
 	init_device(cap);
