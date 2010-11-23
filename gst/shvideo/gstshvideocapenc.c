@@ -192,44 +192,45 @@ static GType gst_camera_preview_get_type(void)
 static void capture_image_cb(capture * ceu, const unsigned char *frame_data, size_t length, void *user_data)
 {
 	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
-	unsigned long enc_y, enc_c;
-	unsigned long cap_y, cap_c;
+	struct ren_vid_surface cap_surface;
+	struct ren_vid_surface enc_surface;
 
 	GST_DEBUG_OBJECT(pvt, "Captured a frame");
 
-	cap_y = (unsigned long) frame_data;
-	cap_c = cap_y + (pvt->cap_w * pvt->cap_h);
+	cap_surface.format = REN_NV12;
+	cap_surface.w = pvt->cap_w;
+	cap_surface.h = pvt->cap_h;
+	cap_surface.pitch = cap_surface.w;
+	cap_surface.py = (void*)frame_data;
+	cap_surface.pc = cap_surface.py + (cap_surface.pitch * cap_surface.h);
+	cap_surface.pa = NULL;
+
+	enc_surface.format = REN_NV12;
+	enc_surface.w = pvt->width;
+	enc_surface.h = pvt->height;
+	enc_surface.pitch = enc_surface.w;
+	enc_surface.pa = NULL;
 
 	/* Get an empty encoder input frame */
-	enc_y = (unsigned long) queue_deq(pvt->enc_input_empty_q);
-	enc_c = enc_y + (pvt->width * pvt->height);
+	enc_surface.py = queue_deq(pvt->enc_input_empty_q);
+	enc_surface.pc = enc_surface.py + (enc_surface.pitch * enc_surface.h);
 
 	GST_DEBUG_OBJECT(pvt, "Starting blit to encoder input buffer...");
 
-	shveu_crop(pvt->veu, 1, 0, 0, (long) pvt->width, (long) pvt->height);
-	shveu_rescale(pvt->veu,
-		cap_y, cap_c,
-		pvt->cap_w, pvt->cap_h, V4L2_PIX_FMT_NV12,
-		enc_y, enc_c,
-		(long) pvt->width, (long) pvt->height, V4L2_PIX_FMT_NV12);
+	/* Hardware resize */
+	shveu_resize(pvt->veu, &cap_surface, &enc_surface);
 
 	GST_DEBUG_OBJECT(pvt, "Blit to encoder input buffer complete");
 
 	pvt->stop_encode_thr = pvt->stop_capture_thr;
-	queue_enq(pvt->enc_input_q, (void*)enc_y);
+	queue_enq(pvt->enc_input_q, enc_surface.py);
 
 	if (pvt->preview == PREVIEW_ON) {
-		display_update(pvt->display,
-				cap_y,
-				cap_c,
-				pvt->cap_w,
-				pvt->cap_h,
-				pvt->cap_w,
-				V4L2_PIX_FMT_NV12);
+		display_update(pvt->display, &cap_surface);
 		GST_DEBUG_OBJECT(pvt, "Display update complete");
 	}
 
-	capture_queue_buffer (pvt->ceu, (void *)cap_y);
+	capture_queue_buffer (pvt->ceu, cap_surface.py);
 }
 
 static void *capture_thread(void *data)
@@ -572,14 +573,14 @@ static int gst_shvideo_enc_release_input_buf(SHCodecs_Encoder * encoder,
 static int gst_shvideo_enc_get_input(SHCodecs_Encoder *encoder, void *user_data)
 {
 	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
-	unsigned long enc_y, enc_c;
+	void *py, *pc;
 
 	GST_LOG_OBJECT(pvt, "Waiting for blit to complete");
 
 	/* Get a scaled frame from the queue */
-	enc_y = (unsigned long) queue_deq(pvt->enc_input_q);
-	enc_c = enc_y + (pvt->width * pvt->height);
-	shcodecs_encoder_set_input_physical_addr (encoder, (unsigned int *)enc_y, (unsigned int *)enc_c);
+	py = queue_deq(pvt->enc_input_q);
+	pc = py + (pvt->width * pvt->height);
+	shcodecs_encoder_input_provide (encoder, py, pc);
 
 	GST_LOG_OBJECT(pvt, "Got input buffer");
 
@@ -734,7 +735,6 @@ static void *launch_camera_encoder_thread(void *data)
 		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 				  ("Error opening CEU"), (NULL));
 	}
-	capture_set_use_physical(enc->ceu, 1);
 	enc->cap_w = capture_get_width(enc->ceu);
 	enc->cap_h = capture_get_height(enc->ceu);
 

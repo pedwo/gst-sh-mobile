@@ -52,23 +52,15 @@ typedef struct _GstSHVideoBufferclass GstSHVideoBufferclass;
  * \struct _GstSHVideoBuffer
  * \brief SuperH HW buffer for YUV-data
  * \var buffer Parent buffer
- * \var y_data Pointer to the Y-data
- * \var y_size Size of the Y-data
- * \var c_data Pointer to the C-data
- * \var c_size Size of the C-data
  */
 struct _GstSHVideoBuffer 
 {
 	GstBuffer buffer;
 
 	UIOMux *uiomux;
-	int v4l2format;
+	int format;
 	int allocated;
 	gint allocated_size;
-	guint8   *y_data;
-	guint    y_size;
-	guint8   *c_data;
-	guint    c_size;
 };
 
 /**
@@ -80,13 +72,6 @@ struct _GstSHVideoBufferclass
 	GstBufferClass parent;
 };
 
-// Some macros
-
-#define GST_SH_VIDEO_BUFFER_Y_DATA(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->y_data)
-#define GST_SH_VIDEO_BUFFER_Y_SIZE(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->y_size)
-#define GST_SH_VIDEO_BUFFER_C_DATA(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->c_data)
-#define GST_SH_VIDEO_BUFFER_C_SIZE(buf)  (GST_SH_VIDEO_BUFFER_CAST(buf)->c_size)
-
 /** 
  * Get Gstshbuffer object type
  * @return object type
@@ -96,7 +81,7 @@ GType gst_sh_video_buffer_get_type (void);
 /**
  * Allocate a buffer that can be directly accessed by the SH hardware
  */
-GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int v4l2fmt);
+GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int fmt);
 
 
 #endif //GSTSHVIDEOBUFFER_H

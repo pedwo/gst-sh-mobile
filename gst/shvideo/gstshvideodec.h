@@ -57,7 +57,6 @@ typedef struct _GstSHVideoDecClass GstSHVideoDecClass;
  * \var decoder pointer to the SHCodecs decoder object
  * \var caps_set A flag indicating whether the caps has been set for the pads
  * \var running A flag indicating that the decoding thread should be running
- * \var use_physical HW buffer usage setting
  * \var buffer Pointer to the cache buffer
  * \var push_buf Pointer to src buffer
  * \var dec_thread Decoder thread
@@ -81,8 +80,6 @@ struct _GstSHVideoDec
 
 	gboolean caps_set;
 	gboolean end;
-	
-	gint use_physical;  
 
 	GstBuffer* buffer;
 	GstBuffer* push_buf;
