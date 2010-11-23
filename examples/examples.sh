@@ -180,9 +180,8 @@ gst-launch \
 #          camera =/
 gst-launch \
  filesrc location=/sample_media/movie/advert-h264-vga-25fps-2mbps.264 ! "video/x-h264, width=640, height=480, framerate=30/1" \
- ! gst-sh-mobile-dec ! queue ! mix. \
- v4l2src device=/dev/video0 ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1" ! queue ! mix. \
- gst-sh-mobile-mixer name=mix sink_1::alpha=0.8 sink_1::xpos=100 sink_1::ypos=50\
+ ! gst-sh-mobile-dec ! mix. \
+ v4l2src device=/dev/video0 ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1" ! mix. \
+ gst-sh-mobile-mixer name=mix sink_1::alpha=0.8 sink_1::xpos=100 sink_1::ypos=0 \
  ! gst-sh-mobile-sink
-
 
