@@ -28,6 +28,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <linux/videodev2.h>	/* For pixel formats */
+#include <uiomux/uiomux.h>
 #include <shveu/shveu.h>
 #include <shcodecs/shcodecs_encoder.h>
 
@@ -78,9 +79,9 @@ struct _GstSHVideoCapEnc {
 	struct Queue * enc_input_q;
 	struct Queue * enc_input_empty_q;
 
-	DISPLAY *display;
-
+	UIOMux *uiomux;
 	SHVEU *veu;
+	DISPLAY *display;
 
 	int cap_w;
 	int cap_h;
@@ -320,6 +321,7 @@ static void gst_shvideo_enc_dispose(GObject * object)
 
 	shveu_close(enc->veu);
 	capture_close(enc->ceu);
+	uiomux_close(enc->uiomux);
 
 	G_OBJECT_CLASS(parent_class)->dispose(object);
 }
@@ -683,6 +685,7 @@ static void *launch_camera_encoder_thread(void *data)
 	gint ret;
 	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) data;
 	void *thread_ret;
+	int i;
 
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
@@ -711,6 +714,13 @@ static void *launch_camera_encoder_thread(void *data)
 	}
 	snprintf(enc->ainfo.input_file_name_buf, 256, "%s/%s",
 		 enc->ainfo.buf_input_yuv_file_with_path, enc->ainfo.buf_input_yuv_file);
+
+	/* UIOMux initialisation */
+	enc->uiomux = uiomux_open();
+	if (enc->uiomux == NULL) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+				  ("Error opening uiomux"), (NULL));
+	}
 
 	/* VEU initialisation */
 	enc->veu = shveu_open();
@@ -782,6 +792,17 @@ static void *launch_camera_encoder_thread(void *data)
 						(enc->encoder) /
 						(shcodecs_encoder_get_frame_rate(enc->encoder) /
 						 10));
+
+	/* Allocate & queue encoder input frames */
+	for (i=0; i<2; i++) {
+		int size = (enc->width * enc->height * 3) / 2;
+		void *frame = uiomux_malloc(enc->uiomux, UIOMUX_SH_VEU, size, 32);
+		if (ret < 0) {
+			GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+					  ("Error allocating encoder input frames."), (NULL));
+		}
+		queue_enq(enc->enc_input_empty_q, frame);
+	}
 
 	GST_DEBUG_OBJECT(enc, "Encoder init: %ldx%ld %.2ffps format:%ld",
 			 shcodecs_encoder_get_xpic_size(enc->encoder),
