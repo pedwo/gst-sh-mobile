@@ -85,9 +85,9 @@ AC_SUBST(GST_PLUGIN_LDFLAGS)
 dnl
 dnl Check for libraries
 dnl
-PKG_CHECK_MODULES(UIOMUX, uiomux >= 1.1.0)
-PKG_CHECK_MODULES(SHVEU, shveu >= 1.3.0)
-PKG_CHECK_MODULES(SHCODECS, shcodecs >= 1.1.0)
+PKG_CHECK_MODULES(UIOMUX, uiomux >= 1.5.0)
+PKG_CHECK_MODULES(SHVEU, shveu >= 1.5.0)
+PKG_CHECK_MODULES(SHCODECS, shcodecs >= 1.4.0)
 
 dnl
 dnl Check for Scale plugin enabled
@@ -96,7 +96,7 @@ AC_ARG_ENABLE(scale, AS_HELP_STRING([--disable-scale], [Disable scale (VEU) plug
 
 AS_IF([test "x$enable_scale" != "xno"], [
 	dnl Scale plugin enabled - what about libshveu?
-    PKG_CHECK_MODULES(SHVEU, shveu >= 1.3.0, [SCALE=yes],
+    PKG_CHECK_MODULES(SHVEU, shveu >= 1.5.0, [SCALE=yes],
 		[AC_MSG_WARN([libshveu not found - scale plugin won't be built])])
 ])
 if test "x$SCALE" = "xyes" ; then
@@ -112,7 +112,7 @@ AC_ARG_ENABLE(blend, AS_HELP_STRING([--disable-blend], [Disable blend (BEU) plug
 
 AS_IF([test "x$enable_blend" != "xno"], [
 	dnl Blend plugin enabled - what about libshbeu?
-    PKG_CHECK_MODULES(SHBEU, shbeu >= 0.0.1, [BLEND=yes],
+    PKG_CHECK_MODULES(SHBEU, shbeu >= 1.0.0, [BLEND=yes],
 		[AC_MSG_WARN([libshbeu not found - blend plugin won't be built])])
 ])
 if test "x$BLEND" = "xyes" ; then
