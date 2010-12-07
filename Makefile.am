@@ -1,2 +1,2 @@
-SUBDIRS = gst
+SUBDIRS = gst doc examples
 

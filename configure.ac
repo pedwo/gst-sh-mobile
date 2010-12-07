@@ -127,6 +127,7 @@ gst/Makefile
 gst/shvideo/Makefile
 doc/Makefile
 doc/Doxyfile
+examples/Makefile
 ])
 AC_OUTPUT
 
