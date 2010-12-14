@@ -237,13 +237,6 @@ static int GetFromCtrlFtoEncoding_property(FILE * fp_in,
 	}
 
 	return_value =
-	    GetValueFromCtrlFile(fp_in, "frame_num_resolution",
-				 &status_flag);
-	if (status_flag == 1) {
-		shcodecs_encoder_set_frame_num_resolution (encoder, return_value);
-	}
-
-	return_value =
 	    GetValueFromCtrlFile(fp_in, "noise_reduction", &status_flag);
 	if (status_flag == 1) {
 		shcodecs_encoder_set_noise_reduction (encoder, return_value);
@@ -944,10 +937,6 @@ int GetFromCtrlFtoEncParam(SHCodecs_Encoder * encoder,
 	if (stream_type == SHCodecs_Format_H264) {
 		/*** avcbe_other_options_h264 ***/
 		GetFromCtrlFtoOther_options_H264(fp_in, encoder);
-	        return_value = GetValueFromCtrlFile(fp_in, "ref_frame_num", &status_flag);
-	        if (status_flag == 1) {
-		        shcodecs_encoder_set_ref_frame_num (encoder, return_value);
-	        }
 	        return_value = GetValueFromCtrlFile(fp_in, "filler_output_on", &status_flag);
 	        if (status_flag == 1) {
 	        	shcodecs_encoder_set_output_filler_enable (encoder, return_value);

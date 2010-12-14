@@ -84,7 +84,6 @@ struct _GstSHVideoEnc
 	glong control_bitrate_length;
 	glong intra_macroblock_refresh_cycle;
 	glong video_format;
-	glong frame_num_resolution;
 	glong noise_reduction;
 	glong reaction_param_coeff;
 	glong weighted_q_mode;
@@ -133,7 +132,6 @@ struct _GstSHVideoEnc
 	gulong intra_thr;
 	gulong b_vop_num;
 	/* h264 */
-	gint ref_frame_num;
 	gint output_filler_enable;
 	gulong clip_d_quant_next_mb;
 	gulong ratecontrol_cpb_skipcheck_enable;

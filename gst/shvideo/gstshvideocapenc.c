@@ -787,12 +787,6 @@ static void *launch_camera_encoder_thread(void *data)
 	shcodecs_encoder_set_xpic_size(enc->encoder, enc->width);
 	shcodecs_encoder_set_ypic_size(enc->encoder, enc->height);
 
-	shcodecs_encoder_set_frame_no_increment(enc->encoder,
-						shcodecs_encoder_get_frame_num_resolution
-						(enc->encoder) /
-						(shcodecs_encoder_get_frame_rate(enc->encoder) /
-						 10));
-
 	/* Allocate & queue encoder input frames */
 	for (i=0; i<2; i++) {
 		int size = (enc->width * enc->height * 3) / 2;

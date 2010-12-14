@@ -207,7 +207,6 @@ enum gst_sh_video_enc_properties
 	PROP_CONTROL_BITRATE_LENGTH,
 	PROP_INTRA_MACROBLOCK_REFRESH_CYCLE,
 	PROP_VIDEO_FORMAT,
-	PROP_FRAME_NUM_RESOLUTION,
 	PROP_NOISE_REDUCTION,
 	PROP_REACTION_PARAM_COEFF,
 	PROP_WEIGHTED_Q_MODE,
@@ -256,7 +255,6 @@ enum gst_sh_video_enc_properties
 	PROP_INTRA_THR,
 	PROP_B_VOP_NUM,
 	/* H264 */
-	PROP_REF_FRAME_NUM,
 	PROP_OUTPUT_FILLER_ENABLE,
 	PROP_CLIP_D_QUANT_NEXT_MB,
 	PROP_RATECONTROL_CPB_SKIPCHECK_ENABLE,
@@ -662,13 +660,6 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 							    0, G_MAXLONG, DEFAULT_VIDEO_FORMAT,
 							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-	g_object_class_install_property(g_object_class, PROP_FRAME_NUM_RESOLUTION,
-					 g_param_spec_long("frame-num-resolution", 
-							    "Frame number resolution", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_FRAME_NUM_RESOLUTION,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
 	g_object_class_install_property(g_object_class, PROP_NOISE_REDUCTION,
 					 g_param_spec_long("noise-reduction", 
 							    "Noise reduction", 
@@ -993,13 +984,6 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 							    0, G_MAXULONG, DEFAULT_B_VOP_NUM,
 							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-	g_object_class_install_property(g_object_class, PROP_REF_FRAME_NUM,
-					 g_param_spec_int("ref-frame-num", 
-							    "Ref frame num", 
-							    "", 
-							    0, G_MAXINT, DEFAULT_REF_FRAME_NUM,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
 	g_object_class_install_property(g_object_class, PROP_OUTPUT_FILLER_ENABLE,
 					 g_param_spec_int("output-filler-enable", 
 							    "Output filler enable", 
@@ -1312,7 +1296,6 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	enc->control_bitrate_length = DEFAULT_CONTROL_BITRATE_LENGTH;
 	enc->intra_macroblock_refresh_cycle = DEFAULT_INTRA_MACROBLOCK_REFRESH_CYCLE;
 	enc->video_format = DEFAULT_VIDEO_FORMAT;
-	enc->frame_num_resolution = DEFAULT_FRAME_NUM_RESOLUTION;
 	enc->noise_reduction = DEFAULT_NOISE_REDUCTION;
 	enc->reaction_param_coeff = DEFAULT_REACTION_PARAM_COEFF;
 	enc->weighted_q_mode = DEFAULT_WEIGHTED_Q_MODE;
@@ -1361,7 +1344,6 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	enc->intra_thr = DEFAULT_INTRA_THR;
 	enc->b_vop_num = DEFAULT_B_VOP_NUM;
 	/* h264 */
-	enc->ref_frame_num = DEFAULT_REF_FRAME_NUM;
 	enc->output_filler_enable = DEFAULT_OUTPUT_FILLER_ENABLE;
 	enc->clip_d_quant_next_mb = DEFAULT_CLIP_D_QUANT_NEXT_MB;
 	enc->ratecontrol_cpb_skipcheck_enable = DEFAULT_RATECONTROL_CPB_SKIPCHECK_ENABLE;
@@ -1510,11 +1492,6 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 		case PROP_VIDEO_FORMAT:
 		{
 			enc->video_format = g_value_get_long(value);
-			break;
-		}
-		case PROP_FRAME_NUM_RESOLUTION:
-		{
-			enc->frame_num_resolution = g_value_get_long(value);
 			break;
 		}
 		case PROP_NOISE_REDUCTION:
@@ -1749,11 +1726,6 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 			break;
 		}
 	/* H264 */
-		case PROP_REF_FRAME_NUM:
-		{
-			enc->ref_frame_num = g_value_get_int(value);
-			break;
-		}
 		case PROP_OUTPUT_FILLER_ENABLE:
 		{
 			enc->output_filler_enable = g_value_get_int(value);
@@ -2056,11 +2028,6 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 			g_value_set_long(value, enc->video_format);
 			break;
 		}
-		case PROP_FRAME_NUM_RESOLUTION:
-		{
-			g_value_set_long(value, enc->frame_num_resolution);
-			break;
-		}
 		case PROP_NOISE_REDUCTION:
 		{
 			g_value_set_long(value, enc->noise_reduction);
@@ -2293,11 +2260,6 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 			break;
 		}
 	/* H264 */
-		case PROP_REF_FRAME_NUM:
-		{
-			g_value_set_int(value, enc->ref_frame_num);
-			break;
-		}
 		case PROP_OUTPUT_FILLER_ENABLE:
 		{
 			g_value_set_int(value, enc->output_filler_enable);
@@ -3091,8 +3053,6 @@ gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc)
 		return FALSE;
 	if (shcodecs_encoder_set_video_format(enc->encoder, enc->video_format) == -1)
 		return FALSE;
-	if (shcodecs_encoder_set_frame_num_resolution(enc->encoder, enc->frame_num_resolution) == -1)
-		return FALSE;
 	if (shcodecs_encoder_set_noise_reduction(enc->encoder, enc->noise_reduction) == -1)
 		return FALSE;
 	if (shcodecs_encoder_set_reaction_param_coeff(enc->encoder, enc->reaction_param_coeff) == -1)
@@ -3187,8 +3147,6 @@ gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc)
 		if (shcodecs_encoder_set_h264_chroma_qp_index_offset(enc->encoder, enc->chroma_qp_index_offset) == -1)
 			return FALSE;
 		if (shcodecs_encoder_set_h264_constrained_intra_pred(enc->encoder, enc->constrained_intra_pred) == -1)
-			return FALSE;
-		if (shcodecs_encoder_set_ref_frame_num(enc->encoder, enc->ref_frame_num) == -1)
 			return FALSE;
 		if (shcodecs_encoder_set_output_filler_enable(enc->encoder, enc->output_filler_enable) == -1)
 			return FALSE;
