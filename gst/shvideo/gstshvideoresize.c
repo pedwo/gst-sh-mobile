@@ -61,8 +61,11 @@
 GST_DEBUG_CATEGORY_STATIC (gst_shvidresize_debug);
 #define GST_CAT_DEFAULT gst_shvidresize_debug
 
+/* Use our size range. This will be expanded in GST_VIDEO_CAPS_* */
 #undef GST_VIDEO_SIZE_RANGE
 #define GST_VIDEO_SIZE_RANGE "(int) [ 16, 4092]"
+
+#define MAX_SCALE_FACTOR 16
 
 static void dbg(const char *str1, int l, const char *str2, const struct ren_vid_surface *s)
 {
@@ -250,19 +253,64 @@ static GstFlowReturn gst_shvidresize_transform (GstBaseTransform *trans,
 static GstCaps *gst_shvidresize_transform_caps (GstBaseTransform *trans,
 	GstPadDirection direction, GstCaps *caps)
 {
-	GstCaps *ret;
+	GstPad *otherpad;
+	GstCaps *to, *ret;
+	const GstCaps *templ;
+	GstStructure *structure;
+	int i, nr_caps;
+	int w, h;
+	int min = 16;
+	int max = 4092;
+	int w_min = min;
+	int w_max = max;
+	int h_min = min;
+	int h_max = max;
 
-	GST_LOG("begin (%s)", direction==GST_PAD_SRC ? "src" : "sink");
-
-	static GstStaticCaps static_caps = GST_STATIC_CAPS (
+	static const GstStaticCaps static_caps = GST_STATIC_CAPS (
 		GST_VIDEO_CAPS_YUV("NV12")";"
 		GST_VIDEO_CAPS_YUV("NV16")";"
 		GST_VIDEO_CAPS_RGB_16";"
 		GST_VIDEO_CAPS_RGBx
 	);
 
-	// TODO should limit scale up/down
-	ret = gst_static_caps_get(&static_caps);
+	/* this function is always called with a simple caps */
+	g_return_val_if_fail (GST_CAPS_IS_SIMPLE (caps), NULL);
+
+	GST_LOG("begin (%s)", direction==GST_PAD_SRC ? "src" : "sink");
+
+	/* Calculate scaling limits */
+	structure = gst_caps_get_structure(caps, 0);
+	GST_LOG("input=%s", gst_structure_to_string(structure));
+	if (gst_structure_get_int(structure, "width", &w)) {
+		w_min = GST_ROUND_UP_4(w / MAX_SCALE_FACTOR);
+		w_max = GST_ROUND_UP_4(w * MAX_SCALE_FACTOR);
+	}
+	if (gst_structure_get_int(structure, "height", &h)) {
+		h_min = GST_ROUND_UP_4(h / MAX_SCALE_FACTOR);
+		h_max = GST_ROUND_UP_4(h * MAX_SCALE_FACTOR);
+	}
+
+	/* output caps */
+	to = gst_caps_copy(gst_static_caps_get(&static_caps));
+	nr_caps = gst_caps_get_size(to);
+	for (i=0; i<nr_caps; i++) {
+		structure = gst_caps_get_structure(to, i);
+
+		gst_structure_set(structure,
+			"width", GST_TYPE_INT_RANGE, w_min, w_max,
+			"height", GST_TYPE_INT_RANGE, h_min, h_max, NULL);
+	}
+
+	/* filter against set allowed caps on the pad */
+	otherpad = (direction == GST_PAD_SINK) ? trans->srcpad : trans->sinkpad;
+	templ = gst_pad_get_pad_template_caps (otherpad);
+	ret = gst_caps_intersect (to, templ);
+	gst_caps_unref (to);
+
+	/* debug help */
+	nr_caps = gst_caps_get_size(ret);
+	for (i=0; i<nr_caps; i++)
+		GST_LOG("output=%s", gst_structure_to_string(gst_caps_get_structure(ret, i)));
 
 	return ret;
 }
