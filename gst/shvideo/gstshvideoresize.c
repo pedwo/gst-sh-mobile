@@ -315,6 +315,36 @@ static GstCaps *gst_shvidresize_transform_caps (GstBaseTransform *trans,
 	return ret;
 }
 
+static void
+gst_shvidresize_fixate_caps (GstBaseTransform * base, GstPadDirection direction,
+    GstCaps * caps, GstCaps * othercaps)
+{
+	GstStructure *ins, *outs;
+	gint width, height;
+
+	g_return_if_fail (gst_caps_is_fixed (caps));
+
+	ins = gst_caps_get_structure (caps, 0);
+	outs = gst_caps_get_structure (othercaps, 0);
+
+	GST_LOG("caps=%s", gst_structure_to_string(ins));
+
+	if (gst_structure_get_int (ins, "width", &width)) {
+		if (gst_structure_has_field (outs, "width")) {
+			width = GST_ROUND_UP_4(width);
+			gst_structure_fixate_field_nearest_int (outs, "width", width);
+		}
+	}
+	if (gst_structure_get_int (ins, "height", &height)) {
+		if (gst_structure_has_field (outs, "height")) {
+			height = GST_ROUND_UP_4(height);
+			gst_structure_fixate_field_nearest_int (outs, "height", height);
+		}
+	}
+
+	GST_LOG("othercaps=%s", gst_structure_to_string(outs));
+}
+
 /*
  * GstBaseTransformClass::set_caps
  * allows the subclass to be notified of the actual caps set.
@@ -394,6 +424,7 @@ static void gst_shvidresize_class_init(GstSHVidresizeClass *klass)
 	gobject_class->finalize = (GObjectFinalizeFunc)gst_shvidresize_exit_resize;
 
 	trans_class->transform_caps = GST_DEBUG_FUNCPTR(gst_shvidresize_transform_caps);
+	trans_class->fixate_caps    = GST_DEBUG_FUNCPTR(gst_shvidresize_fixate_caps);
 	trans_class->set_caps       = GST_DEBUG_FUNCPTR(gst_shvidresize_set_caps);
 	trans_class->transform      = GST_DEBUG_FUNCPTR(gst_shvidresize_transform);
 	trans_class->get_unit_size  = GST_DEBUG_FUNCPTR(gst_shvidresize_get_unit_size);
