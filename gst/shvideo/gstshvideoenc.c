@@ -2809,7 +2809,7 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 	chroma_size = luma_size / 2;
 
 	// Check that we have got enough data
-	if (GST_BUFFER_SIZE(buffer) != luma_size + chroma_size)
+	if (GST_BUFFER_SIZE(buffer) < luma_size + chroma_size)
 	{
 		GST_DEBUG_OBJECT(enc, "Not enough data");
 		// If we can't continue we can issue EOS
