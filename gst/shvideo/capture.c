@@ -538,15 +538,12 @@ static void init_device(capture * cap)
 	cap->height = fmt.fmt.pix.height;
 
 	/* Buggy driver paranoia. */
-	min = fmt.fmt.pix.width * 2;
+	min = fmt.fmt.pix.width * 3 / 2;
 	if (fmt.fmt.pix.bytesperline < min)
 		fmt.fmt.pix.bytesperline = min;
 	min = fmt.fmt.pix.bytesperline * fmt.fmt.pix.height;
 	if (fmt.fmt.pix.sizeimage < min)
 		fmt.fmt.pix.sizeimage = min;
-
-	/* TODO Work around the kernel - it sets the buffer size incorrectly */
-	fmt.fmt.pix.sizeimage = PAGE_ALIGN(fmt.fmt.pix.sizeimage);
 
 	switch (cap->io) {
 	case IO_METHOD_READ:
