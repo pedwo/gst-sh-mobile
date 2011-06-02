@@ -791,7 +791,7 @@ static void *launch_camera_encoder_thread(void *data)
 	for (i=0; i<2; i++) {
 		int size = (enc->width * enc->height * 3) / 2;
 		void *frame = uiomux_malloc(enc->uiomux, UIOMUX_SH_VEU, size, 32);
-		if (ret < 0) {
+		if (frame == 0) {
 			GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 					  ("Error allocating encoder input frames."), (NULL));
 		}
