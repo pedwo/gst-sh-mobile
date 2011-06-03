@@ -146,11 +146,7 @@ read_frame(capture * cap, capture_callback cb, void *user_data)
 		}
 
 		for (i = 0; i < cap->n_buffers; ++i){
-			/* TODO Work around the kernel - it sets the buffer size incorrectly */
-			buf.length = cap->buffers[i].length;
-
-			if (buf.m.userptr == (unsigned long) cap->buffers[i].start
-			    && buf.length == cap->buffers[i].length)
+			if (buf.m.userptr == (unsigned long) cap->buffers[i].start)
 				break;
 		}
 		assert(i < cap->n_buffers);
