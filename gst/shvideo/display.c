@@ -53,7 +53,7 @@ DISPLAY *display_open(void)
 	if (!disp)
 		return NULL;
 
-	disp->veu = shveu_open();
+	disp->veu = shveu_open_named("VEU");
 	if (!disp->veu) {
 		free(disp);
 		return NULL;

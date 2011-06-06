@@ -86,7 +86,7 @@ dnl
 dnl Check for libraries
 dnl
 PKG_CHECK_MODULES(UIOMUX, uiomux >= 1.5.0)
-PKG_CHECK_MODULES(SHVEU, shveu >= 1.5.0)
+PKG_CHECK_MODULES(SHVEU, shveu >= 1.6.0)
 PKG_CHECK_MODULES(SHCODECS, shcodecs >= 1.4.0)
 
 dnl
@@ -130,5 +130,3 @@ doc/Doxyfile
 examples/Makefile
 ])
 AC_OUTPUT
-
-

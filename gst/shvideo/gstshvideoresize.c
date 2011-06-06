@@ -442,7 +442,7 @@ static void gst_shvidresize_init (GstSHVidresize *vidresize)
 
 	// TODO add fail checks
 	vidresize->uiomux = uiomux_open();
-	vidresize->veu = shveu_open();
+	vidresize->veu = shveu_open_named("VEU");
 
 	GST_LOG("end");
 }

@@ -185,7 +185,7 @@ static GType gst_camera_preview_get_type(void)
 
 /** ceu callback function
  * received a full frame from the camera
-	@param capture 
+	@param capture
 	@param frame_data output buffer pointer
 	@param length buffer size
 	@param user_data user pointer
@@ -616,7 +616,7 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 	buf = gst_buffer_new();
 	gst_buffer_set_data(buf, data, length);
 
-	if (enc->output_buf != NULL){		
+	if (enc->output_buf != NULL){
 		buf = gst_buffer_join(enc->output_buf, buf);
 		enc->output_buf = NULL;
 	}
@@ -631,7 +631,7 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 		ret = gst_pad_push(enc->srcpad, buf);
 		if (ret != GST_FLOW_OK) {
 			GST_DEBUG_OBJECT(enc, "pad_push failed: %s.", gst_flow_get_name(ret));
-			// Do not return -1. This would cause shcodecs_encoder_run to stop. 
+			// Do not return -1. This would cause shcodecs_encoder_run to stop.
 			// TODO should keep data in case PAUSED before PLAYING
 		}
 	} else {
@@ -641,7 +641,7 @@ gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
 	return 0;
 }
 
-/** Gstreamer source pad query 
+/** Gstreamer source pad query
 	@param pad Gstreamer source pad
 	@param query Gsteamer query
 	@returns Returns the value of gst_pad_query_default
@@ -671,7 +671,7 @@ static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * enc)
 	}
 
 	if (!enc->enc_thread) {
-		/* We'll have to launch the encoder in 
+		/* We'll have to launch the encoder in
 		   a separate thread to keep the pipeline running */
 		pthread_create(&enc->enc_thread, NULL, launch_camera_encoder_thread, enc);
 	}
@@ -723,7 +723,7 @@ static void *launch_camera_encoder_thread(void *data)
 	}
 
 	/* VEU initialisation */
-	enc->veu = shveu_open();
+	enc->veu = shveu_open_named("VEU");
 	if (enc->veu == NULL) {
 		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 				  ("Error opening VEU"), (NULL));
@@ -961,4 +961,3 @@ gboolean gst_shvideo_camera_enc_plugin_init(GstPlugin * plugin)
 
 	return TRUE;
 }
-
