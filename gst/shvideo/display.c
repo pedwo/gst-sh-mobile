@@ -217,6 +217,7 @@ int display_update(
 		src_sel.y = 0;
 
 		/* TODO Handle output off-surface to the left or above by using part of the input */
+		scale = 1.0;
 
 		/* Handle output off-surface to the right or below by cropping the input & output */
 		if ((dst_sel.x + dst_sel.w) > disp->lcd_w) {
@@ -259,4 +260,3 @@ void display_set_position(DISPLAY *disp, int w, int h, int x, int y)
 	disp->dst_sel.x = x;
 	disp->dst_sel.y = y;
 }
-

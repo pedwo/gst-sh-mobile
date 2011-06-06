@@ -140,7 +140,7 @@ static gboolean get_spec (GstCaps *cap, gint *width,
 		return FALSE;
 	}
 
-	return TRUE; 
+	return TRUE;
 }
 
 /*
@@ -193,7 +193,7 @@ gst_shvidresize_get_unit_size (GstBaseTransform *trans, GstCaps *caps, guint *si
 
 	GST_LOG("size=%d", *size);
 
-	return TRUE; 
+	return TRUE;
 }
 
 /*
@@ -210,7 +210,7 @@ static GstFlowReturn gst_shvidresize_transform (GstBaseTransform *trans,
 	struct ren_vid_surface dst;
 
 	/* Create resize handle */
-	GST_LOG("scaling from %dx%d to %dx%d", 
+	GST_LOG("scaling from %dx%d to %dx%d",
 		vidresize->srcWidth, vidresize->srcHeight,
 		vidresize->dstWidth, vidresize->dstHeight);
 
@@ -291,7 +291,7 @@ static GstCaps *gst_shvidresize_transform_caps (GstBaseTransform *trans,
 	}
 
 	/* output caps */
-	to = gst_caps_copy(gst_static_caps_get(&static_caps));
+	to = gst_caps_copy( (const GstCaps *)gst_static_caps_get(&static_caps));
 	nr_caps = gst_caps_get_size(to);
 	for (i=0; i<nr_caps; i++) {
 		structure = gst_caps_get_structure(to, i);
@@ -349,7 +349,7 @@ gst_shvidresize_fixate_caps (GstBaseTransform * base, GstPadDirection direction,
  * GstBaseTransformClass::set_caps
  * allows the subclass to be notified of the actual caps set.
  */
-static gboolean gst_shvidresize_set_caps (GstBaseTransform *trans, 
+static gboolean gst_shvidresize_set_caps (GstBaseTransform *trans,
 	GstCaps *in, GstCaps *out)
 {
 	GstSHVidresize *vidresize = GST_SHVIDRESIZE(trans);
@@ -480,5 +480,3 @@ GType gst_shvidresize_get_type(void)
 
 	return object_type;
 }
-
-

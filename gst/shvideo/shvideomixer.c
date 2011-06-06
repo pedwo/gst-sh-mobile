@@ -1145,14 +1145,15 @@ gst_sh_videomixer_collected (GstCollectPads * pads, GstSHVideoMixer * mix)
 		/* Set SRC caps */
 		src_caps = gst_pad_peer_get_caps(GST_PAD(mix->srcpad));
 		gst_caps_set_simple (gst_caps_make_writable(src_caps),
-						"width", G_TYPE_INT, mix->out_width, 
-						"height", G_TYPE_INT, mix->out_height, 
-						"framerate", GST_TYPE_FRACTION, mix->fps_n, mix->fps_d, 
+						"width", G_TYPE_INT, mix->out_width,
+						"height", G_TYPE_INT, mix->out_height,
+						"framerate", GST_TYPE_FRACTION, mix->fps_n, mix->fps_d,
 						NULL);
 		gst_pad_set_caps(mix->srcpad,src_caps);
 	}
 
-	if (!gst_caps_to_renesas_format(gst_pad_get_negotiated_caps (GST_PAD (mix->srcpad)), &renfmt)) {
+	if (!gst_caps_to_renesas_format(gst_pad_get_negotiated_caps (GST_PAD (mix->srcpad)),
+		(void *)&renfmt)) {
 		GST_LOG("Can't get ren format from src caps");
 		goto error;
 	}
@@ -1326,8 +1327,6 @@ static void
 gst_sh_videomixer_get_property (GObject * object,
 		guint prop_id, GValue * value, GParamSpec * pspec)
 {
-	GstSHVideoMixer *mix = GST_SH_VIDEO_MIXER (object);
-
 	switch (prop_id) {
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1339,8 +1338,6 @@ static void
 gst_sh_videomixer_set_property (GObject * object,
 		guint prop_id, const GValue * value, GParamSpec * pspec)
 {
-	GstSHVideoMixer *mix = GST_SH_VIDEO_MIXER (object);
-
 	switch (prop_id) {
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -1383,4 +1380,3 @@ gst_sh_videomixer_change_state (GstElement * element, GstStateChange transition)
 
 	return ret;
 }
-

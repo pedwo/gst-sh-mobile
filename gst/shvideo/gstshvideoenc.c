@@ -7,16 +7,16 @@
  * This element is designed to use the HW video processing modules of the Renesas
  * SuperH chipset to encode mpeg4/h264 video streams. This element is not usable
  * in any other environments and it requires libshcodes HW codec to be installed.
- * 
+ *
  * The encoding settings are given as properties to the encoder or using a control
  * file. Examples of control files can be found from /cntl_file -folder.
- * 
+ *
  * \section enc-examples Example launch lines
  * \subsection enc-examples-1 Encoding from a file to a file
  * \code
  * gst-launch \
  *  filesrc location=test.yuv \
- *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=30/1" 
+ *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=30/1"
  *  ! gst-sh-mobile-enc stream-type=mpeg4 \
  *  ! filesink location=test.m4v
  * \endcode
@@ -29,11 +29,11 @@
  * \code
  * gst-launch \
  *  v4l2src device=/dev/video0 \
- *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1" 
+ *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1"
  *  ! queue ! gst-sh-mobile-enc stream-type=mpeg4 bitrate=250000 \
  *  ! filesink location=test.m4v
  * \endcode
- * 
+ *
  * In this example, a camera is used as the streaming source via v4l2src element.
  * This pipeline works in push mode, so we need to specify the stream properties
  * using static caps after the v4l2src element. Again, filesink is used to write
@@ -43,9 +43,9 @@
  * \code
  * gst-launch \
  *  v4l2src device=/dev/video0 \
- *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1" 
+ *  ! "video/x-raw-yuv, format=(fourcc)NV12, width=320, height=240, framerate=15/1"
  *  ! queue ! gst-sh-mobile-enc \
- *  ! rtpmp4vpay ! udpsink host=192.168.10.10 port=5000 sync=false 
+ *  ! rtpmp4vpay ! udpsink host=192.168.10.10 port=5000 sync=false
  * \endcode
  * This line is similar to the one above. At this time, the video is not stored
  * in a file but sent over the network using udpsink -element. Before sending,
@@ -57,16 +57,16 @@
  *  udpsrc port=5000 caps="application/x-rtp, clock-rate=90000" \
  *  ! gstrtpjitterbuffer latency=0 ! rtpmp4vdepay \
  *  ! "video/mpeg, width=320, height=240, framerate=15/1" \
- *  ! ffdec_mpeg4 ! ffmpegcolorspace ! ximagesink 
+ *  ! ffdec_mpeg4 ! ffmpegcolorspace ! ximagesink
  * \endcode
- * 
+ *
  * \section enc-properties Properties
  * \copydoc gst_sh_video_enc_properties
  *
  * \section enc-pads Pads
  * \copydoc enc_sink_factory
  * \copydoc enc_src_factory
- * 
+ *
  * \section enc-license License
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -103,10 +103,10 @@
  * Direction: sink \n
  * Available: always \n
  * Caps:
- * - video/x-raw-yuv, format=(fourcc)NV12, width=(int)[48, 1280], 
+ * - video/x-raw-yuv, format=(fourcc)NV12, width=(int)[48, 1280],
  *   height=(int)[48, 720], framerate=(fraction)[1, 30]
  */
-static GstStaticPadTemplate enc_sink_factory = 
+static GstStaticPadTemplate enc_sink_factory =
 	GST_STATIC_PAD_TEMPLATE("sink",
 				 GST_PAD_SINK,
 				 GST_PAD_ALWAYS,
@@ -114,7 +114,7 @@ static GstStaticPadTemplate enc_sink_factory =
 						"video/x-raw-yuv, "
 						"format = (fourcc) NV12,"
 						"width = (int) [48, 1280],"
-						"height = (int) [48, 720]," 
+						"height = (int) [48, 720],"
 						"framerate = (fraction) [0, 30]"
 						)
 				 );
@@ -126,12 +126,12 @@ static GstStaticPadTemplate enc_sink_factory =
  * Direction: src \n
  * Available: always \n
  * Caps:
- * - video/mpeg, width=(int)[48, 1280], height=(int)[48, 720], 
+ * - video/mpeg, width=(int)[48, 1280], height=(int)[48, 720],
  *   framerate=(fraction)[1, 30], mpegversion=(int)4
- * - video/x-h264, width=(int)[48, 1280], height=(int)[48, 720], 
+ * - video/x-h264, width=(int)[48, 1280], height=(int)[48, 720],
  *   framerate=(fraction)[1, 30], h264version=(int)h264
  */
-static GstStaticPadTemplate enc_src_factory = 
+static GstStaticPadTemplate enc_src_factory =
 	GST_STATIC_PAD_TEMPLATE("src",
 				 GST_PAD_SRC,
 				 GST_PAD_ALWAYS,
@@ -164,25 +164,25 @@ static GstElementClass *parent_class = NULL;
  * - "cntl-file" (string). Name of the control file containing encoding
  *   parameters. Default: NULL
  * - "stream-type" (string). The type of the video stream ("h264"/"mpeg4").
- *   Default: None (An error message will display if the property is not set 
- *   or can not be determined from the stream). 
- * - "width" (long). The width of the video stream (48-1280px). Default: 0 
- *   (An error message will display if the property is not set or can not 
- *   be determined from the stream). 
- * - "height" (long). The width of the video stream (48-720px). Default: 0 
- *   (An error message will display if the property is not set or can not 
- *   be determined from the stream). 
+ *   Default: None (An error message will display if the property is not set
+ *   or can not be determined from the stream).
+ * - "width" (long). The width of the video stream (48-1280px). Default: 0
+ *   (An error message will display if the property is not set or can not
+ *   be determined from the stream).
+ * - "height" (long). The width of the video stream (48-720px). Default: 0
+ *   (An error message will display if the property is not set or can not
+ *   be determined from the stream).
  * - "framerate" (long). The framerate of the video stream multiplied by 10 (0-300).
- *   Default: 0 (An error message will display if the property is not set or 
+ *   Default: 0 (An error message will display if the property is not set or
  *   can not be determined from the stream).
- * - "bitrate" (long). The bitrate of the video stream (0-10000000). 
+ * - "bitrate" (long). The bitrate of the video stream (0-10000000).
  *   Default: 384000 for mpeg4 and 2000000 for h264
- * - "i-vop-interval" (long). Interval of intra-coded video object planes. 
+ * - "i-vop-interval" (long). Interval of intra-coded video object planes.
  *   Default: 30
  * - "noise-reduction" (long). For motion-compensated macroblocks, a difference
  *    equal to or smaller than this setting is treated as 0 for encoding (0-4).
  *    Default: 0.
- * - "weighted-q-mode" (long). Used to specify whether weighted quantization for 
+ * - "weighted-q-mode" (long). Used to specify whether weighted quantization for
  *   encoding is used or not (0/1). Default: 0.
  */
 enum gst_sh_video_enc_properties
@@ -279,7 +279,7 @@ enum gst_sh_video_enc_properties
 	PROP_DEBLOCKING_MODE,
 	PROP_USE_DEBLOCKING_FILTER_CONTROL,
 	PROP_DEBLOCKING_ALPHA_OFFSET,
-	PROP_DEBLOCKING_BETA_OFFSET,	
+	PROP_DEBLOCKING_BETA_OFFSET,
 	PROP_ME_SKIP_MODE,
 	PROP_PUT_START_CODE,
 	PROP_SEQ_PARAM_SET_ID,
@@ -297,39 +297,39 @@ enum gst_sh_video_enc_properties
 #define STREAM_TYPE_MPEG4 "mpeg4"
 #define STREAM_TYPE_NONE ""
 
-/** 
+/**
  * Initializes shvideoenc class
  * @param g_class Gclass
  * @param data user data pointer, unused in the function
  */
 static void gst_sh_video_enc_init_class(gpointer g_class, gpointer data);
 
-/** 
+/**
  * Initializes SH hardware video encoder
  * @param klass Gstreamer element class
  */
 static void gst_sh_video_enc_base_init(gpointer klass);
- 
-/** 
+
+/**
  * Disposes the encoder
  * @param object Gstreamer element class
  */
 static void gst_sh_video_enc_dispose(GObject * object);
 
-/** 
+/**
  * Initializes the class for encoder
  * @param klass Gstreamer SH video encoder class
  */
 static void gst_sh_video_enc_class_init(GstSHVideoEncClass *klass);
 
-/** 
+/**
  * Initializes the encoder
  * @param shvideoenc Gstreamer SH video element
  * @param gklass Gstreamer SH video encode class
  */
 static void gst_sh_video_enc_init(GstSHVideoEnc *shvideoenc,
 					GstSHVideoEncClass *gklass);
-/** 
+/**
  * Event handler for encoder sink events
  * @param pad Gstreamer sink pad
  * @param event The Gstreamer event
@@ -337,8 +337,8 @@ static void gst_sh_video_enc_init(GstSHVideoEnc *shvideoenc,
  */
 static gboolean gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event);
 
-/** 
- * Initializes the encoder sink pad 
+/**
+ * Initializes the encoder sink pad
  * @param pad Gstreamer sink pad
  * @param caps The capabilities of the data to encode
  * @return returns true if the video capatilies are supported and the video can
@@ -346,7 +346,7 @@ static gboolean gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event);
  */
 static gboolean gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps);
 
-/** 
+/**
  * Handles the activation event. Activates the element in pull mode, if it
  * is supported.
  * @param pad Gstreamer sink pad
@@ -354,7 +354,7 @@ static gboolean gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps);
  */
 static gboolean	gst_sh_video_enc_activate(GstPad *pad);
 
-/** 
+/**
  * Function to start the pad task
  * @param pad Gstreamer sink pad
  * @param active true if the task needs to be started or false to stop the task
@@ -362,7 +362,7 @@ static gboolean	gst_sh_video_enc_activate(GstPad *pad);
  */
 static gboolean	gst_sh_video_enc_activate_pull(GstPad *pad, gboolean active);
 
-/** 
+/**
  * The encoder function and launches the thread if needed
  * @param pad Gstreamer sink pad
  * @param buffer The raw data for encoding.
@@ -370,24 +370,24 @@ static gboolean	gst_sh_video_enc_activate_pull(GstPad *pad, gboolean active);
  */
 static GstFlowReturn gst_sh_video_enc_chain(GstPad *pad, GstBuffer *buffer);
 
-/** 
+/**
  * The encoder sink pad task
  * @param enc Gstreamer SH video encoder
  */
 static void gst_sh_video_enc_loop(GstSHVideoEnc *enc);
 
-/** 
+/**
  * The function will set the encoder properties
  * @param object The object where to get Gstreamer SH video Encoder object
  * @param prop_id The property id
  * @param value The value of the property
  * @param pspec not used in the function
  */
-static void gst_sh_video_enc_set_property(GObject *object, guint prop_id, 
-					   const GValue *value, 
+static void gst_sh_video_enc_set_property(GObject *object, guint prop_id,
+					   const GValue *value,
 					   GParamSpec * pspec);
 
-/** 
+/**
  * The function will return the values of the encoder properties
  * @param object The object where to get Gstreamer SH video Encoder object
  * @param prop_id The property id
@@ -397,7 +397,7 @@ static void gst_sh_video_enc_set_property(GObject *object, guint prop_id,
 static void gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 					  GValue * value, GParamSpec * pspec);
 
-/** 
+/**
  * The encoder sink event handler and calls sink pad push event
  * @param pad Gstreamer sink pad
  * @param event Event information
@@ -405,15 +405,15 @@ static void gst_sh_video_enc_get_property(GObject * object, guint prop_id,
  */
 static gboolean gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event);
 
-/** 
- * Gstreamer source pad query 
+/**
+ * Gstreamer source pad query
  * @param pad Gstreamer source pad
  * @param query Gsteamer query
  * @return Returns the value of gst_pad_query_default
  */
 static gboolean gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query);
 
-/** 
+/**
  * Callback function for the encoder output
  * @param encoder shcodecs encoder
  * @param data the encoded video frame
@@ -422,10 +422,10 @@ static gboolean gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query);
  * @return 0 if encoder should continue. 1 if encoder should pause.
  */
 static int gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
-					unsigned char *data, int length, 
+					unsigned char *data, int length,
 					void *user_data);
 
-/** 
+/**
  * Callback function for the encoder input used
  * @param encoder shcodecs encoder
  * @param y_input the used input video frame (luma)
@@ -438,7 +438,7 @@ static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
 					unsigned char * c_input,
 					void * user_data);
 
-/** 
+/**
  * GStreamer state handling. We need this for pausing the encoder.
  * @param element GStreamer element
  * @param transition Flag indicating which transition to handle
@@ -466,7 +466,7 @@ GType gst_sh_video_enc_get_type(void)
 
 	if (object_type == 0)
 	{
-		static const GTypeInfo object_info = 
+		static const GTypeInfo object_info =
 		{
 			sizeof(GstSHVideoEncClass),
 			gst_sh_video_enc_base_init,
@@ -478,13 +478,13 @@ GType gst_sh_video_enc_get_type(void)
 			0,
 			(GInstanceInitFunc)gst_sh_video_enc_init
 		};
-		
+
 		object_type =
-			g_type_register_static(GST_TYPE_ELEMENT, 
-						"gst-sh-mobile-enc", 
+			g_type_register_static(GST_TYPE_ELEMENT,
+						"gst-sh-mobile-enc",
 						&object_info, (GTypeFlags)0);
 	}
-	
+
 	return object_type;
 }
 
@@ -535,702 +535,701 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 			0, "Encoder for H264/MPEG4 streams");
 
 	g_object_class_install_property(g_object_class, PROP_CNTL_FILE,
-			g_param_spec_string("cntl-file", 
-					     		 "Control file location", 
-			                     "Location of the file including encoding parameters", 
-				             	 NULL, 
-                                 G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_string("cntl-file",
+			"Control file location",
+			"Location of the file including encoding parameters",
+			NULL,
+                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_STREAM_TYPE,
-			g_param_spec_string("stream-type", 
-					     		 "Stream type", 
-			                     "The type of the stream (h264/mpeg4)", 
-				             	 NULL, 
-                                 G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_string("stream-type",
+			"Stream type",
+			"The type of the stream (h264/mpeg4)",
+			NULL,
+                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_WIDTH,
-					 g_param_spec_long("width", 
-							    "Width", 
-							    "Width of the video frame", 
-							    0, G_MAXLONG, DEFAULT_WIDTH,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("width",
+			"Width",
+			"Width of the video frame",
+			0, G_MAXLONG, DEFAULT_WIDTH,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_HEIGHT,
-					 g_param_spec_long("height", 
-							    "Height", 
-							    "Height of the video frame", 
-							    0, G_MAXLONG, DEFAULT_HEIGHT,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("height",
+			"Height",
+			"Height of the video frame",
+			0, G_MAXLONG, DEFAULT_HEIGHT,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_FRAMERATE,
-					 g_param_spec_long("framerate", 
-							    "Framerate", 
-							    "Framerate of the video stream. Multiply with 10 fe. 30fps => 300", 
-							    0, G_MAXLONG, DEFAULT_FRAMERATE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("framerate",
+			"Framerate",
+			"Framerate of the video stream. Multiply with 10 fe. 30fps => 300",
+			0, G_MAXLONG, DEFAULT_FRAMERATE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_BITRATE,
-					 g_param_spec_long("bitrate", 
-							    "Bitrate", 
-							    "Bitrate of the video stream", 
-							    0, G_MAXLONG, DEFAULT_BITRATE_H264,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("bitrate",
+			"Bitrate",
+			"Bitrate of the video stream",
+			0, G_MAXLONG, DEFAULT_BITRATE_H264,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_I_VOP_INTERVAL,
-					 g_param_spec_long("i-vop-interval", 
-							    "I VOP interval", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_I_VOP_INTERVAL,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("i-vop-interval",
+			"I VOP interval",
+			"",
+			0, G_MAXLONG, DEFAULT_I_VOP_INTERVAL,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_MV_MODE,
-					 g_param_spec_long("mv-mode", 
-							    "MV mode", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_MV_MODE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("mv-mode",
+			"MV mode",
+			"",
+			0, G_MAXLONG, DEFAULT_MV_MODE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_FCODE_FORWARD,
-					 g_param_spec_long("fcode-forward", 
-							    "I VOP interval", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_FCODE_FORWARD,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("fcode-forward",
+			"I VOP interval",
+			"",
+			0, G_MAXLONG, DEFAULT_FCODE_FORWARD,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_SEARCH_MODE,
-					 g_param_spec_long("search-mode", 
-							    "Search mode", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_SEARCH_MODE_H264,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("search-mode",
+			"Search mode",
+			"",
+			0, G_MAXLONG, DEFAULT_SEARCH_MODE_H264,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_SEARCH_TIME_FIXED,
-					 g_param_spec_long("search-time-fixed", 
-							    "Search time fixed", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_SEARCH_TIME_FIXED,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("search-time-fixed",
+			"Search time fixed",
+			"",
+			0, G_MAXLONG, DEFAULT_SEARCH_TIME_FIXED,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_SKIP_ENABLE,
-					 g_param_spec_long("ratecontrol-skip-enable", 
-							    "Rate control skip enable", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_RATECONTROL_SKIP_ENABLE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("ratecontrol-skip-enable",
+			"Rate control skip enable",
+			"",
+			0, G_MAXLONG, DEFAULT_RATECONTROL_SKIP_ENABLE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_USE_PREVQUANT,
-					 g_param_spec_long("ratecontrol-use-prevquant", 
-							    "Rate control use prev quant", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_RATECONTROL_USE_PREVQUANT,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("ratecontrol-use-prevquant",
+			"Rate control use prev quant",
+			"",
+			0, G_MAXLONG, DEFAULT_RATECONTROL_USE_PREVQUANT,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_RESPECT_TYPE,
-					 g_param_spec_long("ratecontrol-respect-type", 
-							    "Rate control respect type", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_RATECONTROL_RESPECT_TYPE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("ratecontrol-respect-type",
+			"Rate control respect type",
+			"",
+			0, G_MAXLONG, DEFAULT_RATECONTROL_RESPECT_TYPE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_INTRA_THR_CHANGEABLE,
-					 g_param_spec_long("ratecontrol-intra-thr-changeable", 
-							    "Rate control intra THR changeable", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_RATECONTROL_INTRA_THR_CHANGEABLE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("ratecontrol-intra-thr-changeable",
+			"Rate control intra THR changeable",
+			"",
+			0, G_MAXLONG, DEFAULT_RATECONTROL_INTRA_THR_CHANGEABLE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_CONTROL_BITRATE_LENGTH,
-					 g_param_spec_long("control-bitrate-length", 
-							    "Control bitrate length", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_CONTROL_BITRATE_LENGTH,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("control-bitrate-length",
+			"Control bitrate length",
+			"",
+			0, G_MAXLONG, DEFAULT_CONTROL_BITRATE_LENGTH,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_INTRA_MACROBLOCK_REFRESH_CYCLE,
-					 g_param_spec_long("intra-macroblock-refresh-cycle", 
-							    "Intra macroblock refresh cycle", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_INTRA_MACROBLOCK_REFRESH_CYCLE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("intra-macroblock-refresh-cycle",
+			"Intra macroblock refresh cycle",
+			"",
+			0, G_MAXLONG, DEFAULT_INTRA_MACROBLOCK_REFRESH_CYCLE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VIDEO_FORMAT,
-					 g_param_spec_long("video-format", 
-							    "Video format", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_VIDEO_FORMAT,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("video-format",
+			"Video format",
+			"",
+			0, G_MAXLONG, DEFAULT_VIDEO_FORMAT,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_NOISE_REDUCTION,
-					 g_param_spec_long("noise-reduction", 
-							    "Noise reduction", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_NOISE_REDUCTION,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("noise-reduction",
+			"Noise reduction",
+			"",
+			0, G_MAXLONG, DEFAULT_NOISE_REDUCTION,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_REACTION_PARAM_COEFF,
-					 g_param_spec_long("reaction-param-coeff", 
-							    "Reaction parameter coefficient", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_REACTION_PARAM_COEFF,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("reaction-param-coeff",
+			"Reaction parameter coefficient",
+			"",
+			0, G_MAXLONG, DEFAULT_REACTION_PARAM_COEFF,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_WEIGHTED_Q_MODE,
-					 g_param_spec_long("weighted-q-mode", 
-							    "Weighted Q-mode", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_WEIGHTED_Q_MODE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("weighted-q-mode",
+			"Weighted Q-mode",
+			"",
+			0, G_MAXLONG, DEFAULT_WEIGHTED_Q_MODE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_I_VOP_QUANT_INITIAL_VALUE,
-					 g_param_spec_ulong("i-vop-quant-initial-value", 
-							    "I-VOP quantization intitial value", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_I_VOP_QUANT_INITIAL_VALUE_H264,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("i-vop-quant-initial-value",
+			"I-VOP quantization intitial value",
+			"",
+			0, G_MAXULONG, DEFAULT_I_VOP_QUANT_INITIAL_VALUE_H264,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_P_VOP_QUANT_INITIAL_VALUE,
-					 g_param_spec_ulong("p-vop-quant-initial-value", 
-							    "P-VOP quantization intitial value", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_P_VOP_QUANT_INITIAL_VALUE_H264,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("p-vop-quant-initial-value",
+			"P-VOP quantization intitial value",
+			"",
+			0, G_MAXULONG, DEFAULT_P_VOP_QUANT_INITIAL_VALUE_H264,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_USE_D_QUANT,
-					 g_param_spec_ulong("use-d-quant", 
-							    "Use D-quantization", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_USE_D_QUANT,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("use-d-quant",
+			"Use D-quantization",
+			"",
+			0, G_MAXULONG, DEFAULT_USE_D_QUANT,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_CLIP_D_QUANT_FRAME,
-					 g_param_spec_ulong("clip-d-quant-frame", 
-							     "Clip D-quantized frame", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_USE_D_QUANT,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-d-quant-frame",
+			"Clip D-quantized frame",
+			"",
+			0, G_MAXULONG, DEFAULT_USE_D_QUANT,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_QUANT_MIN,
-					 g_param_spec_ulong("quant-min", 
-							    "Minimum quantization", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_QUANT_MIN_H264,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("quant-min",
+			"Minimum quantization",
+			"",
+			0, G_MAXULONG, DEFAULT_QUANT_MIN_H264,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_QUANT_MIN_I_VOP_UNDER_RANGE,
-					 g_param_spec_ulong("quant-min-i-vop-under-range", 
-							    "", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_QUANT_MIN_I_VOP_UNDER_RANGE_H264,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("quant-min-i-vop-under-range",
+			"",
+			"",
+			0, G_MAXULONG, DEFAULT_QUANT_MIN_I_VOP_UNDER_RANGE_H264,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_QUANT_MAX,
-					 g_param_spec_ulong("quant-max", 
-							    "Maximum quantization", 
-							    "", 
-							     0, G_MAXULONG, DEFAULT_QUANT_MAX_H264,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("quant-max",
+			"Maximum quantization",
+			"",
+			0, G_MAXULONG, DEFAULT_QUANT_MAX_H264,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_PARAM_CHANGEABLE,
-					 g_param_spec_ulong("param-changeable", 
-							    "", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_PARAM_CHANGEABLE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("param-changeable",
+			"",
+			"",
+			0, G_MAXULONG, DEFAULT_PARAM_CHANGEABLE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_CHANGEABLE_MAX_BITRATE,
-					 g_param_spec_ulong("changeable-max-bitrate", 
-							    "Maximum changeable bitrate", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_CHANGEABLE_MAX_BITRATE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("changeable-max-bitrate",
+			"Maximum changeable bitrate",
+			"",
+			0, G_MAXULONG, DEFAULT_CHANGEABLE_MAX_BITRATE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
         //MPEG4
 
 	g_object_class_install_property(g_object_class, PROP_OUT_VOS,
-					 g_param_spec_ulong("out-vos", 
-							    "Out VOS", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_OUT_VOS,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("out-vos",
+			"Out VOS",
+			"",
+			0, G_MAXULONG, DEFAULT_OUT_VOS,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_OUT_GOV,
-					 g_param_spec_ulong("out-gov", 
-							    "Out GOV", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_OUT_GOV,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("out-gov",
+			"Out GOV",
+			"",
+			0, G_MAXULONG, DEFAULT_OUT_GOV,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_ASPECT_RATIO_INFO_TYPE,
-					 g_param_spec_ulong("aspect-ratio-info-type", 
-							    "Aspect ration info type", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_ASPECT_RATIO_INFO_TYPE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("aspect-ratio-info-type",
+			"Aspect ration info type",
+			"",
+			0, G_MAXULONG, DEFAULT_ASPECT_RATIO_INFO_TYPE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_ASPECT_RATIO_INFO_VALUE,
-					 g_param_spec_ulong("aspect-ratio-info-value", 
-							    "Aspect ration info value", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_ASPECT_RATIO_INFO_VALUE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("aspect-ratio-info-value",
+			"Aspect ration info value",
+			"",
+			0, G_MAXULONG, DEFAULT_ASPECT_RATIO_INFO_VALUE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VOS_PROFILE_LEVEL_TYPE,
-					 g_param_spec_ulong("vos-profile-level-type", 
-							    "VOS proile level type", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VOS_PROFILE_LEVEL_TYPE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("vos-profile-level-type",
+			"VOS proile level type",
+			"",
+			0, G_MAXULONG, DEFAULT_VOS_PROFILE_LEVEL_TYPE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VOS_PROFILE_LEVEL_VALUE,
-					 g_param_spec_ulong("vos-profile-level-value", 
-							    "VOS proile level value", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VOS_PROFILE_LEVEL_VALUE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("vos-profile-level-value",
+			"VOS proile level value",
+			"",
+			0, G_MAXULONG, DEFAULT_VOS_PROFILE_LEVEL_VALUE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_OUT_VISUAL_OBJECT_IDENTIFIER,
-					 g_param_spec_ulong("out-visual-object-identifier", 
-							    "Out visual object identifier", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_OUT_VISUAL_OBJECT_IDENTIFIER,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("out-visual-object-identifier",
+			"Out visual object identifier",
+			"",
+			0, G_MAXULONG, DEFAULT_OUT_VISUAL_OBJECT_IDENTIFIER,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VISUAL_OBJECT_VERID,
-					 g_param_spec_ulong("visual-object-verid", 
-							    "Visual object verid", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VISUAL_OBJECT_VERID,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("visual-object-verid",
+			"Visual object verid",
+			"",
+			0, G_MAXULONG, DEFAULT_VISUAL_OBJECT_VERID,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VISUAL_OBJECT_PRIORITY,
-					 g_param_spec_ulong("visual-object-priority", 
-							    "Visual object priority", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VISUAL_OBJECT_PRIORITY,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("visual-object-priority",
+			"Visual object priority",
+			"",
+			0, G_MAXULONG, DEFAULT_VISUAL_OBJECT_PRIORITY,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VIDEO_OBJECT_TYPE_INDICATION,
-					 g_param_spec_ulong("visual-object-type-indication", 
-							    "Visual object type indication", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VIDEO_OBJECT_TYPE_INDICATION,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("visual-object-type-indication",
+			"Visual object type indication",
+			"",
+			0, G_MAXULONG, DEFAULT_VIDEO_OBJECT_TYPE_INDICATION,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_OUT_OBJECT_LAYER_IDENTIFIER,
-					 g_param_spec_ulong("out-object-layer-identifier", 
-							    "Out object layer identifier", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_OUT_OBJECT_LAYER_IDENTIFIER,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("out-object-layer-identifier",
+			"Out object layer identifier",
+			"",
+			0, G_MAXULONG, DEFAULT_OUT_OBJECT_LAYER_IDENTIFIER,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VIDEO_OBJECT_LAYER_VERID,
-					 g_param_spec_ulong("video-object-layer-verid", 
-							    "Video object layer verid", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VIDEO_OBJECT_LAYER_VERID,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("video-object-layer-verid",
+			"Video object layer verid",
+			"",
+			0, G_MAXULONG, DEFAULT_VIDEO_OBJECT_LAYER_VERID,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VIDEO_OBJECT_LAYER_PRIORITY,
-					 g_param_spec_ulong("video-object-layer-priority", 
-							    "Video object layer priority", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VIDEO_OBJECT_LAYER_PRIORITY,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-	
+		g_param_spec_ulong("video-object-layer-priority",
+			"Video object layer priority",
+			"",
+			0, G_MAXULONG, DEFAULT_VIDEO_OBJECT_LAYER_PRIORITY,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
 	g_object_class_install_property(g_object_class, PROP_ERROR_RESILIENCE_MODE,
-					 g_param_spec_ulong("error-resilience-mode", 
-							    "Error resilience mode", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_ERROR_RESILIENCE_MODE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("error-resilience-mode",
+			"Error resilience mode",
+			"",
+			0, G_MAXULONG, DEFAULT_ERROR_RESILIENCE_MODE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VIDEO_PACKET_SIZE_MB,
-					 g_param_spec_ulong("video-packet-size-mb", 
-							    "Video packet size MB", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VIDEO_PACKET_SIZE_MB,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("video-packet-size-mb",
+			"Video packet size MB",
+			"",
+			0, G_MAXULONG, DEFAULT_VIDEO_PACKET_SIZE_MB,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VIDEO_PACKET_SIZE_BIT,
-					 g_param_spec_ulong("video-packet-size-bit", 
-							    "Video packet size bit", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VIDEO_PACKET_SIZE_BIT,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("video-packet-size-bit",
+			"Video packet size bit",
+			"",
+			0, G_MAXULONG, DEFAULT_VIDEO_PACKET_SIZE_BIT,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VIDEO_PACKET_HEADER_EXTENTION,
-					 g_param_spec_ulong("video-packet-header-extention", 
-							    "Video packet header extention", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VIDEO_PACKET_HEADER_EXTENTION,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("video-packet-header-extention",
+			"Video packet header extention",
+			"",
+			0, G_MAXULONG, DEFAULT_VIDEO_PACKET_HEADER_EXTENTION,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_DATA_PARTITIONED,
-					 g_param_spec_ulong("data-partitioned", 
-							    "Data partitioned", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_DATA_PARTITIONED,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("data-partitioned",
+			"Data partitioned",
+			"",
+			0, G_MAXULONG, DEFAULT_DATA_PARTITIONED,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_REVERSIBLE_VLC,
-					 g_param_spec_ulong("reversible-vlc", 
-							    "Reversible VLC", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_REVERSIBLE_VLC,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("reversible-vlc",
+			"Reversible VLC",
+			"",
+			0, G_MAXULONG, DEFAULT_REVERSIBLE_VLC,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_HIGH_QUALITY,
-					 g_param_spec_ulong("high-quality", 
-							    "High quality", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_HIGH_QUALITY,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("high-quality",
+			"High quality",
+			"",
+			0, G_MAXULONG, DEFAULT_HIGH_QUALITY,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_VBV_SKIPCHECK_ENABLE,
-					 g_param_spec_ulong("ratecontrol-vbv-skipcheck-enable", 
-							    "Rate control VBV skip check enable", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_SKIPCHECK_ENABLE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("ratecontrol-vbv-skipcheck-enable",
+			"Rate control VBV skip check enable",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_SKIPCHECK_ENABLE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_VBV_I_VOP_NOSKIP,
-					 g_param_spec_ulong("ratecontrol-vbv-i-vop-noskip", 
-							    "Rate control VBV I-VOP no skip", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_I_VOP_NOSKIP,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("ratecontrol-vbv-i-vop-noskip",
+			"Rate control VBV I-VOP no skip",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_I_VOP_NOSKIP,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_VBV_REMAIN_ZERO_SKIP_ENABLE,
-					 g_param_spec_ulong("ratecontrol-vbv-remain-zero-skip-enable", 
-							    "Rate control VBV remain zero skip enable", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_REMAIN_ZERO_SKIP_ENABLE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("ratecontrol-vbv-remain-zero-skip-enable",
+			"Rate control VBV remain zero skip enable",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_REMAIN_ZERO_SKIP_ENABLE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_VBV_BUFFER_UNIT_SIZE,
-					 g_param_spec_ulong("ratecontrol-vbv-buffer-unit-size", 
-							    "Rate control VBV buffer unit size", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_BUFFER_UNIT_SIZE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("ratecontrol-vbv-buffer-unit-size",
+			"Rate control VBV buffer unit size",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_BUFFER_UNIT_SIZE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_VBV_BUFFER_MODE,
-					 g_param_spec_ulong("ratecontrol-vbv-buffer-mode", 
-							    "Rate control VBV buffer mode", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_BUFFER_MODE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("ratecontrol-vbv-buffer-mode",
+			"Rate control VBV buffer mode",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_BUFFER_MODE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_VBV_MAX_SIZE,
-					 g_param_spec_ulong("ratecontrol-vbv-max-size", 
-							    "Rate control VBV max size", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_MAX_SIZE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("ratecontrol-vbv-max-size",
+			"Rate control VBV max size",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_MAX_SIZE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_VBV_OFFSET,
-					 g_param_spec_ulong("ratecontrol-vbv-offset", 
-							    "Rate control VBV offset", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_OFFSET,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("ratecontrol-vbv-offset",
+			"Rate control VBV offset",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_OFFSET,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_VBV_OFFSET_RATE,
-					 g_param_spec_ulong("ratecontrol-vbv-offset-rate", 
-							    "Rate control VBV offset rate", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_OFFSET_RATE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-	
+		g_param_spec_ulong("ratecontrol-vbv-offset-rate",
+			"Rate control VBV offset rate",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_VBV_OFFSET_RATE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
 	g_object_class_install_property(g_object_class, PROP_QUANT_TYPE,
-					 g_param_spec_ulong("quant-type", 
-							    "Quantization type", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_QUANT_TYPE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("quant-type",
+			"Quantization type",
+			"",
+			0, G_MAXULONG, DEFAULT_QUANT_TYPE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_USE_AC_PREDICTION,
-					 g_param_spec_ulong("use-ac-prediction", 
-							    "Use AC prediction", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_USE_AC_PREDICTION,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("use-ac-prediction",
+			"Use AC prediction",
+			"",
+			0, G_MAXULONG, DEFAULT_USE_AC_PREDICTION,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VOP_MIN_MODE,
-					 g_param_spec_ulong("vop-min-mode", 
-							    "VOP min mode", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VOP_MIN_MODE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("vop-min-mode",
+			"VOP min mode",
+			"",
+			0, G_MAXULONG, DEFAULT_VOP_MIN_MODE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VOP_MIN_SIZE,
-					 g_param_spec_ulong("vop-min-size", 
-							    "VOP min size", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_VOP_MIN_SIZE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("vop-min-size",
+			"VOP min size",
+			"",
+			0, G_MAXULONG, DEFAULT_VOP_MIN_SIZE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_INTRA_THR,
-					 g_param_spec_ulong("intra-thr", 
-							    "Intra THR", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_INTRA_THR,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("intra-thr",
+			"Intra THR",
+			"",
+			0, G_MAXULONG, DEFAULT_INTRA_THR,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_B_VOP_NUM,
-					 g_param_spec_ulong("b-vop-num", 
-							    "B-VOP num", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_B_VOP_NUM,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("b-vop-num",
+			"B-VOP num",
+			"",
+			0, G_MAXULONG, DEFAULT_B_VOP_NUM,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_OUTPUT_FILLER_ENABLE,
-					 g_param_spec_int("output-filler-enable", 
-							    "Output filler enable", 
-							    "", 
-							    0, G_MAXINT, DEFAULT_OUTPUT_FILLER_ENABLE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_int("output-filler-enable",
+			"Output filler enable",
+			"",
+			0, G_MAXINT, DEFAULT_OUTPUT_FILLER_ENABLE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_CLIP_D_QUANT_NEXT_MB,
-					 g_param_spec_ulong("clip-d-quant-next-mb", 
-							    "Clip D-quant next mb", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_CLIP_D_QUANT_NEXT_MB,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-d-quant-next-mb",
+			"Clip D-quant next mb",
+			"",
+			0, G_MAXULONG, DEFAULT_CLIP_D_QUANT_NEXT_MB,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_CPB_SKIPCHECK_ENABLE,
-					 g_param_spec_ulong("clip-ratecontrol-cpb-skipcheck-enable", 
-							    "Ratecontrol CPB skipcheck enable", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_SKIPCHECK_ENABLE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-ratecontrol-cpb-skipcheck-enable",
+			"Ratecontrol CPB skipcheck enable",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_SKIPCHECK_ENABLE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_CPB_I_VOP_NOSKIP,
-					 g_param_spec_ulong("clip-ratecontrol-cpb-i-vop-noskip", 
-							    "Ratecontrol CPB I-VOP noskip", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_I_VOP_NOSKIP,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-ratecontrol-cpb-i-vop-noskip",
+			"Ratecontrol CPB I-VOP noskip",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_I_VOP_NOSKIP,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_CPB_REMAIN_ZERO_SKIP_ENABLE,
-					 g_param_spec_ulong("clip-ratecontrol-cpb-remain-zero-skip-enable", 
-							    "Ratecontrol CPB remain zero skip enable", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_REMAIN_ZERO_SKIP_ENABLE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-ratecontrol-cpb-remain-zero-skip-enable",
+			"Ratecontrol CPB remain zero skip enable",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_REMAIN_ZERO_SKIP_ENABLE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_CPB_BUFFER_UNIT_SIZE,
-					 g_param_spec_ulong("clip-ratecontrol-cpb-buffer-unit-size", 
-							    "Ratecontrol CPB buffer unit size", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_BUFFER_UNIT_SIZE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-ratecontrol-cpb-buffer-unit-size",
+			"Ratecontrol CPB buffer unit size",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_BUFFER_UNIT_SIZE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_CPB_BUFFER_MODE,
-					 g_param_spec_ulong("clip-ratecontrol-cpb-buffer-mode", 
-							    "Ratecontrol CPB buffer mode", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_BUFFER_MODE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-ratecontrol-cpb-buffer-mode",
+			"Ratecontrol CPB buffer mode",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_BUFFER_MODE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_CPB_MAX_SIZE,
-					 g_param_spec_ulong("clip-ratecontrol-cpb-max-size", 
-							    "Ratecontrol CPB max size", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_MAX_SIZE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-ratecontrol-cpb-max-size",
+			"Ratecontrol CPB max size",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_MAX_SIZE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_CPB_OFFSET,
-					 g_param_spec_ulong("clip-ratecontrol-cpb-offset", 
-							    "Ratecontrol CPB offset", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_OFFSET,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-ratecontrol-cpb-offset",
+			"Ratecontrol CPB offset",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_OFFSET,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_RATECONTROL_CPB_OFFSET_RATE,
-					 g_param_spec_ulong("clip-ratecontrol-cpb-offset-rate", 
-							    "Ratecontrol CPB offset rate", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_OFFSET_RATE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("clip-ratecontrol-cpb-offset-rate",
+			"Ratecontrol CPB offset rate",
+			"",
+			0, G_MAXULONG, DEFAULT_RATECONTROL_CPB_OFFSET_RATE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_INTRA_THR_1,
-					 g_param_spec_ulong("intra-thr-1", 
-							    "Intra THR 1", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_INTRA_THR_1,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("intra-thr-1",
+			"Intra THR 1",
+			"",
+			0, G_MAXULONG, DEFAULT_INTRA_THR_1,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_INTRA_THR_2,
-					 g_param_spec_ulong("intra-thr-2", 
-							    "Intra THR 2", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_INTRA_THR_2,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("intra-thr-2",
+			"Intra THR 2",
+			"",
+			0, G_MAXULONG, DEFAULT_INTRA_THR_2,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_SAD_INTRA_BIAS,
-					 g_param_spec_ulong("sad-intra-bias", 
-							    "SAD intra bias", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_SAD_INTRA_BIAS,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("sad-intra-bias",
+			"SAD intra bias",
+			"",
+			0, G_MAXULONG, DEFAULT_SAD_INTRA_BIAS,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_REGULARLY_INSERTED_I_TYPE,
-					 g_param_spec_ulong("regularly-inserted-i-type", 
-							    "Regularly inserted I-type", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_REGULARLY_INSERTED_I_TYPE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("regularly-inserted-i-type",
+			"Regularly inserted I-type",
+			"",
+			0, G_MAXULONG, DEFAULT_REGULARLY_INSERTED_I_TYPE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_CALL_UNIT,
-					 g_param_spec_ulong("call-unit", 
-							    "Call unit", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_CALL_UNIT,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("call-unit",
+			"Call unit",
+			"",
+			0, G_MAXULONG, DEFAULT_CALL_UNIT,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_USE_SLICE,
-					 g_param_spec_ulong("use-slice", 
-							    "", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_USE_SLICE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("use-slice",
+			"",
+			"",
+			0, G_MAXULONG, DEFAULT_USE_SLICE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_SLICE_SIZE_MB,
-					 g_param_spec_ulong("slice-size-mb", 
-							    "Slice size MB", 
-							    "", 
-							     0, G_MAXULONG, DEFAULT_SLICE_SIZE_MB,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("slice-size-mb",
+			"Slice size MB",
+			"",
+			0, G_MAXULONG, DEFAULT_SLICE_SIZE_MB,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_SLICE_SIZE_BIT,
-					 g_param_spec_ulong("slice-size-bit", 
-							    "Slice size bit", 
-							    "", 
-							     0, G_MAXULONG, DEFAULT_SLICE_SIZE_BIT,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("slice-size-bit",
+			"Slice size bit",
+			"",
+			0, G_MAXULONG, DEFAULT_SLICE_SIZE_BIT,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_SLICE_TYPE_VALUE_PATTERN,
-					 g_param_spec_ulong("slice-size-type-value-pattern", 
-							    "Slice size type value pattern", 
-							    "", 
-							     0, G_MAXULONG, DEFAULT_SLICE_TYPE_VALUE_PATTERN,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("slice-size-type-value-pattern",
+			"Slice size type value pattern",
+			"",
+			0, G_MAXULONG, DEFAULT_SLICE_TYPE_VALUE_PATTERN,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 
 	g_object_class_install_property(g_object_class, PROP_USE_MB_PARTITION,
-					 g_param_spec_ulong("use-mb-partition", 
-							    "Use MB partition", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_USE_MB_PARTITION,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("use-mb-partition",
+			"Use MB partition",
+			"",
+			0, G_MAXULONG, DEFAULT_USE_MB_PARTITION,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_MB_PARTITION_VECTOR_THR,
-					 g_param_spec_ulong("mb-partition-vector-thr", 
-							    "MB partition vector THR", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_MB_PARTITION_VECTOR_THR,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("mb-partition-vector-thr",
+			"MB partition vector THR",
+			"",
+			0, G_MAXULONG, DEFAULT_MB_PARTITION_VECTOR_THR,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_DEBLOCKING_MODE,
-					 g_param_spec_ulong("deblocking-mode", 
-							    "Deblocking mode", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_DEBLOCKING_MODE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("deblocking-mode",
+			"Deblocking mode",
+			"",
+			0, G_MAXULONG, DEFAULT_DEBLOCKING_MODE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_USE_DEBLOCKING_FILTER_CONTROL,
-					 g_param_spec_ulong("use-deblocking-filter-control", 
-							    "Use deblocking filter control", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_USE_DEBLOCKING_FILTER_CONTROL,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("use-deblocking-filter-control",
+			"Use deblocking filter control",
+			"",
+			0, G_MAXULONG, DEFAULT_USE_DEBLOCKING_FILTER_CONTROL,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_DEBLOCKING_ALPHA_OFFSET,
-					 g_param_spec_long("deblocking-alpha-offset", 
-							    "Deblocking alpha offset", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_DEBLOCKING_ALPHA_OFFSET,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_long("deblocking-alpha-offset",
+			"Deblocking alpha offset",
+			"",
+			0, G_MAXLONG, DEFAULT_DEBLOCKING_ALPHA_OFFSET,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_DEBLOCKING_BETA_OFFSET,
-					 g_param_spec_long("deblocking-beta-offset", 
-							    "Deblocking beta offset", 
-							    "", 
-							    0, G_MAXLONG, DEFAULT_DEBLOCKING_BETA_OFFSET,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-
+		g_param_spec_long("deblocking-beta-offset",
+			"Deblocking beta offset",
+			"",
+			0, G_MAXLONG, DEFAULT_DEBLOCKING_BETA_OFFSET,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_ME_SKIP_MODE,
-					 g_param_spec_ulong("me-skip-mode", 
-							    "ME skip mode", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_ME_SKIP_MODE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("me-skip-mode",
+			"ME skip mode",
+			"",
+			0, G_MAXULONG, DEFAULT_ME_SKIP_MODE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_PUT_START_CODE,
-					 g_param_spec_ulong("put-start-code", 
-							    "put start code", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_PUT_START_CODE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("put-start-code",
+			"put start code",
+			"",
+			0, G_MAXULONG, DEFAULT_PUT_START_CODE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_SEQ_PARAM_SET_ID,
-					 g_param_spec_ulong("seq-param-set-id", 
-							     "Seq param set id", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_SEQ_PARAM_SET_ID,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("seq-param-set-id",
+			"Seq param set id",
+			"",
+			0, G_MAXULONG, DEFAULT_SEQ_PARAM_SET_ID,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_PROFILE,
-					 g_param_spec_ulong("profile", 
-							    "Profile", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_PROFILE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("profile",
+			"Profile",
+			"",
+			0, G_MAXULONG, DEFAULT_PROFILE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_CONSTRAINT_SET_FLAG,
-					 g_param_spec_ulong("constraint-set-flag", 
-							    "Constraint set flag", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_CONSTRAINT_SET_FLAG,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("constraint-set-flag",
+			"Constraint set flag",
+			"",
+			0, G_MAXULONG, DEFAULT_CONSTRAINT_SET_FLAG,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_LEVEL_TYPE,
-					 g_param_spec_ulong("level-type", 
-							    "Level type", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_LEVEL_TYPE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("level-type",
+			"Level type",
+			"",
+			0, G_MAXULONG, DEFAULT_LEVEL_TYPE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_LEVEL_VALUE,
-					 g_param_spec_ulong("level-value", 
-							    "Level value", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_LEVEL_VALUE,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("level-value",
+			"Level value",
+			"",
+			0, G_MAXULONG, DEFAULT_LEVEL_VALUE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_OUT_VUI_PARAMETERS,
-					 g_param_spec_ulong("out-vui-parameters", 
-							    "Out VUI parameters", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_OUT_VUI_PARAMETERS,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("out-vui-parameters",
+			"Out VUI parameters",
+			"",
+			0, G_MAXULONG, DEFAULT_OUT_VUI_PARAMETERS,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_CHROMA_QP_INDEX_OFFSET,
-					 g_param_spec_ulong("chroma-qp-index-offset", 
-							    "Chroma QP index offset", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_CHROMA_QP_INDEX_OFFSET,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		g_param_spec_ulong("chroma-qp-index-offset",
+			"Chroma QP index offset",
+			"",
+			0, G_MAXULONG, DEFAULT_CHROMA_QP_INDEX_OFFSET,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_CONSTRAINED_INTRA_PRED,
-					 g_param_spec_ulong("constrained-intra-pred", 
-							    "Constrained intra pred", 
-							    "", 
-							    0, G_MAXULONG, DEFAULT_CONSTRAINED_INTRA_PRED,
-							    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
-	
+		g_param_spec_ulong("constrained-intra-pred",
+			"Constrained intra pred",
+			"",
+			0, G_MAXULONG, DEFAULT_CONSTRAINED_INTRA_PRED,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
 	gst_element_class->change_state = gst_sh_video_enc_change_state;
 }
 
@@ -1243,7 +1242,7 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	enc->sinkpad = gst_pad_new_from_template(
-						gst_element_class_get_pad_template(klass, "sink"), 
+						gst_element_class_get_pad_template(klass, "sink"),
 						"sink");
 
 	gst_element_add_pad(GST_ELEMENT(enc), enc->sinkpad);
@@ -1368,7 +1367,7 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	enc->deblocking_mode = DEFAULT_DEBLOCKING_MODE;
 	enc->use_deblocking_filter_control = DEFAULT_USE_DEBLOCKING_FILTER_CONTROL;
 	enc->deblocking_alpha_offset = DEFAULT_DEBLOCKING_ALPHA_OFFSET;
-	enc->deblocking_beta_offset = DEFAULT_DEBLOCKING_BETA_OFFSET;	
+	enc->deblocking_beta_offset = DEFAULT_DEBLOCKING_BETA_OFFSET;
 	enc->me_skip_mode = DEFAULT_ME_SKIP_MODE;
 	enc->put_start_code = DEFAULT_PUT_START_CODE;
 	enc->seq_param_set_id = DEFAULT_SEQ_PARAM_SET_ID;
@@ -1387,10 +1386,10 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 {
 	GstSHVideoEnc *enc = GST_SH_VIDEO_ENC(object);
 	const gchar* string;
-	
+
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	switch (prop_id) 
+	switch (prop_id)
 	{
 		case PROP_CNTL_FILE:
 		{
@@ -1850,7 +1849,7 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 		{
 			enc->deblocking_beta_offset = g_value_get_long(value);
 			break;
-		}	
+		}
 		case PROP_ME_SKIP_MODE:
 		{
 			enc->me_skip_mode = g_value_get_ulong(value);
@@ -1903,7 +1902,7 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 		}
 		default:
 		{
-			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, 
+			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id,
 							   pspec);
 			break;
 		}
@@ -1918,7 +1917,7 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	switch (prop_id) 
+	switch (prop_id)
 	{
 		case PROP_CNTL_FILE:
 		{
@@ -2384,7 +2383,7 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 		{
 			g_value_set_long(value, enc->deblocking_beta_offset);
 			break;
-		}	
+		}
 		case PROP_ME_SKIP_MODE:
 		{
 			g_value_set_ulong(value, enc->me_skip_mode);
@@ -2440,10 +2439,10 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 	}
 }
 
-static gboolean 
+static gboolean
 gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event)
 {
-	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));  
+	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
 
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
@@ -2473,8 +2472,8 @@ gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps)
 	structure = gst_caps_get_structure(caps, 0);
 	ret = gst_structure_get_int(structure, "width", &enc->width);
 	ret &= gst_structure_get_int(structure, "height", &enc->height);
-	ret &= gst_structure_get_fraction(structure, "framerate", 
-						 &enc->fps_numerator, 
+	ret &= gst_structure_get_fraction(structure, "framerate",
+						 &enc->fps_numerator,
 						 &enc->fps_denominator);
 
 	if (!ret) {
@@ -2487,7 +2486,7 @@ gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps)
 	if (!gst_caps_is_any(enc->out_caps)) {
 		ret = gst_sh_video_enc_set_src_caps(enc);
 	}
-		
+
 	if (ret) {
 		enc->caps_set = TRUE;
 	}
@@ -2504,7 +2503,7 @@ gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc)
 
 	// get the caps of the previous element in chain
 	enc->out_caps = gst_pad_peer_get_caps(enc->sinkpad);
-	
+
 	if (!gst_caps_is_any(enc->out_caps))
 	{
 		structure = gst_caps_get_structure(enc->out_caps, 0);
@@ -2515,8 +2514,8 @@ gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc)
 		    gst_structure_get_int(structure, "height", &enc->height);
 		}
         if (!enc->fps_numerator) {
-		    gst_structure_get_fraction(structure, "framerate", 
-										 &enc->fps_numerator, 
+		    gst_structure_get_fraction(structure, "framerate",
+										 &enc->fps_numerator,
 										 &enc->fps_denominator);
 		}
 	}
@@ -2531,8 +2530,8 @@ gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc)
 
 	// get the caps of the next element in chain
 	enc->out_caps = gst_pad_peer_get_caps(enc->srcpad);
-	
-	if (!gst_caps_is_any(enc->out_caps) && 
+
+	if (!gst_caps_is_any(enc->out_caps) &&
 		enc->format == SHCodecs_Format_NONE)
 	{
 		structure = gst_caps_get_structure(enc->out_caps, 0);
@@ -2549,21 +2548,21 @@ gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc)
 {
 	GstCaps* caps = NULL;
 	gboolean ret = TRUE;
-	
+
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	if (enc->format == SHCodecs_Format_MPEG4) {
-		caps = gst_caps_new_simple("video/mpeg", "width", G_TYPE_INT, 
-				enc->width, "height", G_TYPE_INT, 
-				enc->height, "framerate", 
-				GST_TYPE_FRACTION, enc->fps_numerator, 
-				enc->fps_denominator, "mpegversion", 
+		caps = gst_caps_new_simple("video/mpeg", "width", G_TYPE_INT,
+				enc->width, "height", G_TYPE_INT,
+				enc->height, "framerate",
+				GST_TYPE_FRACTION, enc->fps_numerator,
+				enc->fps_denominator, "mpegversion",
 				G_TYPE_INT, 4, NULL);
 	} else if (enc->format == SHCodecs_Format_H264) {
-		caps = gst_caps_new_simple("video/x-h264", "width", G_TYPE_INT, 
-				enc->width, "height", G_TYPE_INT, 
-				enc->height, "framerate", 
-				GST_TYPE_FRACTION, enc->fps_numerator, 
+		caps = gst_caps_new_simple("video/x-h264", "width", G_TYPE_INT,
+				enc->width, "height", G_TYPE_INT,
+				enc->height, "framerate",
+				GST_TYPE_FRACTION, enc->fps_numerator,
 				enc->fps_denominator, NULL);
 	} else {
 		GST_ELEMENT_ERROR((GstElement*)enc, CORE, NEGOTIATION,
@@ -2600,7 +2599,7 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 				&fmt);
 		if (ret < 0) {
 			GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
-				  ("Error reading the top of control file."), 
+				  ("Error reading the top of control file."),
 				  (NULL));
 		}
 
@@ -2629,7 +2628,7 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 		!(enc->fps_numerator && enc->fps_denominator))
 	{
 		GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
-			("Key parameters are not set."), 
+			("Key parameters are not set."),
 			("Encoding parameters undefined. Stream format:%d, width:%d, height:%d and framerate: %d/%d",
 			 enc->format, enc->width, enc->height,
 			 enc->fps_numerator, enc->fps_denominator));
@@ -2639,7 +2638,7 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 	if (!enc->encoder) {
 		GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
 			("shcodecs_encoder_init failed!"),
-			("Stream format:%d, width:%d, height:%d and framerate: %d/%d", 
+			("Stream format:%d, width:%d, height:%d and framerate: %d/%d",
 			 enc->format, enc->width, enc->height,
 			 enc->fps_numerator, enc->fps_denominator));
 	}
@@ -2650,19 +2649,19 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 	shcodecs_encoder_set_xpic_size(enc->encoder,enc->width);
 	shcodecs_encoder_set_ypic_size(enc->encoder,enc->height);
 
-	shcodecs_encoder_set_output_callback(enc->encoder, 
+	shcodecs_encoder_set_output_callback(enc->encoder,
 					     gst_sh_video_enc_write_output, enc);
 
-	shcodecs_encoder_set_input_release_callback(enc->encoder, 
+	shcodecs_encoder_set_input_release_callback(enc->encoder,
 					     gst_sh_video_enc_input_used, enc);
 
 	if (strlen(enc->ainfo.ctrl_file_name_buf))
 	{
 		ret = GetFromCtrlFtoEncParam(enc->encoder, &enc->ainfo);
-		
+
 		if (ret < 0) {
 			GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
-				  ("Error reading parameters from control file."), 
+				  ("Error reading parameters from control file."),
 				  (NULL));
 		}
 	}
@@ -2670,16 +2669,16 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 	{
 		if (!gst_sh_video_enc_set_encoding_properties(enc)) {
 			GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
-				  ("Setting SHCodecs encoder properties failed."), 
+				  ("Setting SHCodecs encoder properties failed."),
 				  (NULL));
-		}		
+		}
 	}
 
 	GST_DEBUG_OBJECT(enc, "Encoder init: %ldx%ld %ldfps format:%ld",
 			 shcodecs_encoder_get_xpic_size(enc->encoder),
 			 shcodecs_encoder_get_ypic_size(enc->encoder),
 			 shcodecs_encoder_get_frame_rate(enc->encoder) / 10,
-			 shcodecs_encoder_get_stream_type(enc->encoder)); 
+			 shcodecs_encoder_get_stream_type(enc->encoder));
 }
 
 static gboolean
@@ -2689,13 +2688,13 @@ gst_sh_video_enc_activate(GstPad * pad)
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
 
 	GST_LOG_OBJECT(enc, "%s called", __func__);
-	if (gst_pad_check_pull_range(pad)) 
+	if (gst_pad_check_pull_range(pad))
 	{
 		GST_LOG_OBJECT(enc, "PULL mode");
 		ret = gst_pad_activate_pull(pad, TRUE);
-	} 
-	else 
-	{  
+	}
+	else
+	{
 		GST_LOG_OBJECT(enc, "PUSH mode");
 		ret = gst_pad_activate_push(pad, TRUE);
 	}
@@ -2708,18 +2707,18 @@ gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition)
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
 	GstSHVideoEnc *enc = GST_SH_VIDEO_ENC(element);
 
-	ret = GST_ELEMENT_CLASS(parent_class)->change_state(element, 
+	ret = GST_ELEMENT_CLASS(parent_class)->change_state(element,
 							      transition);
 	if (ret == GST_STATE_CHANGE_FAILURE) {
 		return ret;
 	}
 
-	switch (transition) 
+	switch (transition)
 	{
 		case GST_STATE_CHANGE_PAUSED_TO_READY:
 		{
 			GST_DEBUG_OBJECT(enc, "Stopping encoding.");
-			enc->stream_stopped = TRUE;        
+			enc->stream_stopped = TRUE;
 			break;
 		}
 		default:
@@ -2757,7 +2756,7 @@ gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
 	}
 
 	if (size != (width * height * 3)/2) {
-		GST_ERROR("Requested buffer size (%lu) does not match encoder format", size);
+		GST_ERROR("Requested buffer size (%u) does not match encoder format", size);
 		return GST_FLOW_ERROR;
 	}
 
@@ -2778,10 +2777,10 @@ gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
 	return GST_FLOW_OK;
 }
 
-static GstFlowReturn 
+static GstFlowReturn
 gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 {
-	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));  
+	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
 	unsigned char *py, *pc;
 	int rc;
 	gint luma_size, chroma_size;
@@ -2816,7 +2815,7 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 		enc->eos = TRUE;
 		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
 		return GST_FLOW_OK;
-	}  
+	}
 
 	py = GST_BUFFER_DATA(buffer);
 	pc = py + luma_size;
@@ -2880,7 +2879,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 	ret = gst_pad_pull_range(enc->sinkpad, enc->offset,
 			luma_size+chroma_size, &buffer);
 
-	if (ret != GST_FLOW_OK) 
+	if (ret != GST_FLOW_OK)
 	{
 		GST_DEBUG_OBJECT(enc, "pull_range failed: %s", gst_flow_get_name(ret));
 		gst_pad_pause_task(enc->sinkpad);
@@ -2895,7 +2894,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 		enc->eos = TRUE;
 		gst_pad_push_event(enc->srcpad, gst_event_new_eos());
 		return;
-	}  
+	}
 
 	enc->offset += luma_size+chroma_size;
 
@@ -2914,7 +2913,7 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 	}
 }
 
-static int 
+static int
 gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 			unsigned char *data, int length, void *user_data)
 {
@@ -2922,7 +2921,7 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 	GstBuffer *buf = NULL;
 	gint ret = 0;
 
-	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data frame number: %d\n", 
+	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data frame number: %ld\n",
 				   __func__, length, enc->frame_number);
 
 	if (enc->stream_stopped)
@@ -2980,11 +2979,11 @@ gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query)
 	return gst_pad_query_default(pad, query);
 }
 
-gboolean 
+gboolean
 gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc)
 {
 	GST_LOG_OBJECT(enc, "%s called", __func__);
-	
+
 	//Stream dependent defaults
     if (enc->format == SHCodecs_Format_H264)
 	{

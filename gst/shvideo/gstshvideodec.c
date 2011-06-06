@@ -1,6 +1,6 @@
 /**
  * \page dec gst-sh-mobile-dec
- * gst-sh-mobile-dec - Decodes MPEG4/H264 video stream to raw YUV image data 
+ * gst-sh-mobile-dec - Decodes MPEG4/H264 video stream to raw YUV image data
  * on SuperH environment using libshcodecs HW codec.
  *
  * \section dec-description Description
@@ -10,9 +10,9 @@
  * to be installed.
  *
  * \section dec-examples Example launch lines
- * 
+ *
  * \subsection dec-example-1 Decoding from a file to a file
- * 
+ *
  * \code
  * gst-launch \
  *  filesrc location=test.m4v \
@@ -20,9 +20,9 @@
  *  ! gst-sh-mobile-dec \
  *  ! filesink location=test.raw
  * \endcode
- * In this pipeline we use filesrc element to read the source file, 
- * which is a MPEG4 video elementary stream. After filesrc we add static caps 
- * as the filesrc does not do caps negotiation and the decoder requires them. 
+ * In this pipeline we use filesrc element to read the source file,
+ * which is a MPEG4 video elementary stream. After filesrc we add static caps
+ * as the filesrc does not do caps negotiation and the decoder requires them.
  * The last element in the pipeline is filesink, which writes the output YUV-data
  * into a file.
  *
@@ -36,37 +36,37 @@
  * \endcode
  *
  * Filesrc element is used to read the file again, which this time is an AVI
- * wrapped video containing both audio and video stream. avidemux element is 
- * used to strip the avi container. avidemux has two src-pads, which are 
+ * wrapped video containing both audio and video stream. avidemux element is
+ * used to strip the avi container. avidemux has two src-pads, which are
  * named “demux” using a property. Both of the avidemux src pads are first
  * connected to queue elements, which take care of the buffering of the data in
  * the pipeline.
- *  
+ *
  * The audio stream is then connected to the decodebin element, which detects
- * the stream format and does the decoding. audioconvert and audioresample 
- * elements are used to transform the data into a suitable format for 
+ * the stream format and does the decoding. audioconvert and audioresample
+ * elements are used to transform the data into a suitable format for
  * playback. The last element in the audio pipeline is autoaudiosink, which
  * automatically detects and connects the correct audio sink for playback. This
  * audio pipeline composition is very common in the gstreamer programming.
  *
- * The video pipeline is constructed from SuperH specific elements; 
- * gst-sh-mobile-dec and gst-sh-mobile-sink. The gst-sh-mobile-sink is a 
+ * The video pipeline is constructed from SuperH specific elements;
+ * gst-sh-mobile-dec and gst-sh-mobile-sink. The gst-sh-mobile-sink is a
  * videosink element for SuperH.
  *
  * \subsection dec-example-3 Decoding a video stream from net
- *  
+ *
  * \code
  * gst-launch \
  *  udpsrc port=5000 caps="application/x-rtp,clock-rate=90000" \
  *  ! gstrtpjitterbuffer latency=0 ! rtpmp4vdepay \
  *  ! "video/mpeg, width=320, height=240, framerate=15/1" \
  *  ! gst-sh-mobile-dec \
- *  ! gst-sh-mobile-sink 
+ *  ! gst-sh-mobile-sink
  * \endcode
  * Here the video stream is received from udpsrc element. gstrtpjitterbuffer
  * element is used to take care of ordering and storing the received RTP
  * packages. Next rtpmp4vdepay element is used to remove the RTP frames from
- * the buffers. Again, the static caps are needed to pass information to the 
+ * the buffers. Again, the static caps are needed to pass information to the
  * decoder.
  *
  * \section dec-properties Properties
@@ -75,7 +75,7 @@
  * \section dec-pads Pads
  * \copydoc dec_sink_factory
  * \copydoc dec_src_factory
- * 
+ *
  * \section dec-license License
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -115,17 +115,17 @@
  * Direction: sink \n
  * Available: always \n
  * Caps:
- * - video/mpeg, width=(int)[48,1280], height=(int)[48,720], 
+ * - video/mpeg, width=(int)[48,1280], height=(int)[48,720],
  *   framerate=(fraction)[1,30], mpegversion=(int)4
- * - video/x-h264, width=(int)[48,1280], height=(int)[48,720], 
+ * - video/x-h264, width=(int)[48,1280], height=(int)[48,720],
  *   framerate=(fraction)[1,30], h264version=(int)h264
- * - video/x-divx, width=(int)[48,1280], height=(int)[48,720], 
+ * - video/x-divx, width=(int)[48,1280], height=(int)[48,720],
  *   framerate=(fraction)[1,30], divxversion=(int){4,5,6}
- * - video/x-xvid, width=(int)[48,1280], height=(int)[48,720], 
+ * - video/x-xvid, width=(int)[48,1280], height=(int)[48,720],
  *   framerate=(fraction)[1,30]
  *
  */
-static GstStaticPadTemplate dec_sink_factory = 
+static GstStaticPadTemplate dec_sink_factory =
 	GST_STATIC_PAD_TEMPLATE ("sink",
 				 GST_PAD_SINK,
 				 GST_PAD_ALWAYS,
@@ -162,10 +162,10 @@ static GstStaticPadTemplate dec_sink_factory =
  * Direction: src \n
  * Available: always \n
  * Caps:
- * - video/x-raw-yuv, format=(fourcc)NV12, width=(int)[48,1280], 
+ * - video/x-raw-yuv, format=(fourcc)NV12, width=(int)[48,1280],
  *   height=(int)[48,720], framerate=(fraction)[1,30]
  */
-static GstStaticPadTemplate dec_src_factory = 
+static GstStaticPadTemplate dec_src_factory =
 	GST_STATIC_PAD_TEMPLATE ("src",
 				 GST_PAD_SRC,
 				 GST_PAD_ALWAYS,
@@ -173,7 +173,7 @@ static GstStaticPadTemplate dec_src_factory =
 						  "video/x-raw-yuv, "
 						  "format = (fourcc) NV12,"
 						  "width = (int) [48, 1280],"
-						  "height = (int) [48, 720]," 
+						  "height = (int) [48, 720],"
 						  "framerate = (fraction) [0, 30]"
 						  )
 				 );
@@ -186,39 +186,39 @@ GST_DEBUG_CATEGORY_STATIC (gst_sh_video_dec_debug);
 
 // STATIC DECLARATIONS
 
-/** 
+/**
  * Initialize shvideodec class plugin event handler
  * @param g_class Gclass
  * @param data user data pointer, unused in the function
  */
 static void gst_sh_video_dec_init_class (gpointer g_class, gpointer data);
 
-/** 
+/**
  * Initialize SH hardware video decoder & sink
  * @param klass Gstreamer element class
  */
 static void gst_sh_video_dec_base_init (gpointer klass);
 
-/** 
+/**
  * Dispose decoder
  * @param object Gstreamer element class
  */
 static void gst_sh_video_dec_dispose (GObject * object);
 
-/** 
+/**
  * Initialize the class for decoder and player
  * @param klass Gstreamer SH video decodes class
  */
 static void gst_sh_video_dec_class_init (GstSHVideoDecClass * klass);
 
-/** 
+/**
  * Initialize the decoder
  * @param dec Gstreamer SH video element
  * @param gklass Gstreamer SH video decode class
  */
 static void gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass);
 
-/** 
+/**
  * Event handler for decoder sink events
  * @param pad Gstreamer sink pad
  * @param event The Gstreamer event
@@ -226,15 +226,15 @@ static void gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gkl
  */
 static gboolean gst_sh_video_dec_sink_event (GstPad * pad, GstEvent * event);
 
-/** 
- * Initialize the decoder sink pad 
+/**
+ * Initialize the decoder sink pad
  * @param pad Gstreamer sink pad
  * @param caps The capabilities of the video to decode
  * @return returns true if the video capatilies are supported and the video can be decoded, else false
  */
 static gboolean gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * caps);
 
-/** 
+/**
  * GStreamer buffer handling function
  * @param pad Gstreamer sink pad
  * @param inbuffer The input buffer
@@ -242,7 +242,7 @@ static gboolean gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * caps);
  */
 static GstFlowReturn gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer);
 
-/** 
+/**
  * Event handler for the video frame is decoded and can be shown on screen
  * @param decoder SHCodecs Decoder, unused in the function
  * @param y_buf Userland address to the Y buffer
@@ -276,9 +276,9 @@ gst_sh_video_dec_get_type (void)
 {
 	static GType object_type = 0;
 
-	if (object_type == 0) 
+	if (object_type == 0)
 	{
-		static const GTypeInfo object_info = 
+		static const GTypeInfo object_info =
 		{
 			sizeof (GstSHVideoDecClass),
 			gst_sh_video_dec_base_init,
@@ -291,8 +291,8 @@ gst_sh_video_dec_get_type (void)
 			(GInstanceInitFunc) gst_sh_video_dec_init
 		};
 
-		object_type = g_type_register_static (GST_TYPE_ELEMENT, 
-						      "gst-sh-mobile-dec", 
+		object_type = g_type_register_static (GST_TYPE_ELEMENT,
+						      "gst-sh-mobile-dec",
 						      &object_info,
 						      (GTypeFlags) 0);
 	}
@@ -323,9 +323,9 @@ gst_sh_video_dec_dispose (GObject * object)
 {
 	GstSHVideoDec *dec = GST_SH_VIDEO_DEC (object);
 
-	GST_LOG_OBJECT(dec,"%s called\n", __func__);  
+	GST_LOG_OBJECT(dec,"%s called\n", __func__);
 
-	if (dec->decoder != NULL) 
+	if (dec->decoder != NULL)
 	{
 		GST_LOG_OBJECT (dec, "close decoder object %p", dec->decoder);
 		shcodecs_decoder_close (dec->decoder);
@@ -375,8 +375,8 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 	dec->codec_data_present = FALSE;
 	dec->codec_data_present_first = TRUE;
 
-	sem_init(&dec->dec_sem, 0, 1); 
-	sem_init(&dec->push_sem, 0, 0); 
+	sem_init(&dec->dec_sem, 0, 1);
+	sem_init(&dec->push_sem, 0, 0);
 
 	dec->end = FALSE;
 }
@@ -388,7 +388,7 @@ gst_sh_video_dec_sink_event (GstPad * pad, GstEvent * event)
 
 	GST_DEBUG_OBJECT(dec,"%s called event %i", __func__,GST_EVENT_TYPE(event));
 
-	if (GST_EVENT_TYPE (event) == GST_EVENT_EOS) 
+	if (GST_EVENT_TYPE (event) == GST_EVENT_EOS)
 	{
 		GST_DEBUG_OBJECT (dec, "EOS gst event");
 
@@ -459,7 +459,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 			GST_DEBUG_OBJECT(dec, "%s Profile compatability = 0x%x\n",
 					 __func__, (unsigned int) *data);
 			data++;
-			GST_DEBUG_OBJECT(dec, "%s Level IDC = 0x%x\n", (unsigned int) *data);
+			GST_DEBUG_OBJECT(dec, "%s Level IDC = 0x%x\n", __func__, (unsigned int) *data);
 			data++;
 			GST_DEBUG_OBJECT(dec, "%s NAL Length minus one = 0x%x\n",
 					 __func__, (unsigned int) *data);
@@ -515,9 +515,9 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 		GST_DEBUG_OBJECT(dec, "%s codec_data not found\n", __func__);
 	}
 
-	if (gst_structure_get_fraction (structure, "framerate", 
+	if (gst_structure_get_fraction (structure, "framerate",
 					&dec->fps_numerator, &dec->fps_denominator))
-	{    
+	{
 		GST_INFO_OBJECT(dec,"Framerate: %d/%d",dec->fps_numerator,
 				dec->fps_denominator);
 	} else {
@@ -539,7 +539,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 
 	if (dec->decoder == NULL) {
 		GST_ELEMENT_ERROR((GstElement*)dec,CORE,FAILED,
-				  ("Error on shdecodecs_decoder_init."), 
+				  ("Error on shdecodecs_decoder_init."),
 				  ("%s failed (Error on shdecodecs_decoder_init)",
 				   __func__));
 		return FALSE;
@@ -553,12 +553,12 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 						dec);
 
 	/* Set SRC caps */
-	src_caps = gst_caps_new_simple ("video/x-raw-yuv", 
+	src_caps = gst_caps_new_simple ("video/x-raw-yuv",
 					"format", GST_TYPE_FOURCC, GST_MAKE_FOURCC('N','V','1','2'),
-					"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator, 
-					"width", G_TYPE_INT, dec->width, 
-					"height", G_TYPE_INT, dec->height, 
-					"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator, 
+					"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator,
+					"width", G_TYPE_INT, dec->width,
+					"height", G_TYPE_INT, dec->height,
+					"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator,
 					NULL);
 
 	if (!gst_pad_set_caps(dec->srcpad,src_caps)) {
@@ -612,7 +612,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 						bdata += size;
 						bsize -= size;
 					}
-					if (*(bdata + 4) == 0x67) {	//an SPS NAL  
+					if (*(bdata + 4) == 0x67) {	//an SPS NAL
 						dec->codec_data_present_first = FALSE;	//SPS and PPS NAL already in data
 						buffer =
 							gst_buffer_create_sub(buffer, orig_bsize - bsize,
@@ -651,10 +651,10 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 
 		buffer = gst_buffer_join(dec->buffer,buffer);
 		GST_LOG_OBJECT(dec,"Buffer added. Now storing %d bytes",
-			       GST_BUFFER_SIZE(buffer));        
+			       GST_BUFFER_SIZE(buffer));
 	}
 
-	dec->buffer = NULL; 
+	dec->buffer = NULL;
 
 	used_bytes = shcodecs_decode(dec->decoder,
 			GST_BUFFER_DATA (buffer),
@@ -669,7 +669,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	}
 
 	// Preserve the data that was not used
-	if (GST_BUFFER_SIZE(buffer) != used_bytes) {    
+	if (GST_BUFFER_SIZE(buffer) != used_bytes) {
 		dec->buffer = gst_buffer_create_sub(buffer,
 						    used_bytes,
 						    GST_BUFFER_SIZE(buffer)-used_bytes);
@@ -687,7 +687,6 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
 			       void * user_data)
 {
 	GstSHVideoDec *dec = (GstSHVideoDec *) user_data;
-	GstFlowReturn ret;
 	gint offset = shcodecs_decoder_get_frame_count(dec->decoder);
 
 	/* We require the chroma plane of the video decoder output frame to follow the luma
@@ -697,10 +696,10 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
 		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
 				  ("Decode error"), ("Decoded frame chroma plane does not follow luma plane!"));
 		return -1;
-	} 
+	}
 
-	sem_wait(&dec->dec_sem); 
-	GST_LOG_OBJECT(dec,"%s called", __func__);  
+	sem_wait(&dec->dec_sem);
+	GST_LOG_OBJECT(dec,"%s called", __func__);
 
 	/* Wrap the video decoder output buffer in a GST buffer */
 	dec->push_buf = (GstBuffer *) gst_mini_object_new (GST_TYPE_SH_VIDEO_BUFFER);
@@ -708,14 +707,14 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
 	GST_BUFFER_DATA(dec->push_buf) = y_buf;
 	GST_BUFFER_SIZE(dec->push_buf) = y_size + c_size;
 
-	GST_BUFFER_OFFSET(dec->push_buf) = offset; 
+	GST_BUFFER_OFFSET(dec->push_buf) = offset;
 	GST_BUFFER_CAPS(dec->push_buf) = gst_caps_copy(GST_PAD_CAPS(dec->srcpad));
 	GST_BUFFER_DURATION(dec->push_buf) = GST_SECOND * dec->fps_denominator / dec->fps_numerator;
 	GST_BUFFER_TIMESTAMP(dec->push_buf) = offset * GST_BUFFER_DURATION(dec->push_buf);
 	GST_BUFFER_OFFSET_END(dec->push_buf) = offset;
 
-	GST_LOG_OBJECT (dec, "Pushing frame number: %d time: %" GST_TIME_FORMAT, 
-			offset, 
+	GST_LOG_OBJECT (dec, "Pushing frame number: %d time: %" GST_TIME_FORMAT,
+			offset,
 			GST_TIME_ARGS (GST_BUFFER_TIMESTAMP (dec->push_buf)));
 
 	sem_post(&dec->push_sem);
