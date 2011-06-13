@@ -450,7 +450,7 @@ gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition);
 
 static GstFlowReturn
 gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
-    GstCaps * caps, GstBuffer ** buf);
+	GstCaps * caps, GstBuffer ** buf);
 
 
 static void
@@ -539,14 +539,14 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 			"Control file location",
 			"Location of the file including encoding parameters",
 			NULL,
-                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_STREAM_TYPE,
 		g_param_spec_string("stream-type",
 			"Stream type",
 			"The type of the stream (h264/mpeg4)",
 			NULL,
-                         G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_WIDTH,
 		g_param_spec_long("width",
@@ -744,7 +744,7 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 			0, G_MAXULONG, DEFAULT_CHANGEABLE_MAX_BITRATE,
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-        //MPEG4
+	//MPEG4
 
 	g_object_class_install_property(g_object_class, PROP_OUT_VOS,
 		g_param_spec_ulong("out-vos",
@@ -2460,7 +2460,7 @@ gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps)
 	GstStructure *structure;
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
 
-    if (enc->caps_set) {
+	if (enc->caps_set) {
 		return TRUE;
 	}
 
@@ -2507,14 +2507,14 @@ gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc)
 	if (!gst_caps_is_any(enc->out_caps))
 	{
 		structure = gst_caps_get_structure(enc->out_caps, 0);
-        if (!enc->width) {
-	    	gst_structure_get_int(structure, "width", &enc->width);
+		if (!enc->width) {
+			gst_structure_get_int(structure, "width", &enc->width);
 		}
-        if (!enc->height) {
-		    gst_structure_get_int(structure, "height", &enc->height);
+		if (!enc->height) {
+			gst_structure_get_int(structure, "height", &enc->height);
 		}
-        if (!enc->fps_numerator) {
-		    gst_structure_get_fraction(structure, "framerate",
+		if (!enc->fps_numerator) {
+			gst_structure_get_fraction(structure, "framerate",
 										 &enc->fps_numerator,
 										 &enc->fps_denominator);
 		}
@@ -2623,7 +2623,7 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 		}
 	}
 
-    if (enc->format == SHCodecs_Format_NONE ||
+	if (enc->format == SHCodecs_Format_NONE ||
 		!(enc->width && enc->height)||
 		!(enc->fps_numerator && enc->fps_denominator))
 	{
@@ -2632,7 +2632,7 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 			("Encoding parameters undefined. Stream format:%d, width:%d, height:%d and framerate: %d/%d",
 			 enc->format, enc->width, enc->height,
 			 enc->fps_numerator, enc->fps_denominator));
-    }
+	}
 
 	enc->encoder = shcodecs_encoder_init(enc->width, enc->height, enc->format);
 	if (!enc->encoder) {
@@ -2708,7 +2708,7 @@ gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition)
 	GstSHVideoEnc *enc = GST_SH_VIDEO_ENC(element);
 
 	ret = GST_ELEMENT_CLASS(parent_class)->change_state(element,
-							      transition);
+								  transition);
 	if (ret == GST_STATE_CHANGE_FAILURE) {
 		return ret;
 	}
@@ -2729,7 +2729,7 @@ gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition)
 
 static GstFlowReturn
 gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
-    GstCaps * caps, GstBuffer ** buf)
+	GstCaps * caps, GstBuffer ** buf)
 {
 	GstSHVideoEnc *enc = (GstSHVideoEnc *)(GST_OBJECT_PARENT(pad));
 	GstStructure *structure;
@@ -2985,7 +2985,7 @@ gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc)
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	//Stream dependent defaults
-    if (enc->format == SHCodecs_Format_H264)
+	if (enc->format == SHCodecs_Format_H264)
 	{
 		if (!enc->bitrate)
 			enc->bitrate = DEFAULT_BITRATE_H264;
@@ -3059,7 +3059,7 @@ gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc)
 	if (shcodecs_encoder_set_weightedQ_mode(enc->encoder, enc->weighted_q_mode) == -1)
 		return FALSE;
 
-    if (enc->format == SHCodecs_Format_H264)
+	if (enc->format == SHCodecs_Format_H264)
 	{
 		if (shcodecs_encoder_set_h264_Ivop_quant_initial_value(enc->encoder, enc->i_vop_quant_initial_value) == -1)
 			return FALSE;

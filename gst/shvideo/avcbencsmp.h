@@ -12,7 +12,7 @@ typedef struct {
 
 	long xpic;
 	long ypic;
-    long frame_rate;
+	long frame_rate;
 
 	capture *ceu;
 

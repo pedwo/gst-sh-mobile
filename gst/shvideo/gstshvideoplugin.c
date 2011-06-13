@@ -56,40 +56,40 @@
 gboolean
 gst_sh_video_plugin_init (GstPlugin * plugin)
 {
-  if (!gst_element_register (plugin, "gst-sh-mobile-sink", GST_RANK_NONE,
-          GST_TYPE_SH_VIDEO_SINK))
-    return FALSE;
+	if (!gst_element_register (plugin, "gst-sh-mobile-sink", GST_RANK_NONE,
+		GST_TYPE_SH_VIDEO_SINK))
+	return FALSE;
 
-  if (!gst_element_register (plugin, "gst-sh-mobile-dec", GST_RANK_PRIMARY,
-          GST_TYPE_SH_VIDEO_DEC))
-    return FALSE;
+	if (!gst_element_register (plugin, "gst-sh-mobile-dec", GST_RANK_PRIMARY,
+		GST_TYPE_SH_VIDEO_DEC))
+	return FALSE;
 
-  if (!gst_element_register (plugin, "gst-sh-mobile-enc", GST_RANK_PRIMARY,
-          GST_TYPE_SH_VIDEO_ENC))
-    return FALSE;
+	if (!gst_element_register (plugin, "gst-sh-mobile-enc", GST_RANK_PRIMARY,
+		GST_TYPE_SH_VIDEO_ENC))
+	return FALSE;
 
-  if (!gst_element_register (plugin, "gst-sh-mobile-camera-enc", GST_RANK_PRIMARY,
-          GST_TYPE_SH_VIDEO_CAPENC))
-    return FALSE;
+	if (!gst_element_register (plugin, "gst-sh-mobile-camera-enc", GST_RANK_PRIMARY,
+		GST_TYPE_SH_VIDEO_CAPENC))
+	return FALSE;
 
 #ifdef ENABLE_SCALE
-  if (!gst_element_register (plugin, "gst-sh-mobile-resize", GST_RANK_PRIMARY,
-          GST_TYPE_SHVIDRESIZE))
-    return FALSE;
+	if (!gst_element_register (plugin, "gst-sh-mobile-resize", GST_RANK_PRIMARY,
+		GST_TYPE_SHVIDRESIZE))
+	return FALSE;
 #endif
 
 #ifdef ENABLE_BLEND
-  if (!gst_element_register (plugin, "gst-sh-mobile-mixer", GST_RANK_PRIMARY,
-          GST_TYPE_SH_VIDEO_MIXER))
-    return FALSE;
+	if (!gst_element_register (plugin, "gst-sh-mobile-mixer", GST_RANK_PRIMARY,
+		GST_TYPE_SH_VIDEO_MIXER))
+	return FALSE;
 #endif
 
   return TRUE;
 }
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
-    GST_VERSION_MINOR,
-    "gst-sh-mobile",
-    "SH HW video elements",
-    gst_sh_video_plugin_init,
-    VERSION, "LGPL", "Renesas SH Video", "")
+	GST_VERSION_MINOR,
+	"gst-sh-mobile",
+	"SH HW video elements",
+	gst_sh_video_plugin_init,
+	VERSION, "LGPL", "Renesas SH Video", "")

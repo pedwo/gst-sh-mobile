@@ -26,7 +26,7 @@
 #include <gst/gst.h>
 #include <gst/video/video.h>
 
-// TODO video formats, structs & helper functions shoudl be moved out of libshveu
+// TODO video formats, structs & helper functions should be moved out of libshveu
 #include <shveu/shveu.h>
 
 #define GST_TYPE_SH_VIDEO_BUFFER (gst_sh_video_buffer_get_type())

@@ -365,8 +365,7 @@ static void init_mmap(capture * cap)
 		exit(EXIT_FAILURE);
 	}
 
-	for (cap->n_buffers = 0; cap->n_buffers < req.count;
-	     ++cap->n_buffers) {
+	for (cap->n_buffers = 0; cap->n_buffers < req.count; ++cap->n_buffers) {
 		struct v4l2_buffer buf;
 
 		CLEAR(buf);
@@ -570,7 +569,6 @@ static void open_device(capture * cap)
 {
 	struct stat st; 
 
-
 	if (-1 == stat(cap->dev_name, &st)) {
 		fprintf(stderr, "Cannot identify '%s': %d, %s\n",
 			cap->dev_name, errno, strerror(errno));
@@ -582,8 +580,7 @@ static void open_device(capture * cap)
 		exit(EXIT_FAILURE);
 	}
 
-	cap->fd =
-	    open(cap->dev_name, O_RDWR /* required */ | O_NONBLOCK, 0);
+	cap->fd = open(cap->dev_name, O_RDWR /* required */ | O_NONBLOCK, 0);
 
 	if (-1 == cap->fd) {
 		fprintf(stderr, "Cannot open '%s': %d, %s\n",
