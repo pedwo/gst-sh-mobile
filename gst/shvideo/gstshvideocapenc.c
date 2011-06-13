@@ -16,15 +16,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston MA  02110-1301 USA
  *
  */
-
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <pthread.h>
 #include <linux/videodev2.h>	/* For pixel formats */
@@ -71,7 +67,7 @@ struct _GstSHVideoCapEnc {
 	GstClock *clock;
 	gboolean start_time_set;
 	GstClockTime start_time;
-	GstBuffer *output_buf;
+	GstBuffer *buffered_output;
 
 	pthread_t enc_thread;
 	pthread_t capture_thread;
@@ -105,53 +101,40 @@ struct _GstSHVideoCapEncClass {
 
 
 /**
- * Define capatibilities for the source factory
+ * \var enc_src_factory
+ * Name: src \n
+ * Direction: src \n
+ * Available: always \n
+ * Caps:
+ * - video/mpeg, width=(int)[48, 1280], height=(int)[48, 720],
+ *   framerate=(fraction)[1, 30], mpegversion=(int)4
+ * - video/x-h264, width=(int)[48, 1280], height=(int)[48, 720],
+ *   framerate=(fraction)[1, 30], h264version=(int)h264
  */
-
-static GstStaticPadTemplate src_factory =
+static GstStaticPadTemplate enc_src_factory =
 	GST_STATIC_PAD_TEMPLATE("src",
-			  GST_PAD_SRC,
-			  GST_PAD_ALWAYS,
-			  GST_STATIC_CAPS
-			  ("video/mpeg,"
-			   "width = (int) [48, 1280],"
-			   "height = (int) [48, 720],"
-			   "framerate = (fraction) [0, 30],"
-			   "mpegversion = (int) 4"
-			   "; "
-			   "video/x-h264,"
-			   "width = (int) [48, 1280],"
-			   "height = (int) [48, 720],"
-			   "framerate = (fraction) [0, 30]"));
+		GST_PAD_SRC,
+		GST_PAD_ALWAYS,
+		GST_STATIC_CAPS(
+			"video/mpeg,"
+			"width  = (int) [48, 1280],"
+			"height = (int) [48, 720],"
+			"framerate = (fraction) [0, 30],"
+			"mpegversion = (int) 4"
+			"; "
+			"video/x-h264,"
+			"width  = (int) [48, 1280],"
+			"height = (int) [48, 720],"
+			"framerate = (fraction) [0, 30],"
+			"variant = (string) itu,"
+			"h264version = (string) h264"
+			)
+		);
 
 GST_DEBUG_CATEGORY_STATIC(gst_sh_video_capenc_debug);
 #define GST_CAT_DEFAULT gst_sh_video_capenc_debug
 
 static GstElementClass *parent_class = NULL;
-
-/* Forward declarations */
-static void gst_shvideo_enc_init_class(gpointer g_class, gpointer data);
-static void gst_shvideo_enc_base_init(gpointer klass);
-static void gst_shvideo_enc_dispose(GObject * object);
-static void gst_shvideo_enc_class_init(GstSHVideoCapEncClass * klass);
-static void gst_shvideo_enc_init(GstSHVideoCapEnc * enc, GstSHVideoCapEncClass * gklass);
-static void gst_shvideo_enc_set_property(GObject * object, guint prop_id,
-					 const GValue * value, GParamSpec * pspec);
-static void gst_shvideo_enc_get_property(GObject * object, guint prop_id,
-					 GValue * value, GParamSpec * pspec);
-static gboolean gst_shvideo_enc_src_query(GstPad * pad, GstQuery * query);
-static int gst_shvideo_enc_get_input(SHCodecs_Encoder * encoder, void *user_data);
-static int gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
-					unsigned char *data, int length, void *user_data);
-static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * enc);
-static void *launch_camera_encoder_thread(void *data);
-static GType gst_camera_preview_get_type(void);
-static gboolean gst_shvideoenc_src_event(GstPad * pad, GstEvent * event);
-static GstStateChangeReturn gst_shvideo_enc_change_state(GstElement *
-							 element, GstStateChange transition);
-static gboolean gst_shvideoenc_set_clock(GstElement * element, GstClock * clock);
-static gboolean gst_shvideocameraenc_set_src_caps(GstPad * pad, GstCaps * caps);
-static void gst_shvideocameraenc_read_src_caps(GstSHVideoCapEnc * enc);
 
 /**
  * Define encoder properties
@@ -163,34 +146,59 @@ enum {
 	PROP_LAST
 };
 
+static void gst_sh_video_enc_init_class(gpointer g_class, gpointer data);
+static void gst_sh_video_enc_base_init(gpointer klass);
+static void gst_sh_video_enc_dispose(GObject * object);
+static void gst_sh_video_enc_class_init(GstSHVideoCapEncClass * klass);
+static void gst_sh_video_enc_init(GstSHVideoCapEnc * enc, GstSHVideoCapEncClass * gklass);
+static void gst_sh_video_enc_set_property(GObject *object, guint prop_id,
+					const GValue *value, GParamSpec * pspec);
+static void gst_sh_video_enc_get_property(GObject * object, guint prop_id,
+					GValue * value, GParamSpec * pspec);
+static gboolean gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query);
+static int gst_sh_video_enc_get_input(SHCodecs_Encoder * encoder, void *user_data);
+static int gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
+					unsigned char *data, int length, void *user_data);
+static void gst_sh_video_enc_init_camera_encoder(GstSHVideoCapEnc * enc);
+static void *launch_camera_encoder_thread(void *data);
+static GType gst_camera_preview_get_type(void);
+static gboolean gst_sh_video_enc_src_event(GstPad * pad, GstEvent * event);
+static GstStateChangeReturn gst_sh_video_enc_change_state(GstElement *
+							 element, GstStateChange transition);
+static gboolean gst_sh_video_enc_set_clock(GstElement * element, GstClock * clock);
+static gboolean gst_sh_video_enc_set_src_caps(GstPad * pad, GstCaps * caps);
+static void gst_sh_video_enc_read_src_caps(GstSHVideoCapEnc * enc);
+
 #define GST_TYPE_CAMERA_PREVIEW (gst_camera_preview_get_type())
 static GType gst_camera_preview_get_type(void)
 {
-	static GType camera_preview_type = 0;
+	static GType object_type = 0;
 	static const GEnumValue preview_method[] = {
 		{PREVIEW_OFF, "No camera preview", "off"},
 		{PREVIEW_ON, "Camera preview", "on"},
 		{0, NULL, NULL},
 	};
 
-	if (!camera_preview_type) {
-		camera_preview_type = g_enum_register_static("GstCameraPreview", preview_method);
+	if (object_type == 0) {
+		object_type = g_enum_register_static("GstCameraPreview", preview_method);
 	}
-	return camera_preview_type;
+	return object_type;
 }
 
 /******************
  * CAPTURE THREAD *
  ******************/
 
-/** ceu callback function
+/**
+ * CEU callback function
  * received a full frame from the camera
-	@param capture
-	@param frame_data output buffer pointer
-	@param length buffer size
-	@param user_data user pointer
-*/
-static void capture_image_cb(capture * ceu, const unsigned char *frame_data, size_t length, void *user_data)
+ * @param capture
+ * @param frame_data output buffer pointer
+ * @param length buffer size
+ * @param user_data user pointer
+ */
+static void
+capture_image_cb(capture * ceu, const unsigned char *frame_data, size_t length, void *user_data)
 {
 	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
 	struct ren_vid_surface cap_surface;
@@ -267,21 +275,24 @@ static void *capture_thread(void *data)
 	return NULL;
 }
 
-/** Initialize shvideoenc class plugin event handler
-	@param g_class Gclass
-	@param data user data pointer, unused in the function
-*/
-static void gst_shvideo_enc_init_class(gpointer g_class, gpointer data)
+/**
+ * Initialize shvideoenc class
+ * @param g_class Gclass
+ * @param data user data pointer, unused in the function
+ */
+static void
+gst_sh_video_enc_init_class(gpointer g_class, gpointer data)
 {
-	GST_LOG("%s called", __func__);
 	parent_class = g_type_class_peek_parent(g_class);
-	gst_shvideo_enc_class_init((GstSHVideoCapEncClass *) g_class);
+	gst_sh_video_enc_class_init((GstSHVideoCapEncClass *) g_class);
 }
 
-/** Initialize SH hardware video encoder
-	@param klass Gstreamer element class
-*/
-static void gst_shvideo_enc_base_init(gpointer klass)
+/**
+ * Initialize SH hardware video encoder
+ * @param klass Gstreamer element class
+ */
+static void
+gst_sh_video_enc_base_init(gpointer klass)
 {
 	static const GstElementDetails plugin_details =
 		GST_ELEMENT_DETAILS("SH hardware camera capture & video encoder",
@@ -292,14 +303,16 @@ static void gst_shvideo_enc_base_init(gpointer klass)
 
 	GST_LOG("%s called", __func__);
 	gst_element_class_add_pad_template(element_class,
-					   gst_static_pad_template_get(&src_factory));
+					   gst_static_pad_template_get(&enc_src_factory));
 	gst_element_class_set_details(element_class, &plugin_details);
 }
 
-/** Dispose encoder
-	@param object Gstreamer element class
-*/
-static void gst_shvideo_enc_dispose(GObject * object)
+/**
+ * Dispose encoder
+ * @param object Gstreamer element class
+ */
+static void
+gst_sh_video_enc_dispose(GObject * object)
 {
 	GstSHVideoCapEnc *enc = GST_SH_VIDEO_CAPENC(object);
 	void *thread_ret;
@@ -327,7 +340,8 @@ static void gst_shvideo_enc_dispose(GObject * object)
 }
 
 
-static gboolean gst_shvideoenc_set_clock(GstElement * element, GstClock * clock)
+static gboolean
+gst_sh_video_enc_set_clock(GstElement * element, GstClock * clock)
 {
 	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) element;
 
@@ -345,61 +359,61 @@ static gboolean gst_shvideoenc_set_clock(GstElement * element, GstClock * clock)
 }
 
 
-/** Initialize the class for encoder
-	@param klass Gstreamer SH video encoder class
-*/
-static void gst_shvideo_enc_class_init(GstSHVideoCapEncClass * klass)
+/**
+ * Initialize the class for encoder
+ * @param klass Gstreamer SH video encoder class
+ */
+static void
+gst_sh_video_enc_class_init(GstSHVideoCapEncClass * klass)
 {
 	GObjectClass *gobject_class;
 	GstElementClass *gstelement_class;
 
-	GST_LOG("%s called", __func__);
 	gobject_class = (GObjectClass *) klass;
 	gstelement_class = (GstElementClass *) klass;
 
-	gobject_class->dispose = gst_shvideo_enc_dispose;
-	gobject_class->set_property = gst_shvideo_enc_set_property;
-	gobject_class->get_property = gst_shvideo_enc_get_property;
-	gstelement_class->set_clock = gst_shvideoenc_set_clock;
-	gstelement_class->change_state = gst_shvideo_enc_change_state;
+	gobject_class->dispose = gst_sh_video_enc_dispose;
+	gobject_class->set_property = gst_sh_video_enc_set_property;
+	gobject_class->get_property = gst_sh_video_enc_get_property;
+	gstelement_class->set_clock = gst_sh_video_enc_set_clock;
+	gstelement_class->change_state = gst_sh_video_enc_change_state;
 
 	GST_DEBUG_CATEGORY_INIT(gst_sh_video_capenc_debug,
-				"gst-sh-mobile-camera-enc", 0, "Encoder for H264/MPEG4 streams");
+		"gst-sh-mobile-camera-enc", 0, "Encoder for H264/MPEG4 streams");
 
 	g_object_class_install_property(gobject_class, PROP_CNTL_FILE,
-					g_param_spec_string("cntl-file",
-								"Control file location",
-								"Location of the file including encoding parameters",
-								NULL,
-								G_PARAM_READWRITE |
-								G_PARAM_STATIC_STRINGS));
+		g_param_spec_string("cntl-file",
+			"Control file location",
+			"Location of the file including encoding parameters",
+			NULL,
+			G_PARAM_READWRITE |
+			G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(gobject_class, PROP_PREVIEW,
-					g_param_spec_enum("preview",
-							  "Camera preview",
-							  "camera preview",
-							  GST_TYPE_CAMERA_PREVIEW,
-							  PREVIEW_OFF, G_PARAM_READWRITE));
+		g_param_spec_enum("preview",
+			"Camera preview",
+			"camera preview",
+			GST_TYPE_CAMERA_PREVIEW,
+			PREVIEW_OFF, G_PARAM_READWRITE));
 }
 
-/** Initialize the encoder
-	@param enc Gstreamer SH video element
-	@param gklass Gstreamer SH video encode class
-*/
-static void gst_shvideo_enc_init(GstSHVideoCapEnc * enc, GstSHVideoCapEncClass * gklass)
+/**
+ * Initialize the encoder
+ * @param enc Gstreamer SH video element
+ * @param gklass Gstreamer SH video encode class
+ */
+static void
+gst_sh_video_enc_init(GstSHVideoCapEnc * enc, GstSHVideoCapEncClass * gklass)
 {
 	GstElementClass *klass = GST_ELEMENT_GET_CLASS(enc);
 
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	enc->srcpad =
-		gst_pad_new_from_template(gst_element_class_get_pad_template(klass, "src"), "src");
-	gst_pad_set_setcaps_function(enc->srcpad, gst_shvideocameraenc_set_src_caps);
-
-	gst_pad_set_query_function(enc->srcpad,
-				   GST_DEBUG_FUNCPTR(gst_shvideo_enc_src_query));
-	gst_pad_set_event_function(enc->srcpad, GST_DEBUG_FUNCPTR(gst_shvideoenc_src_event));
-
+	enc->srcpad = gst_pad_new_from_template(
+		gst_element_class_get_pad_template(klass, "src"), "src");
+	gst_pad_set_setcaps_function(enc->srcpad, gst_sh_video_enc_set_src_caps);
+	gst_pad_set_query_function(enc->srcpad, gst_sh_video_enc_src_query);
+	gst_pad_set_event_function(enc->srcpad, gst_sh_video_enc_src_event);
 	gst_element_add_pad(GST_ELEMENT(enc), enc->srcpad);
 
 	enc->encoder = NULL;
@@ -422,12 +436,12 @@ static void gst_shvideo_enc_init(GstSHVideoCapEnc * enc, GstSHVideoCapEncClass *
 	enc->preview = PREVIEW_OFF;
 	enc->hold_output = TRUE;
 	enc->start_time_set = FALSE;
-	enc->output_buf = NULL;
+	enc->buffered_output = NULL;
 }
 
 
 static GstStateChangeReturn
-gst_shvideo_enc_change_state(GstElement * element, GstStateChange transition)
+gst_sh_video_enc_change_state(GstElement * element, GstStateChange transition)
 {
 	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) element;
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
@@ -442,7 +456,7 @@ gst_shvideo_enc_change_state(GstElement * element, GstStateChange transition)
 	case GST_STATE_CHANGE_READY_TO_PAUSED:
 		GST_DEBUG_OBJECT(enc, "GST_STATE_CHANGE_READY_TO_PAUSED");
 		enc->hold_output = FALSE;
-		gst_shvideo_enc_init_camera_encoder(enc);
+		gst_sh_video_enc_init_camera_encoder(enc);
 		break;
 	case GST_STATE_CHANGE_PAUSED_TO_PLAYING:
 		GST_DEBUG_OBJECT(enc, "GST_STATE_CHANGE_PAUSED_TO_PLAYING");
@@ -477,9 +491,11 @@ gst_shvideo_enc_change_state(GstElement * element, GstStateChange transition)
 
 
 
-/** Event handler for encoder src events, see GstPadEventFunction.
+/**
+ * Event handler for encoder src events, see GstPadEventFunction.
  */
-static gboolean gst_shvideoenc_src_event(GstPad * pad, GstEvent * event)
+static gboolean
+gst_sh_video_enc_src_event(GstPad * pad, GstEvent * event)
 {
 	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) (GST_OBJECT_PARENT(pad));
 	gboolean ret = TRUE;
@@ -498,15 +514,16 @@ static gboolean gst_shvideoenc_src_event(GstPad * pad, GstEvent * event)
 }
 
 
-/** The function will set the user defined control file name value for decoder
-	@param object The object where to get Gstreamer SH video Encoder object
-	@param prop_id The property id
-	@param value In this case file name if prop_id is PROP_CNTL_FILE
-	@param value In this case file name if prop_id is PROP_PREVIEW
-	@param pspec not used in fuction
-*/
+/**
+ * The function will set the user defined control file name value for decoder
+ * @param object The object where to get Gstreamer SH video Encoder object
+ * @param prop_id The property id
+ * @param value In this case file name if prop_id is PROP_CNTL_FILE
+ * @param value In this case file name if prop_id is PROP_PREVIEW
+ * @param pspec not used in fuction
+ */
 static void
-gst_shvideo_enc_set_property(GObject * object, guint prop_id,
+gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 				 const GValue * value, GParamSpec * pspec)
 {
 	GstSHVideoCapEnc *enc = GST_SH_VIDEO_CAPENC(object);
@@ -532,7 +549,7 @@ gst_shvideo_enc_set_property(GObject * object, guint prop_id,
 	@param pspec not used in fuction
 */
 static void
-gst_shvideo_enc_get_property(GObject * object, guint prop_id, GValue * value, GParamSpec * pspec)
+gst_sh_video_enc_get_property(GObject * object, guint prop_id, GValue * value, GParamSpec * pspec)
 {
 	GstSHVideoCapEnc *enc = GST_SH_VIDEO_CAPENC(object);
 
@@ -554,7 +571,8 @@ gst_shvideo_enc_get_property(GObject * object, guint prop_id, GValue * value, GP
  ******************/
 
 /* SHCodecs_Encoder_Input_Release callback */
-static int gst_shvideo_enc_release_input_buf(SHCodecs_Encoder * encoder,
+static int
+gst_sh_video_enc_release_input_buf(SHCodecs_Encoder * encoder,
                              unsigned char * y_input,
                              unsigned char * c_input,
                              void * user_data)
@@ -567,12 +585,14 @@ static int gst_shvideo_enc_release_input_buf(SHCodecs_Encoder * encoder,
 	return 0;
 }
 
-/** Callback function for the encoder input
-	@param encoder shcodecs encoder
-	@param user_data Gstreamer SH encoder object
-	@return 0 if encoder should continue. 1 if encoder should pause.
-*/
-static int gst_shvideo_enc_get_input(SHCodecs_Encoder *encoder, void *user_data)
+/**
+ * Callback function for the encoder input
+ * @param encoder shcodecs encoder
+ * @param user_data Gstreamer SH encoder object
+ * @return 0 if encoder should continue. 1 if encoder should pause.
+ */
+static int
+gst_sh_video_enc_get_input(SHCodecs_Encoder *encoder, void *user_data)
 {
 	GstSHVideoCapEnc *pvt = (GstSHVideoCapEnc *) user_data;
 	void *py, *pc;
@@ -592,94 +612,10 @@ static int gst_shvideo_enc_get_input(SHCodecs_Encoder *encoder, void *user_data)
 	return 0;
 }
 
-/** Callback function for the encoder output
-	@param encoder shcodecs encoder
-	@param data the encoded video frame
-	@param length size the encoded video frame buffer
-	@param user_data Gstreamer SH encoder object
-	@return 0 if encoder should continue. 1 if encoder should pause.
-*/
-static int
-gst_shvideo_enc_write_output(SHCodecs_Encoder * encoder,
-				 unsigned char *data, int length, void *user_data)
-{
-	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) user_data;
-	GstBuffer *buf = NULL;
-	gint ret = 0;
-	int frm_delta;
-
-	GST_LOG_OBJECT(enc, "Got %d bytes data\n", length);
-
-	if (length <= 0)
-		return 0;
-
-	buf = gst_buffer_new();
-	gst_buffer_set_data(buf, data, length);
-
-	if (enc->output_buf != NULL){
-		buf = gst_buffer_join(enc->output_buf, buf);
-		enc->output_buf = NULL;
-	}
-	frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
-
-	if (frm_delta){
-		GST_BUFFER_DURATION(buf) =
-			frm_delta * enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
-		GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
-		GST_BUFFER_OFFSET(buf) = enc->frame_number;
-		enc->frame_number += frm_delta;
-		ret = gst_pad_push(enc->srcpad, buf);
-		if (ret != GST_FLOW_OK) {
-			GST_DEBUG_OBJECT(enc, "pad_push failed: %s.", gst_flow_get_name(ret));
-			// Do not return -1. This would cause shcodecs_encoder_run to stop.
-			// TODO should keep data in case PAUSED before PLAYING
-		}
-	} else {
-		enc->output_buf = buf;
-	}
-
-	return 0;
-}
-
-/** Gstreamer source pad query
-	@param pad Gstreamer source pad
-	@param query Gsteamer query
-	@returns Returns the value of gst_pad_query_default
-*/
-static gboolean gst_shvideo_enc_src_query(GstPad * pad, GstQuery * query)
-{
-	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) (GST_OBJECT_PARENT(pad));
-	GST_LOG_OBJECT(enc, "%s called", __func__);
-	return gst_pad_query_default(pad, query);
-}
-
-/** Initializes the SH Hardware encoder
-	@param enc encoder object
-*/
-static void gst_shvideo_enc_init_camera_encoder(GstSHVideoCapEnc * enc)
-{
-	gint ret = 0;
-	glong fmt = 0;
-
-	GST_LOG_OBJECT(enc, "%s called", __func__);
-
-	ret = GetFromCtrlFTop((const char *)
-				  enc->ainfo.ctrl_file_name_buf, &enc->ainfo, &fmt);
-	if (ret < 0) {
-		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
-				  ("Error reading control file."), (NULL));
-	}
-
-	if (!enc->enc_thread) {
-		/* We'll have to launch the encoder in
-		   a separate thread to keep the pipeline running */
-		pthread_create(&enc->enc_thread, NULL, launch_camera_encoder_thread, enc);
-	}
-}
-
-/** Launches the encoder in an own thread
-	@param data encoder object
-*/
+/**
+ * Launches the encoder in an own thread
+ * @param data encoder object
+ */
 static void *launch_camera_encoder_thread(void *data)
 {
 	gint ret;
@@ -697,7 +633,7 @@ static void *launch_camera_encoder_thread(void *data)
 	if (enc->stop_encode_thr == TRUE)
 		return NULL;
 
-	gst_shvideocameraenc_read_src_caps(enc);
+	gst_sh_video_enc_read_src_caps(enc);
 	GST_LOG_OBJECT(enc, "set caps fps numerator %x fps denominator %x \n",
 			   enc->fps_numerator, enc->fps_denominator);
 
@@ -764,9 +700,9 @@ static void *launch_camera_encoder_thread(void *data)
 
 	enc->encoder = shcodecs_encoder_init(enc->width, enc->height, enc->format);
 
-	shcodecs_encoder_set_input_callback(enc->encoder, gst_shvideo_enc_get_input, enc);
-	shcodecs_encoder_set_output_callback(enc->encoder, gst_shvideo_enc_write_output, enc);
-	shcodecs_encoder_set_input_release_callback(enc->encoder, gst_shvideo_enc_release_input_buf, enc);
+	shcodecs_encoder_set_input_callback(enc->encoder, gst_sh_video_enc_get_input, enc);
+	shcodecs_encoder_set_output_callback(enc->encoder, gst_sh_video_enc_write_output, enc);
+	shcodecs_encoder_set_input_release_callback(enc->encoder, gst_sh_video_enc_release_input_buf, enc);
 
 	ret = GetFromCtrlFtoEncParam(enc->encoder, &enc->ainfo);
 	if (ret < 0) {
@@ -830,32 +766,36 @@ GType gst_shvideo_capenc_get_type(void)
 {
 	static GType object_type = 0;
 
-	GST_LOG("%s called", __func__);
-	if (object_type == 0) {
-		static const GTypeInfo object_info = {
+	if (object_type == 0)
+	{
+		static const GTypeInfo object_info =
+		{
 			sizeof(GstSHVideoCapEncClass),
-			gst_shvideo_enc_base_init,
+			gst_sh_video_enc_base_init,
 			NULL,
-			gst_shvideo_enc_init_class,
+			gst_sh_video_enc_init_class,
 			NULL,
 			NULL,
 			sizeof(GstSHVideoCapEnc),
 			0,
-			(GInstanceInitFunc) gst_shvideo_enc_init
+			(GInstanceInitFunc)gst_sh_video_enc_init
 		};
 
 		object_type =
 			g_type_register_static(GST_TYPE_ELEMENT,
-					   "gst-sh-mobile-camera-enc", &object_info,
-					   (GTypeFlags) 0);
+						"gst-sh-mobile-camera-enc",
+						&object_info, (GTypeFlags)0);
 	}
+
 	return object_type;
 }
 
-/** Reads the capabilities of the peer element behind source pad
-	@param enc encoder object
-*/
-static void gst_shvideocameraenc_read_src_caps(GstSHVideoCapEnc * enc)
+/** 
+ * Reads the capabilities of the peer element connected to the source pad
+ *  @param shvideoenc encoder object
+ */
+static void
+gst_sh_video_enc_read_src_caps(GstSHVideoCapEnc * enc)
 {
 	GstStructure *structure;
 
@@ -882,11 +822,13 @@ static void gst_shvideocameraenc_read_src_caps(GstSHVideoCapEnc * enc)
 }
 
 
-/** Sets the capabilities of the source pad
-	@param enc encoder object
-	@return TRUE if the capabilities could be set, otherwise FALSE
-*/
-static gboolean gst_shvideocameraenc_set_src_caps(GstPad * pad, GstCaps * caps)
+/** 
+ * Sets the capabilities of the source pad
+ * @param shvideoenc encoder object
+ * @return TRUE if the capabilities could be set, otherwise FALSE
+ */
+static gboolean
+gst_sh_video_enc_set_src_caps(GstPad * pad, GstCaps * caps)
 {
 	GstStructure *structure = NULL;
 	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) (GST_OBJECT_PARENT(pad));
@@ -938,17 +880,16 @@ static gboolean gst_shvideocameraenc_set_src_caps(GstPad * pad, GstCaps * caps)
 	}
 
 	if (!gst_pad_set_caps(enc->srcpad, caps)) {
-		GST_ELEMENT_ERROR((GstElement *) enc, CORE, NEGOTIATION,
-				  ("Source pad not linked."), (NULL));
+		GST_ELEMENT_ERROR((GstElement *)enc, CORE, NEGOTIATION,
+					("Source pad not linked."), (NULL));
 		ret = FALSE;
 	}
 	if (!gst_pad_set_caps(gst_pad_get_peer(enc->srcpad), caps)) {
-		GST_ELEMENT_ERROR((GstElement *) enc, CORE, NEGOTIATION,
-				  ("Source pad not linked."), (NULL));
+		GST_ELEMENT_ERROR((GstElement *)enc, CORE, NEGOTIATION,
+					("Source pad not linked."), (NULL));
 		ret = FALSE;
 	}
 	gst_caps_unref(caps);
-
 	return ret;
 }
 
@@ -961,3 +902,97 @@ gboolean gst_shvideo_camera_enc_plugin_init(GstPlugin * plugin)
 
 	return TRUE;
 }
+
+/** 
+ * Initializes the SH Hardware encoder
+ * @param shvideoenc encoder object
+ */
+static void
+gst_sh_video_enc_init_camera_encoder(GstSHVideoCapEnc * enc)
+{
+	gint ret = 0;
+	glong fmt = 0;
+
+	GST_LOG_OBJECT(enc, "%s called", __func__);
+
+	ret = GetFromCtrlFTop((const char *)
+			enc->ainfo.ctrl_file_name_buf,
+			&enc->ainfo,
+			&fmt);
+	if (ret < 0) {
+		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
+			("Error reading control file."), (NULL));
+	}
+
+	if (!enc->enc_thread) {
+		/* We'll have to launch the encoder in
+		   a separate thread to keep the pipeline running */
+		pthread_create(&enc->enc_thread, NULL, launch_camera_encoder_thread, enc);
+	}
+}
+
+/**
+ * Callback function for the encoder output
+ * @param encoder shcodecs encoder
+ * @param data the encoded video frame
+ * @param length size the encoded video frame buffer
+ * @param user_data Gstreamer SH encoder object
+ * @return 0 if encoder should continue. 1 if encoder should pause.
+ */
+static int
+gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
+			unsigned char *data, int length, void *user_data)
+{
+	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) user_data;
+	GstBuffer *buf = NULL;
+	gint ret = 0;
+	int frm_delta;
+
+	GST_LOG_OBJECT(enc, "Got %d bytes data frame number: %ld\n",
+				   length, enc->frame_number);
+
+	if (length <= 0)
+		return 0;
+
+	buf = gst_buffer_new();
+	gst_buffer_set_data(buf, data, length);
+
+	if (enc->buffered_output != NULL) {
+		buf = gst_buffer_join(enc->buffered_output, buf);
+		enc->buffered_output = NULL;
+	}
+	frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
+
+	if (frm_delta > 0) {
+		GST_BUFFER_DURATION(buf) =
+			frm_delta * enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
+		GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
+		GST_BUFFER_OFFSET(buf) = enc->frame_number;
+		enc->frame_number += frm_delta;
+		ret = gst_pad_push(enc->srcpad, buf);
+		if (ret != GST_FLOW_OK) {
+			GST_DEBUG_OBJECT(enc, "pad_push failed: %s.", gst_flow_get_name(ret));
+			// Do not return -1. This would cause shcodecs_encoder_run to stop.
+			// TODO should keep data in case PAUSED before PLAYING
+		}
+	} else {
+		enc->buffered_output = buf;
+	}
+
+	return 0;
+}
+
+/**
+ * Gstreamer source pad query
+ * @param pad Gstreamer source pad
+ * @param query Gsteamer query
+ * @return Returns the value of gst_pad_query_default
+ */
+static gboolean
+gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query)
+{
+	GstSHVideoCapEnc *enc = (GstSHVideoCapEnc *) (GST_OBJECT_PARENT(pad));
+	GST_LOG_OBJECT(enc, "%s called", __func__);
+	return gst_pad_query_default(pad, query);
+}
+

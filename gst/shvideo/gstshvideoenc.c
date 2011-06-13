@@ -108,16 +108,16 @@
  */
 static GstStaticPadTemplate enc_sink_factory =
 	GST_STATIC_PAD_TEMPLATE("sink",
-				 GST_PAD_SINK,
-				 GST_PAD_ALWAYS,
-				 GST_STATIC_CAPS(
-						"video/x-raw-yuv, "
-						"format = (fourcc) NV12,"
-						"width = (int) [48, 1280],"
-						"height = (int) [48, 720],"
-						"framerate = (fraction) [0, 30]"
-						)
-				 );
+		GST_PAD_SINK,
+		GST_PAD_ALWAYS,
+		GST_STATIC_CAPS(
+			"video/x-raw-yuv, "
+			"format = (fourcc) NV12,"
+			"width = (int) [48, 1280],"
+			"height = (int) [48, 720],"
+			"framerate = (fraction) [0, 30]"
+			)
+		);
 
 
 /**
@@ -133,23 +133,23 @@ static GstStaticPadTemplate enc_sink_factory =
  */
 static GstStaticPadTemplate enc_src_factory =
 	GST_STATIC_PAD_TEMPLATE("src",
-				 GST_PAD_SRC,
-				 GST_PAD_ALWAYS,
-				 GST_STATIC_CAPS(
-						"video/mpeg,"
-						"width  = (int) [48, 1280],"
-						"height = (int) [48, 720],"
-						"framerate = (fraction) [0, 30],"
-						"mpegversion = (int) 4"
-						"; "
-						"video/x-h264,"
-						"width  = (int) [48, 1280],"
-						"height = (int) [48, 720],"
-						"framerate = (fraction) [0, 30],"
-						"variant = (string) itu,"
-						"h264version = (string) h264"
-						)
-				 );
+		GST_PAD_SRC,
+		GST_PAD_ALWAYS,
+		GST_STATIC_CAPS(
+			"video/mpeg,"
+			"width  = (int) [48, 1280],"
+			"height = (int) [48, 720],"
+			"framerate = (fraction) [0, 30],"
+			"mpegversion = (int) 4"
+			"; "
+			"video/x-h264,"
+			"width  = (int) [48, 1280],"
+			"height = (int) [48, 720],"
+			"framerate = (fraction) [0, 30],"
+			"variant = (string) itu,"
+			"h264version = (string) h264"
+			)
+		);
 
 GST_DEBUG_CATEGORY_STATIC(gst_sh_video_enc_debug);
 #define GST_CAT_DEFAULT gst_sh_video_enc_debug
@@ -297,162 +297,48 @@ enum gst_sh_video_enc_properties
 #define STREAM_TYPE_MPEG4 "mpeg4"
 #define STREAM_TYPE_NONE ""
 
-/**
- * Initializes shvideoenc class
- * @param g_class Gclass
- * @param data user data pointer, unused in the function
- */
 static void gst_sh_video_enc_init_class(gpointer g_class, gpointer data);
-
-/**
- * Initializes SH hardware video encoder
- * @param klass Gstreamer element class
- */
 static void gst_sh_video_enc_base_init(gpointer klass);
-
-/**
- * Disposes the encoder
- * @param object Gstreamer element class
- */
 static void gst_sh_video_enc_dispose(GObject * object);
-
-/**
- * Initializes the class for encoder
- * @param klass Gstreamer SH video encoder class
- */
 static void gst_sh_video_enc_class_init(GstSHVideoEncClass *klass);
-
-/**
- * Initializes the encoder
- * @param shvideoenc Gstreamer SH video element
- * @param gklass Gstreamer SH video encode class
- */
 static void gst_sh_video_enc_init(GstSHVideoEnc *shvideoenc,
 					GstSHVideoEncClass *gklass);
-/**
- * Event handler for encoder sink events
- * @param pad Gstreamer sink pad
- * @param event The Gstreamer event
- * @return returns true if the event can be handled, else false
- */
 static gboolean gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event);
-
-/**
- * Initializes the encoder sink pad
- * @param pad Gstreamer sink pad
- * @param caps The capabilities of the data to encode
- * @return returns true if the video capatilies are supported and the video can
- * be decoded, else false
- */
 static gboolean gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps);
-
-/**
- * Handles the activation event. Activates the element in pull mode, if it
- * is supported.
- * @param pad Gstreamer sink pad
- * @return returns true if the event is handled without errors, else false
- */
 static gboolean	gst_sh_video_enc_activate(GstPad *pad);
-
-/**
- * Function to start the pad task
- * @param pad Gstreamer sink pad
- * @param active true if the task needs to be started or false to stop the task
- * @return returns true if the event is handled without errors, else false
- */
 static gboolean	gst_sh_video_enc_activate_pull(GstPad *pad, gboolean active);
-
-/**
- * The encoder function and launches the thread if needed
- * @param pad Gstreamer sink pad
- * @param buffer The raw data for encoding.
- * @return returns GST_FLOW_OK if the function runs without errors
- */
 static GstFlowReturn gst_sh_video_enc_chain(GstPad *pad, GstBuffer *buffer);
-
-/**
- * The encoder sink pad task
- * @param enc Gstreamer SH video encoder
- */
 static void gst_sh_video_enc_loop(GstSHVideoEnc *enc);
-
-/**
- * The function will set the encoder properties
- * @param object The object where to get Gstreamer SH video Encoder object
- * @param prop_id The property id
- * @param value The value of the property
- * @param pspec not used in the function
- */
 static void gst_sh_video_enc_set_property(GObject *object, guint prop_id,
-					   const GValue *value,
-					   GParamSpec * pspec);
-
-/**
- * The function will return the values of the encoder properties
- * @param object The object where to get Gstreamer SH video Encoder object
- * @param prop_id The property id
- * @param value The value of the property
- * @param pspec not used in the function
- */
+					const GValue *value, GParamSpec * pspec);
 static void gst_sh_video_enc_get_property(GObject * object, guint prop_id,
-					  GValue * value, GParamSpec * pspec);
-
-/**
- * The encoder sink event handler and calls sink pad push event
- * @param pad Gstreamer sink pad
- * @param event Event information
- * @return Returns the value of gst_pad_push_event()
- */
-static gboolean gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event);
-
-/**
- * Gstreamer source pad query
- * @param pad Gstreamer source pad
- * @param query Gsteamer query
- * @return Returns the value of gst_pad_query_default
- */
+					GValue * value, GParamSpec * pspec);
 static gboolean gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query);
-
-/**
- * Callback function for the encoder output
- * @param encoder shcodecs encoder
- * @param data the encoded video frame
- * @param length size the encoded video frame buffer
- * @param user_data Gstreamer SH encoder object
- * @return 0 if encoder should continue. 1 if encoder should pause.
- */
 static int gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 					unsigned char *data, int length,
 					void *user_data);
-
-/**
- * Callback function for the encoder input used
- * @param encoder shcodecs encoder
- * @param y_input the used input video frame (luma)
- * @param c_input the used input video frame (chroma)
- * @param user_data Gstreamer SH encoder object
- * @return 0 if encoder should continue. 1 if encoder should pause.
- */
 static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
 					unsigned char * y_input,
 					unsigned char * c_input,
 					void * user_data);
-
-/**
- * GStreamer state handling. We need this for pausing the encoder.
- * @param element GStreamer element
- * @param transition Flag indicating which transition to handle
- * @return GST_STATE_CHANGE_SUCCESS if everything is ok. Otherwise
- *         GST_STATE_CHANGE_FAILURE
- */
 static GstStateChangeReturn
 gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition);
 
 static GstFlowReturn
 gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
 	GstCaps * caps, GstBuffer ** buf);
+static void gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc);
+static void gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc);
+static void gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc);
+static gboolean gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc);
+static gboolean gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc);
 
 
+/**
+ * Initialize shvideoenc class
+ * @param g_class Gclass
+ * @param data user data pointer, unused in the function
+ */
 static void
 gst_sh_video_enc_init_class(gpointer g_class, gpointer data)
 {
@@ -488,6 +374,10 @@ GType gst_sh_video_enc_get_type(void)
 	return object_type;
 }
 
+/**
+ * Initializes SH hardware video encoder
+ * @param klass Gstreamer element class
+ */
 static void
 gst_sh_video_enc_base_init(gpointer klass)
 {
@@ -505,6 +395,10 @@ gst_sh_video_enc_base_init(gpointer klass)
 	gst_element_class_set_details(element_class, &plugin_details);
 }
 
+/**
+ * Disposes the encoder
+ * @param object Gstreamer element class
+ */
 static void
 gst_sh_video_enc_dispose(GObject * object)
 {
@@ -518,6 +412,10 @@ gst_sh_video_enc_dispose(GObject * object)
 	G_OBJECT_CLASS(parent_class)->dispose(object);
 }
 
+/**
+ * Initializes the class for encoder
+ * @param klass Gstreamer SH video encoder class
+ */
 static void
 gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 {
@@ -1233,6 +1131,11 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 	gst_element_class->change_state = gst_sh_video_enc_change_state;
 }
 
+/**
+ * Initializes the encoder
+ * @param shvideoenc Gstreamer SH video element
+ * @param gklass Gstreamer SH video encode class
+ */
 static void
 gst_sh_video_enc_init(GstSHVideoEnc * enc,
 		GstSHVideoEncClass * gklass)
@@ -1242,31 +1145,25 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	enc->sinkpad = gst_pad_new_from_template(
-						gst_element_class_get_pad_template(klass, "sink"),
-						"sink");
-
-	gst_element_add_pad(GST_ELEMENT(enc), enc->sinkpad);
-
+		gst_element_class_get_pad_template(klass, "sink"), "sink");
 	gst_pad_set_setcaps_function(enc->sinkpad,  gst_sh_video_enc_set_caps);
 	gst_pad_set_activate_function(enc->sinkpad, gst_sh_video_enc_activate);
 	gst_pad_set_activatepull_function(enc->sinkpad, gst_sh_video_enc_activate_pull);
 	gst_pad_set_event_function(enc->sinkpad, gst_sh_video_enc_sink_event);
 	gst_pad_set_chain_function(enc->sinkpad, gst_sh_video_enc_chain);
-	enc->srcpad = gst_pad_new_from_template(
-					gst_element_class_get_pad_template(klass, "src"), "src");
-	gst_pad_use_fixed_caps(enc->srcpad);
-
-	gst_pad_set_query_function(enc->srcpad, GST_DEBUG_FUNCPTR(gst_sh_video_enc_src_query));
-
-	gst_element_add_pad(GST_ELEMENT(enc), enc->srcpad);
-
 	gst_pad_set_bufferalloc_function (enc->sinkpad, gst_sh_video_enc_sink_buffer_alloc);
+	gst_element_add_pad(GST_ELEMENT(enc), enc->sinkpad);
+
+	enc->srcpad = gst_pad_new_from_template(
+		gst_element_class_get_pad_template(klass, "src"), "src");
+	gst_pad_use_fixed_caps(enc->srcpad);
+	gst_pad_set_query_function(enc->srcpad, gst_sh_video_enc_src_query);
+	gst_element_add_pad(GST_ELEMENT(enc), enc->srcpad);
 
 	enc->uiomux = uiomux_open();
 
 	enc->encoder = NULL;
 	enc->caps_set = FALSE;
-
 	enc->format = SHCodecs_Format_NONE;
 	enc->out_caps = NULL;
 	enc->width = 0;
@@ -1274,10 +1171,8 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	enc->fps_numerator = 0;
 	enc->fps_denominator = 0;
 	enc->frame_number = 0;
-
 	enc->stream_stopped = FALSE;
 	enc->eos = FALSE;
-
 	enc->buffered_output = NULL;
 
 	/* PROPERTIES */
@@ -1380,6 +1275,13 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	enc->constrained_intra_pred = DEFAULT_CONSTRAINED_INTRA_PRED;
 }
 
+/**
+ * The function will set the encoder properties
+ * @param object The object where to get Gstreamer SH video Encoder object
+ * @param prop_id The property id
+ * @param value The value of the property
+ * @param pspec not used in the function
+ */
 static void
 gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 		const GValue * value, GParamSpec * pspec)
@@ -1909,6 +1811,13 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 	}
 }
 
+/**
+ * The function will return the values of the encoder properties
+ * @param object The object where to get Gstreamer SH video Encoder object
+ * @param prop_id The property id
+ * @param value The value of the property
+ * @param pspec not used in the function
+ */
 static void
 gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 		GValue * value, GParamSpec * pspec)
@@ -1924,7 +1833,7 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 			g_value_set_string(value, enc->ainfo.ctrl_file_name_buf);
 			break;
 		}
-	/* COMMON */
+		/* COMMON */
 		case PROP_STREAM_TYPE:
 		{
 			switch (enc->format)
@@ -2087,7 +1996,7 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 			g_value_set_ulong(value, enc->changeable_max_bitrate);
 			break;
 		}
-	/* MPEG4 */
+		/* MPEG4 */
 		case PROP_OUT_VOS:
 		{
 			g_value_set_ulong(value, enc->out_vos);
@@ -2439,6 +2348,12 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 	}
 }
 
+/**
+ * Event handler for encoder sink events
+ * @param pad Gstreamer sink pad
+ * @param event The Gstreamer event
+ * @return returns true if the event can be handled, else false
+ */
 static gboolean
 gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event)
 {
@@ -2453,6 +2368,13 @@ gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event)
 	return gst_pad_push_event(enc->srcpad, event);
 }
 
+/**
+ * Initializes the encoder sink pad
+ * @param pad Gstreamer sink pad
+ * @param caps The capabilities of the data to encode
+ * @return returns true if the video capatilies are supported and the video can
+ * be decoded, else false
+ */
 static gboolean
 gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps)
 {
@@ -2494,7 +2416,11 @@ gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps)
 	return ret;
 }
 
-void
+/** 
+ * Reads the capabilities of the peer element connected to the sink pad
+ * @param shvideoenc encoder object
+ */
+static void
 gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc)
 {
 	GstStructure *structure;
@@ -2521,14 +2447,18 @@ gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc)
 	}
 }
 
-void
+/** 
+ * Reads the capabilities of the peer element connected to the source pad
+ *  @param shvideoenc encoder object
+ */
+static void
 gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc)
 {
 	GstStructure *structure;
 
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
-	// get the caps of the next element in chain
+	/* Get the caps of the next element in chain */
 	enc->out_caps = gst_pad_peer_get_caps(enc->srcpad);
 
 	if (!gst_caps_is_any(enc->out_caps) &&
@@ -2543,7 +2473,12 @@ gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc)
 	}
 }
 
-gboolean
+/** 
+ * Sets the capabilities of the source pad
+ * @param shvideoenc encoder object
+ * @return TRUE if the capabilities could be set, otherwise FALSE
+ */
+static gboolean
 gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc)
 {
 	GstCaps* caps = NULL;
@@ -2570,12 +2505,12 @@ gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc)
 	}
 
 	if (!gst_pad_set_caps(enc->srcpad, caps)) {
-		GST_ELEMENT_ERROR((GstElement*)enc, CORE, NEGOTIATION,
+		GST_ELEMENT_ERROR((GstElement *)enc, CORE, NEGOTIATION,
 					("Source pad not linked."), (NULL));
 		ret = FALSE;
 	}
 	if (!gst_pad_set_caps(gst_pad_get_peer(enc->srcpad), caps)) {
-		GST_ELEMENT_ERROR((GstElement*)enc, CORE, NEGOTIATION,
+		GST_ELEMENT_ERROR((GstElement *)enc, CORE, NEGOTIATION,
 					("Source pad not linked."), (NULL));
 		ret = FALSE;
 	}
@@ -2583,7 +2518,11 @@ gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc)
 	return ret;
 }
 
-void
+/** 
+ * Initializes the SH Hardware encoder
+ * @param shvideoenc encoder object
+ */
+static void
 gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 {
 	gint ret = 0;
@@ -2599,8 +2538,7 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 				&fmt);
 		if (ret < 0) {
 			GST_ELEMENT_ERROR((GstElement*)enc, CORE, FAILED,
-				  ("Error reading the top of control file."),
-				  (NULL));
+				("Error reading the control file."), (NULL));
 		}
 
 		if (enc->format == SHCodecs_Format_NONE) {
@@ -2681,6 +2619,12 @@ gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc)
 			 shcodecs_encoder_get_stream_type(enc->encoder));
 }
 
+/**
+ * Handles the activation event. Activates the element in pull mode, if it
+ * is supported.
+ * @param pad Gstreamer sink pad
+ * @return returns true if the event is handled without errors, else false
+ */
 static gboolean
 gst_sh_video_enc_activate(GstPad * pad)
 {
@@ -2701,6 +2645,13 @@ gst_sh_video_enc_activate(GstPad * pad)
 	return ret;
 }
 
+/**
+ * GStreamer state handling. We need this for pausing the encoder.
+ * @param element GStreamer element
+ * @param transition Flag indicating which transition to handle
+ * @return GST_STATE_CHANGE_SUCCESS if everything is ok. Otherwise
+ *         GST_STATE_CHANGE_FAILURE
+ */
 static GstStateChangeReturn
 gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition)
 {
@@ -2777,6 +2728,12 @@ gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
 	return GST_FLOW_OK;
 }
 
+/**
+ * The encoder function and launches the thread if needed
+ * @param pad Gstreamer sink pad
+ * @param buffer The raw data for encoding.
+ * @return returns GST_FLOW_OK if the function runs without errors
+ */
 static GstFlowReturn
 gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 {
@@ -2831,6 +2788,12 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 	return GST_FLOW_OK;
 }
 
+/**
+ * Function to start the pad task
+ * @param pad Gstreamer sink pad
+ * @param active true if the task needs to be started or false to stop the task
+ * @return returns true if the event is handled without errors, else false
+ */
 static gboolean
 gst_sh_video_enc_activate_pull(GstPad  *pad,
 					 gboolean active)
@@ -2848,6 +2811,10 @@ gst_sh_video_enc_activate_pull(GstPad  *pad,
 	}
 }
 
+/**
+ * The encoder sink pad task
+ * @param enc Gstreamer SH video encoder
+ */
 static void
 gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 {
@@ -2913,6 +2880,14 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 	}
 }
 
+/**
+ * Callback function for the encoder output
+ * @param encoder shcodecs encoder
+ * @param data the encoded video frame
+ * @param length size the encoded video frame buffer
+ * @param user_data Gstreamer SH encoder object
+ * @return 0 if encoder should continue. 1 if encoder should pause.
+ */
 static int
 gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 			unsigned char *data, int length, void *user_data)
@@ -2920,47 +2895,56 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 	GstSHVideoEnc *enc = (GstSHVideoEnc *) user_data;
 	GstBuffer *buf = NULL;
 	gint ret = 0;
+	int frm_delta;
 
-	GST_LOG_OBJECT(enc, "%s called. Got %d bytes data frame number: %ld\n",
-				   __func__, length, enc->frame_number);
+	GST_LOG_OBJECT(enc, "Got %d bytes data frame number: %ld\n",
+				   length, enc->frame_number);
 
 	if (enc->stream_stopped)
 	{
 		GST_DEBUG_OBJECT(enc, "Encoding stop requested, returning 1");
 		ret = 1;
 	}
-	else if (length) {
-		int frm_delta;
 
-		buf = gst_buffer_new();
-		gst_buffer_set_data(buf, data, length);
+	if (length <= 0)
+		return 0;
 
-		if (enc->buffered_output != NULL) {
-			buf = gst_buffer_join(enc->buffered_output, buf);
-			enc->buffered_output = NULL;
+	buf = gst_buffer_new();
+	gst_buffer_set_data(buf, data, length);
+
+	if (enc->buffered_output != NULL) {
+		buf = gst_buffer_join(enc->buffered_output, buf);
+		enc->buffered_output = NULL;
+	}
+	frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
+
+	if (frm_delta > 0) {
+		GST_BUFFER_DURATION(buf) =
+			enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
+		GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
+		GST_BUFFER_OFFSET(buf) = enc->frame_number;
+		enc->frame_number += frm_delta;
+
+		ret = gst_pad_push(enc->srcpad, buf);
+		if (ret != GST_FLOW_OK) {
+			GST_DEBUG_OBJECT(enc, "pad_push failed: %s", gst_flow_get_name(ret));
+			ret = -1;
 		}
-		frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
-
-		if (frm_delta > 0) {
-			GST_BUFFER_DURATION(buf) =
-				enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
-			GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
-			GST_BUFFER_OFFSET(buf) = enc->frame_number;
-			enc->frame_number += frm_delta;
-
-			ret = gst_pad_push(enc->srcpad, buf);
-			if (ret != GST_FLOW_OK) {
-				GST_DEBUG_OBJECT(enc, "pad_push failed: %s", gst_flow_get_name(ret));
-				ret = -1;
-			}
-		} else {
-			enc->buffered_output = buf;
-		}
+	} else {
+		enc->buffered_output = buf;
 	}
 
 	return ret;
 }
 
+/**
+ * Callback function for the encoder input used
+ * @param encoder shcodecs encoder
+ * @param y_input the used input video frame (luma)
+ * @param c_input the used input video frame (chroma)
+ * @param user_data Gstreamer SH encoder object
+ * @return 0 if encoder should continue. 1 if encoder should pause.
+ */
 static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
 					unsigned char * y_input,
 					unsigned char * c_input,
@@ -2971,6 +2955,12 @@ static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
 	return 0;
 }
 
+/**
+ * Gstreamer source pad query
+ * @param pad Gstreamer source pad
+ * @param query Gsteamer query
+ * @return Returns the value of gst_pad_query_default
+ */
 static gboolean
 gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query)
 {
@@ -2979,6 +2969,10 @@ gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query)
 	return gst_pad_query_default(pad, query);
 }
 
+/** 
+ * Sets the properties of the hardware encoder
+ * @return TRUE if the properties could be set, otherwise FALSE
+ */
 gboolean
 gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc)
 {

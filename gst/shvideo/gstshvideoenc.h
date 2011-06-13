@@ -184,36 +184,5 @@ struct _GstSHVideoEncClass
  */
 GType gst_sh_video_enc_get_type (void);
 
-/** 
- * Initializes the SH Hardware encoder
- * @param shvideoenc encoder object
- */
-void gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc);
-
-/** 
- * Reads the capabilities of the peer element connected to the sink pad
- * @param shvideoenc encoder object
- */
-void gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc);
-
-/** 
- * Reads the capabilities of the peer element connected to the source pad
- *  @param shvideoenc encoder object
- */
-void gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc);
-
-/** 
- * Sets the capabilities of the source pad
- * @param shvideoenc encoder object
- * @return TRUE if the capabilities could be set, otherwise FALSE
- */
-gboolean gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc);
-
-/** 
- * Sets the properties of the hardware encoder
- * @return TRUE if the properties could be set, otherwise FALSE
- */
-gboolean gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc);
-
 G_END_DECLS
 #endif
