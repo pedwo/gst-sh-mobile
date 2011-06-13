@@ -85,6 +85,13 @@ gst-launch -e \
  ! queue ! gst-sh-mobile-enc cntl_file=ctl/h264-video0-qvga-stream.ctl \
  ! filesink location=tmp.264
 
+# camera => videorate => encoder => file
+gst-launch -e \
+ v4l2src device=/dev/video0 ! "video/x-raw-yuv, format=(fourcc)NV12, width=1280, height=720, framerate=30/1" \
+ ! videorate ! "video/x-raw-yuv, framerate=15/1" \
+ ! queue ! gst-sh-mobile-enc cntl_file=ctl/h264-video0-720p-stream.ctl ! "video/x-h264" \
+ ! filesink location=tmp.264
+
 # camera => resize => encoder => file
 gst-launch -e \
  v4l2src device=/dev/video0 ! "video/x-raw-yuv, format=(fourcc)NV12, width=640, height=480, framerate=30/1" \
@@ -151,6 +158,14 @@ gst-launch \
  ! "video/x-raw-yuv, width=320, height=240" \
  ! gst-sh-mobile-enc stream-type=h264 bitrate=250000 \
  ! filesink location=tmp.264
+
+# camera => videorate => encoder => MP4 mux => file
+gst-launch -v -e \
+ v4l2src device=/dev/video0 ! "video/x-raw-yuv, format=(fourcc)NV12, width=1280, height=720, framerate=30/1" \
+ ! videorate ! "video/x-raw-yuv, framerate=15/1" \
+ ! queue ! gst-sh-mobile-enc cntl_file=ctl/h264-video0-720p-stream.ctl ! "video/x-h264" \
+ ! queue ! mp4mux \
+ ! filesink location=tmp.mp4
 
 # file => decode => display
 gst-launch \
