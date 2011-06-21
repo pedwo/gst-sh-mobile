@@ -69,6 +69,9 @@ struct _GstSHVideoEnc
 
 	GstBuffer *buffered_output;
 
+	/* for holding timestamp information */
+	GQueue *delay;
+
 	/* PROPERTIES */
 	/* common */
 	glong bitrate;

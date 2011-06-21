@@ -299,7 +299,7 @@ enum gst_sh_video_enc_properties
 
 static void gst_sh_video_enc_init_class(gpointer g_class, gpointer data);
 static void gst_sh_video_enc_base_init(gpointer klass);
-static void gst_sh_video_enc_dispose(GObject * object);
+static void gst_sh_video_enc_finalize(GObject * object);
 static void gst_sh_video_enc_class_init(GstSHVideoEncClass *klass);
 static void gst_sh_video_enc_init(GstSHVideoEnc *shvideoenc,
 					GstSHVideoEncClass *gklass);
@@ -396,11 +396,11 @@ gst_sh_video_enc_base_init(gpointer klass)
 }
 
 /**
- * Disposes the encoder
+ * finalizes the encoder
  * @param object Gstreamer element class
  */
 static void
-gst_sh_video_enc_dispose(GObject * object)
+gst_sh_video_enc_finalize(GObject * object)
 {
 	GstSHVideoEnc *enc = GST_SH_VIDEO_ENC(object);
 
@@ -408,8 +408,10 @@ gst_sh_video_enc_dispose(GObject * object)
 		shcodecs_encoder_close(enc->encoder);
 		enc->encoder = NULL;
 	}
+	g_queue_free (enc->delay);
+	enc->delay = NULL;
 
-	G_OBJECT_CLASS(parent_class)->dispose(object);
+	G_OBJECT_CLASS(parent_class)->finalize(object);
 }
 
 /**
@@ -425,9 +427,9 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 	g_object_class = (GObjectClass *)klass;
 	gst_element_class = (GstElementClass *)klass;
 
-	g_object_class->dispose = gst_sh_video_enc_dispose;
 	g_object_class->set_property = gst_sh_video_enc_set_property;
 	g_object_class->get_property = gst_sh_video_enc_get_property;
+	g_object_class->finalize = gst_sh_video_enc_finalize;
 
 	GST_DEBUG_CATEGORY_INIT(gst_sh_video_enc_debug, "gst-sh-mobile-enc",
 			0, "Encoder for H264/MPEG4 streams");
@@ -1174,6 +1176,8 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	enc->stream_stopped = FALSE;
 	enc->eos = FALSE;
 	enc->buffered_output = NULL;
+
+	enc->delay = g_queue_new ();
 
 	/* PROPERTIES */
 	/* common */
@@ -2781,6 +2785,9 @@ gst_sh_video_enc_chain(GstPad * pad, GstBuffer * buffer)
 		return GST_FLOW_OK;
 	}
 
+	/* remember the timestamp and duration */
+	g_queue_push_tail (enc->delay, buffer);
+
 	py = GST_BUFFER_DATA(buffer);
 	pc = py + luma_size;
 
@@ -2901,8 +2908,10 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 {
 	GstSHVideoEnc *enc = (GstSHVideoEnc *) user_data;
 	GstBuffer *buf = NULL;
+	GstBuffer *in_buf = NULL;
 	gint ret = 0;
 	int frm_delta;
+	int frame;
 
 	GST_LOG_OBJECT(enc, "Got %d bytes data frame number: %ld\n",
 				   length, enc->frame_number);
@@ -2926,10 +2935,20 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 	frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
 
 	if (frm_delta > 0) {
-		GST_BUFFER_DURATION(buf) =
-			enc->fps_denominator * 1000 * GST_MSECOND / enc->fps_numerator;
-		GST_BUFFER_TIMESTAMP(buf) = enc->frame_number * GST_BUFFER_DURATION(buf);
-		GST_BUFFER_OFFSET(buf) = enc->frame_number;
+		/* Frame(s) have been encoded */
+		for (frame=0; frame<frm_delta; frame++) {
+			in_buf = g_queue_pop_head (enc->delay);
+		}
+		if (in_buf) {
+			GST_BUFFER_TIMESTAMP (buf) = GST_BUFFER_TIMESTAMP (in_buf);
+			GST_BUFFER_DURATION (buf) = GST_BUFFER_DURATION (in_buf);
+			gst_buffer_unref (in_buf);
+		} else {
+			GST_ELEMENT_ERROR (enc, STREAM, ENCODE, (NULL),
+				("Timestamp queue empty."));
+			return GST_FLOW_ERROR;
+		}
+
 		enc->frame_number += frm_delta;
 
 		ret = gst_pad_push(enc->srcpad, buf);
@@ -2938,6 +2957,7 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 			ret = -1;
 		}
 	} else {
+		/* partial data, e.g. AUD, so collect into one buffer */
 		enc->buffered_output = buf;
 	}
 
@@ -2957,8 +2977,7 @@ static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
 					unsigned char * c_input,
 					void * user_data)
 {
-	GstBuffer *buffer = shcodecs_encoder_get_input_user_data(encoder);
-	gst_buffer_unref(buffer);
+	/* Nothing to do */
 	return 0;
 }
 
