@@ -147,7 +147,9 @@ static GstStaticPadTemplate enc_src_factory =
 			"height = (int) [48, 720],"
 			"framerate = (fraction) [0, 30],"
 			"variant = (string) itu,"
-			"h264version = (string) h264"
+			"h264version = (string) h264,"
+			"stream-format = (string) byte-stream,"
+			"alignment = (string) au"
 			)
 		);
 
