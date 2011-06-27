@@ -127,34 +127,34 @@
  */
 static GstStaticPadTemplate dec_sink_factory =
 	GST_STATIC_PAD_TEMPLATE ("sink",
-				 GST_PAD_SINK,
-				 GST_PAD_ALWAYS,
-				 GST_STATIC_CAPS (
-						  "video/mpeg,"
-						  "width  = (int) [48, 1280],"
-						  "height = (int) [48, 720],"
-						  "framerate = (fraction) [0, 30],"
-						  "mpegversion = (int) 4"
-						  ";"
-						  "video/x-h264,"
-						  "width  = (int) [48, 1280],"
-						  "height = (int) [48, 720],"
-						  "framerate = (fraction) [0, 30],"
-						  "variant = (string) itu,"
-						  "h264version = (string) h264"
-						  ";"
-						  "video/x-divx,"
-						  "width  = (int) [48, 1280],"
-						  "height = (int) [48, 720],"
-						  "framerate = (fraction) [0, 30],"
-						  "divxversion =  {4, 5, 6}"
-						  ";"
-						  "video/x-xvid,"
-						  "width  = (int) [48, 1280],"
-						  "height = (int) [48, 720],"
-						  "framerate = (fraction) [0, 30]"
-						  )
-				 );
+		GST_PAD_SINK,
+		GST_PAD_ALWAYS,
+		GST_STATIC_CAPS (
+			  "video/mpeg,"
+			  "width  = (int) [48, 1280],"
+			  "height = (int) [48, 720],"
+			  "framerate = (fraction) [0, 30],"
+			  "mpegversion = (int) 4"
+			  ";"
+			  "video/x-h264,"
+			  "width  = (int) [48, 1280],"
+			  "height = (int) [48, 720],"
+			  "framerate = (fraction) [0, 30],"
+			  "variant = (string) itu,"
+			  "h264version = (string) h264"
+			  ";"
+			  "video/x-divx,"
+			  "width  = (int) [48, 1280],"
+			  "height = (int) [48, 720],"
+			  "framerate = (fraction) [0, 30],"
+			  "divxversion =  {4, 5, 6}"
+			  ";"
+			  "video/x-xvid,"
+			  "width  = (int) [48, 1280],"
+			  "height = (int) [48, 720],"
+			  "framerate = (fraction) [0, 30]"
+			  )
+		);
 
 /**
  * \var dec_src_factory
@@ -167,16 +167,16 @@ static GstStaticPadTemplate dec_sink_factory =
  */
 static GstStaticPadTemplate dec_src_factory =
 	GST_STATIC_PAD_TEMPLATE ("src",
-				 GST_PAD_SRC,
-				 GST_PAD_ALWAYS,
-				 GST_STATIC_CAPS (
-						  "video/x-raw-yuv, "
-						  "format = (fourcc) NV12,"
-						  "width = (int) [48, 1280],"
-						  "height = (int) [48, 720],"
-						  "framerate = (fraction) [0, 30]"
-						  )
-				 );
+		GST_PAD_SRC,
+		GST_PAD_ALWAYS,
+		GST_STATIC_CAPS (
+			  "video/x-raw-yuv, "
+			  "format = (fourcc) NV12,"
+			  "width = (int) [48, 1280],"
+			  "height = (int) [48, 720],"
+			  "framerate = (fraction) [0, 30]"
+			  )
+		);
 
 
 static GstElementClass *parent_class = NULL;
@@ -553,13 +553,14 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 						dec);
 
 	/* Set SRC caps */
-	src_caps = gst_caps_new_simple ("video/x-raw-yuv",
-					"format", GST_TYPE_FOURCC, GST_MAKE_FOURCC('N','V','1','2'),
-					"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator,
-					"width", G_TYPE_INT, dec->width,
-					"height", G_TYPE_INT, dec->height,
-					"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator,
-					NULL);
+	src_caps = gst_caps_new_simple (
+		"video/x-raw-yuv",
+		"format", GST_TYPE_FOURCC, GST_MAKE_FOURCC('N','V','1','2'),
+		"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator,
+		"width", G_TYPE_INT, dec->width,
+		"height", G_TYPE_INT, dec->height,
+		"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator,
+		NULL);
 
 	if (!gst_pad_set_caps(dec->srcpad,src_caps)) {
 		GST_ELEMENT_ERROR((GstElement*)dec,CORE,NEGOTIATION,
@@ -587,51 +588,50 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 		pthread_create( &dec->push_thread, NULL, gst_sh_video_dec_pad_push, dec);
 	}
 
-	if (dec->codec_data_present == TRUE) {	//This is for mp4 file playback
-		if (dec->format == SHCodecs_Format_H264) {
-			gint orig_bsize;
-			gint bsize;
-			guint8 *bdata = GST_BUFFER_DATA(buffer);
+	if ((dec->codec_data_present == TRUE) &&
+	    (dec->format == SHCodecs_Format_H264)) { //This is for mp4 file playback
+		gint orig_bsize;
+		gint bsize;
+		guint8 *bdata = GST_BUFFER_DATA(buffer);
 
-			bsize = orig_bsize = GST_BUFFER_SIZE(buffer);
-			if (dec->codec_data_present_first == TRUE) {
-				if (*(bdata + 4) == 0x09) {	//an AUD NAL at the beginning
-					guint size = 0;
+		bsize = orig_bsize = GST_BUFFER_SIZE(buffer);
+		if (dec->codec_data_present_first == TRUE) {
+			if (*(bdata + 4) == 0x09) {	//an AUD NAL at the beginning
+				guint size = 0;
+				size = (*bdata++) << 24;
+				size += (*bdata++) << 16;
+				size += (*bdata++) << 8;
+				size += (*bdata++);
+				bdata += size;
+				bsize -= size;
+				if (*(bdata + 4) == 0x06) {	//an SEI NAL
+					size = 0;
 					size = (*bdata++) << 24;
 					size += (*bdata++) << 16;
 					size += (*bdata++) << 8;
 					size += (*bdata++);
 					bdata += size;
 					bsize -= size;
-					if (*(bdata + 4) == 0x06) {	//an SEI NAL
-						size = 0;
-						size = (*bdata++) << 24;
-						size += (*bdata++) << 16;
-						size += (*bdata++) << 8;
-						size += (*bdata++);
-						bdata += size;
-						bsize -= size;
-					}
-					if (*(bdata + 4) == 0x67) {	//an SPS NAL
-						dec->codec_data_present_first = FALSE;	//SPS and PPS NAL already in data
-						buffer =
-							gst_buffer_create_sub(buffer, orig_bsize - bsize,
-									  bsize);
-					}
+				}
+				if (*(bdata + 4) == 0x67) {	//an SPS NAL
+					dec->codec_data_present_first = FALSE;	//SPS and PPS NAL already in data
+					buffer =
+						gst_buffer_create_sub(buffer, orig_bsize - bsize,
+								  bsize);
 				}
 			}
-			*bdata = 0x00;
-			*(bdata + 1) = 0x00;
-			*(bdata + 2) = 0x00;
-			*(bdata + 3) = 0x01;
+		}
+		*bdata = 0x00;
+		*(bdata + 1) = 0x00;
+		*(bdata + 2) = 0x00;
+		*(bdata + 3) = 0x01;
 
-			if (dec->codec_data_present_first == TRUE) {
-				dec->codec_data_present_first = FALSE;
-				dec->codec_data_sps_buf =
-					gst_buffer_join(dec->codec_data_sps_buf,
-							dec->codec_data_pps_buf);
-				buffer = gst_buffer_join(dec->codec_data_sps_buf, buffer);
-			}
+		if (dec->codec_data_present_first == TRUE) {
+			dec->codec_data_present_first = FALSE;
+			dec->codec_data_sps_buf =
+				gst_buffer_join(dec->codec_data_sps_buf,
+						dec->codec_data_pps_buf);
+			buffer = gst_buffer_join(dec->codec_data_sps_buf, buffer);
 		}
 	}
 
