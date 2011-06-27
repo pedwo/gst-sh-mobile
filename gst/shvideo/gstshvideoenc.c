@@ -410,6 +410,12 @@ gst_sh_video_enc_finalize(GObject * object)
 		shcodecs_encoder_close(enc->encoder);
 		enc->encoder = NULL;
 	}
+
+	if (enc->uiomux) {
+		uiomux_close(enc->uiomux);
+		enc->uiomux = NULL;
+	}
+
 	g_queue_free (enc->delay);
 	enc->delay = NULL;
 
