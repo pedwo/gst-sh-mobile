@@ -323,11 +323,7 @@ gst_sh_video_dec_dispose (GObject * object)
 {
 	GstSHVideoDec *dec = GST_SH_VIDEO_DEC (object);
 
-	GST_LOG_OBJECT(dec,"%s called\n", __func__);
-
-	if (dec->decoder != NULL)
-	{
-		GST_LOG_OBJECT (dec, "close decoder object %p", dec->decoder);
+	if (dec->decoder != NULL) {
 		shcodecs_decoder_close (dec->decoder);
 	}
 	dec->end = TRUE;
@@ -355,8 +351,6 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 {
 	GstElementClass *kclass = GST_ELEMENT_GET_CLASS (dec);
 
-	GST_LOG_OBJECT(dec,"%s called", __func__);
-
 	dec->sinkpad = gst_pad_new_from_template(gst_element_class_get_pad_template(kclass,"sink"),"sink");
 	gst_pad_set_setcaps_function(dec->sinkpad, gst_sh_video_dec_setcaps);
 	gst_pad_set_chain_function(dec->sinkpad, GST_DEBUG_FUNCPTR(gst_sh_video_dec_chain));
@@ -369,9 +363,7 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 
 	dec->caps_set = FALSE;
 	dec->decoder = NULL;
-
 	dec->buffer = NULL;
-
 	dec->codec_data_present = FALSE;
 	dec->codec_data_present_first = TRUE;
 
@@ -386,7 +378,7 @@ gst_sh_video_dec_sink_event (GstPad * pad, GstEvent * event)
 {
 	GstSHVideoDec *dec = (GstSHVideoDec *) (GST_OBJECT_PARENT (pad));
 
-	GST_DEBUG_OBJECT(dec,"%s called event %i", __func__,GST_EVENT_TYPE(event));
+	GST_DEBUG_OBJECT(dec,"event %i", GST_EVENT_TYPE(event));
 
 	if (GST_EVENT_TYPE (event) == GST_EVENT_EOS)
 	{
@@ -412,10 +404,8 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 	gboolean ret = TRUE;
 	const GValue *value;
 
-	GST_LOG_OBJECT(dec,"%s called", __func__);
-
 	if (dec->decoder != NULL) {
-		GST_DEBUG_OBJECT(dec,"%s: Decoder already opened", __func__);
+		GST_DEBUG_OBJECT(dec,"Decoder already opened");
 		return FALSE;
 	}
 
@@ -431,8 +421,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 			GST_INFO_OBJECT (dec, "codec format is video/mpeg");
 			dec->format = SHCodecs_Format_MPEG4;
 		} else {
-			GST_INFO_OBJECT(dec,"%s failed (not supported: %s)",
-					__func__,
+			GST_INFO_OBJECT(dec,"Failed (not supported: %s)",
 					gst_structure_get_name (structure));
 			return FALSE;
 		}
@@ -443,76 +432,69 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 		guint8 *data;
 		GstBuffer *buf;
 		guint8 *buffer_data;
-		GST_DEBUG_OBJECT(dec, "%s codec_data found\n", __func__);
+		GST_DEBUG_OBJECT(dec, "codec_data found");
 		dec->codec_data_present = TRUE;
 		if (dec->format == SHCodecs_Format_H264) {
 			buf = GST_BUFFER_CAST(gst_value_get_mini_object(value));
 			size = GST_BUFFER_SIZE(buf);
 			data = GST_BUFFER_DATA(buf);
-			GST_DEBUG_OBJECT(dec,
-					 "%s AVC Decoder Configuration Record version = 0x%x\n",
-					 __func__, (unsigned int) *data);
+			/* Skip over avcC */
+			GST_DEBUG_OBJECT(dec, "AVC Decoder Configuration Record version = 0x%x", *data);
 			data++;
-			GST_DEBUG_OBJECT(dec, "%s Profile ICD = 0x%x\n", __func__,
-					 (unsigned int) *data);
+			GST_DEBUG_OBJECT(dec, "Profile ICD = 0x%x", *data);
 			data++;
-			GST_DEBUG_OBJECT(dec, "%s Profile compatability = 0x%x\n",
-					 __func__, (unsigned int) *data);
+			GST_DEBUG_OBJECT(dec, "Profile compatability = 0x%x",*data);
 			data++;
-			GST_DEBUG_OBJECT(dec, "%s Level IDC = 0x%x\n", __func__, (unsigned int) *data);
+			GST_DEBUG_OBJECT(dec, "Level IDC = 0x%x", *data);
 			data++;
-			GST_DEBUG_OBJECT(dec, "%s NAL Length minus one = 0x%x\n",
-					 __func__, (unsigned int) *data);
+			GST_DEBUG_OBJECT(dec, "NAL Length minus one = 0x%x", *data);
 			data++;
+
 			dec->num_sps = (((unsigned int) *data++) & ~0xe0);
-			GST_DEBUG_OBJECT(dec, "%s Number of SPS's = 0x%x\n", __func__,
-					 dec->num_sps);
-			dec->sps_size = ((unsigned short) *data++) << 8;
-			dec->sps_size += ((unsigned short) *data++);
-			GST_DEBUG_OBJECT(dec, "%s Size of SPS = 0x%x\n", __func__,
-					 dec->sps_size);
-			//copy the sps data to the sps_buf
-			dec->codec_data_sps_buf = gst_buffer_try_new_and_alloc(dec->sps_size + 4);
-			if (dec->codec_data_sps_buf == NULL) {
-				GST_DEBUG_OBJECT(dec, "%s codec_data_sps_buf allocation failed\n",
-						 __func__);
+			GST_DEBUG_OBJECT(dec, "Number of SPS's = 0x%x", dec->num_sps);
+
+			if (dec->num_sps > 0) {
+				dec->sps_size = ((unsigned short) *data++) << 8;
+				dec->sps_size += ((unsigned short) *data++);
+				GST_DEBUG_OBJECT(dec, "Size of SPS = 0x%x", dec->sps_size);
+
+				/* Copy the SPS data to the sps_buf and put Start Code in front */
+				dec->codec_data_sps_buf = gst_buffer_try_new_and_alloc(dec->sps_size + 4);
+				if (dec->codec_data_sps_buf == NULL) {
+					GST_DEBUG_OBJECT(dec, "codec_data_sps_buf allocation failed");
+				}
+				buffer_data = GST_BUFFER_DATA(dec->codec_data_sps_buf);
+				buffer_data[0] = 0x00;
+				buffer_data[1] = 0x00;
+				buffer_data[2] = 0x00;
+				buffer_data[3] = 0x01;
+				memcpy(GST_BUFFER_DATA(dec->codec_data_sps_buf) + 4, data, dec->sps_size);
+				data += dec->sps_size;
 			}
 
-			buffer_data = GST_BUFFER_DATA(dec->codec_data_sps_buf);
-			*buffer_data = 0x00;
-			*(buffer_data + 1) = 0x00;
-			*(buffer_data + 2) = 0x00;
-			*(buffer_data + 3) = 0x01;
-			memcpy(GST_BUFFER_DATA(dec->codec_data_sps_buf) + 4, data, dec->sps_size);
-			data += dec->sps_size;
 			dec->num_pps = (unsigned int) *data++;
-			GST_DEBUG_OBJECT(dec, "%s Number of PPS's = 0x%x\n", __func__,
-					 dec->num_pps);
+			GST_DEBUG_OBJECT(dec, "Number of PPS's = 0x%x", dec->num_pps);
+
 			if (dec->num_pps > 0) {
 				dec->pps_size = ((unsigned short) *data++) << 8;
 				dec->pps_size += ((unsigned short) *data++);
-				GST_DEBUG_OBJECT(dec, "%s Size of PPS = 0x%x\n", __func__,
-						 dec->pps_size);
-				dec->codec_data_pps_buf =
-					gst_buffer_try_new_and_alloc(dec->pps_size + 4);
-				if (dec->codec_data_pps_buf == NULL) {
-					GST_DEBUG_OBJECT(dec,
-							 "%s codec_data_sps_buf allocation failed\n",
-							 __func__);
-				}
+				GST_DEBUG_OBJECT(dec, "Size of PPS = 0x%x", dec->pps_size);
 
+				/* Copy the PPS data to the pps_buf and put Start Code in front */
+				dec->codec_data_pps_buf = gst_buffer_try_new_and_alloc(dec->pps_size + 4);
+				if (dec->codec_data_pps_buf == NULL) {
+					GST_DEBUG_OBJECT(dec, "codec_data_sps_buf allocation failed");
+				}
 				buffer_data = GST_BUFFER_DATA(dec->codec_data_pps_buf);
-				*buffer_data = 0x00;
-				*(buffer_data + 1) = 0x00;
-				*(buffer_data + 2) = 0x00;
-				*(buffer_data + 3) = 0x01;
-				//copy the sps data to the sps_buf
-				memcpy(GST_BUFFER_DATA(dec->codec_data_pps_buf) + 4, data,
-					   dec->pps_size);
+				buffer_data[0] = 0x00;
+				buffer_data[1] = 0x00;
+				buffer_data[2] = 0x00;
+				buffer_data[3] = 0x01;
+				memcpy(GST_BUFFER_DATA(dec->codec_data_pps_buf) + 4, data, dec->pps_size);
 			}
 		}
 	} else {
-		GST_DEBUG_OBJECT(dec, "%s codec_data not found\n", __func__);
+		GST_DEBUG_OBJECT(dec, "codec_data not found");
 	}
 
 	if (gst_structure_get_fraction (structure, "framerate",
@@ -521,27 +503,26 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 		GST_INFO_OBJECT(dec,"Framerate: %d/%d",dec->fps_numerator,
 				dec->fps_denominator);
 	} else {
-		GST_INFO_OBJECT(dec,"%s failed (no framerate)", __func__);
+		GST_INFO_OBJECT(dec,"Failed (no framerate)");
 		return FALSE;
 	}
 
 	if (gst_structure_get_int (structure, "width",  &dec->width)
 	    && gst_structure_get_int (structure, "height", &dec->height))
 	{
-		GST_INFO_OBJECT(dec,"%s initializing decoder %dx%d", __func__,
+		GST_INFO_OBJECT(dec,"Initializing decoder %dx%d",
 				dec->width,dec->height);
 		dec->decoder=shcodecs_decoder_init(dec->width,dec->height,
 						   dec->format);
 	} else {
-		GST_INFO_OBJECT(dec,"%s failed (no width/height)", __func__);
+		GST_INFO_OBJECT(dec,"Failed (no width/height)");
 		return FALSE;
 	}
 
 	if (dec->decoder == NULL) {
 		GST_ELEMENT_ERROR((GstElement*)dec,CORE,FAILED,
-				  ("Error on shdecodecs_decoder_init."),
-				  ("%s failed (Error on shdecodecs_decoder_init)",
-				   __func__));
+				  ("Error on shcodecs_decoder_init."),
+				  ("Failed (Error on shdecodecs_decoder_init)"));
 		return FALSE;
 	}
 
@@ -555,10 +536,10 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 	/* Set SRC caps */
 	src_caps = gst_caps_new_simple (
 		"video/x-raw-yuv",
-		"format", GST_TYPE_FOURCC, GST_MAKE_FOURCC('N','V','1','2'),
+		"format",    GST_TYPE_FOURCC, GST_MAKE_FOURCC('N','V','1','2'),
 		"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator,
-		"width", G_TYPE_INT, dec->width,
-		"height", G_TYPE_INT, dec->height,
+		"width",     G_TYPE_INT, dec->width,
+		"height",    G_TYPE_INT, dec->height,
 		"framerate", GST_TYPE_FRACTION, dec->fps_numerator, dec->fps_denominator,
 		NULL);
 
@@ -572,7 +553,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 
 	dec->caps_set = TRUE;
 
-	GST_LOG_OBJECT(dec,"%s ok", __func__);
+	GST_LOG_OBJECT(dec,"Ok");
 	return ret;
 }
 
@@ -594,10 +575,12 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 		gint bsize;
 		guint8 *bdata = GST_BUFFER_DATA(buffer);
 
+		GST_DEBUG_OBJECT(dec, "codec_data_present & AVC");
 		bsize = orig_bsize = GST_BUFFER_SIZE(buffer);
 		if (dec->codec_data_present_first == TRUE) {
 			if (*(bdata + 4) == 0x09) {	//an AUD NAL at the beginning
 				guint size = 0;
+				GST_DEBUG_OBJECT(dec, "AUD");
 				size = (*bdata++) << 24;
 				size += (*bdata++) << 16;
 				size += (*bdata++) << 8;
@@ -605,6 +588,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 				bdata += size;
 				bsize -= size;
 				if (*(bdata + 4) == 0x06) {	//an SEI NAL
+					GST_DEBUG_OBJECT(dec, "SEI");
 					size = 0;
 					size = (*bdata++) << 24;
 					size += (*bdata++) << 16;
@@ -614,6 +598,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 					bsize -= size;
 				}
 				if (*(bdata + 4) == 0x67) {	//an SPS NAL
+					GST_DEBUG_OBJECT(dec, "SPS and PPS NAL already in data");
 					dec->codec_data_present_first = FALSE;	//SPS and PPS NAL already in data
 					buffer =
 						gst_buffer_create_sub(buffer, orig_bsize - bsize,
@@ -627,6 +612,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 		*(bdata + 3) = 0x01;
 
 		if (dec->codec_data_present_first == TRUE) {
+			GST_DEBUG_OBJECT(dec, "joining data");
 			dec->codec_data_present_first = FALSE;
 			dec->codec_data_sps_buf =
 				gst_buffer_join(dec->codec_data_sps_buf,
@@ -663,8 +649,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	GST_DEBUG_OBJECT(dec, "used_bytes. %d bytes", used_bytes);
 	if (used_bytes < 0) {
 		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
-				  ("Decode error"), ("%s failed (Error on shcodecs_decode)",
-							 __func__));
+				  ("Decode error"), ("Failed (Error on shcodecs_decode)"));
 		return GST_FLOW_ERROR;
 	}
 
@@ -699,7 +684,7 @@ gst_shcodecs_decoded_callback (SHCodecs_Decoder * decoder,
 	}
 
 	sem_wait(&dec->dec_sem);
-	GST_LOG_OBJECT(dec,"%s called", __func__);
+	GST_LOG_OBJECT(dec,"Frame decoded");
 
 	/* Wrap the video decoder output buffer in a GST buffer */
 	dec->push_buf = (GstBuffer *) gst_mini_object_new (GST_TYPE_SH_VIDEO_BUFFER);
@@ -732,7 +717,7 @@ gst_sh_video_dec_pad_push (void *data)
 	while(1)
 	{
 		sem_wait(&dec->push_sem);
-		GST_LOG_OBJECT(dec,"%s called\n", __func__);
+		GST_LOG_OBJECT(dec,"%s called", __func__);
 
 		ret = gst_pad_push (dec->srcpad, dec->push_buf);
 
