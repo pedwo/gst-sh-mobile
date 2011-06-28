@@ -430,6 +430,8 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 	if ((value = gst_structure_get_value(structure, "codec_data"))) {
 		guint size;
 		guint8 *data;
+		guint8 *sps_data = NULL;
+		guint8 *pps_data = NULL;
 		GstBuffer *buf;
 		guint8 *buffer_data;
 		GST_DEBUG_OBJECT(dec, "codec_data found");
@@ -450,47 +452,49 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 			GST_DEBUG_OBJECT(dec, "NAL Length minus one = 0x%x", *data);
 			data++;
 
+			/* Actually only ever get 1 SPS,PPS */
 			dec->num_sps = (((unsigned int) *data++) & ~0xe0);
 			GST_DEBUG_OBJECT(dec, "Number of SPS's = 0x%x", dec->num_sps);
-
 			if (dec->num_sps > 0) {
 				dec->sps_size = ((unsigned short) *data++) << 8;
 				dec->sps_size += ((unsigned short) *data++);
-				GST_DEBUG_OBJECT(dec, "Size of SPS = 0x%x", dec->sps_size);
-
-				/* Copy the SPS data to the sps_buf and put Start Code in front */
-				dec->codec_data_sps_buf = gst_buffer_try_new_and_alloc(dec->sps_size + 4);
-				if (dec->codec_data_sps_buf == NULL) {
-					GST_DEBUG_OBJECT(dec, "codec_data_sps_buf allocation failed");
-				}
-				buffer_data = GST_BUFFER_DATA(dec->codec_data_sps_buf);
-				buffer_data[0] = 0x00;
-				buffer_data[1] = 0x00;
-				buffer_data[2] = 0x00;
-				buffer_data[3] = 0x01;
-				memcpy(GST_BUFFER_DATA(dec->codec_data_sps_buf) + 4, data, dec->sps_size);
+				sps_data = data;
 				data += dec->sps_size;
+				GST_DEBUG_OBJECT(dec, "Size of SPS = 0x%x", dec->sps_size);
 			}
 
 			dec->num_pps = (unsigned int) *data++;
 			GST_DEBUG_OBJECT(dec, "Number of PPS's = 0x%x", dec->num_pps);
-
 			if (dec->num_pps > 0) {
 				dec->pps_size = ((unsigned short) *data++) << 8;
 				dec->pps_size += ((unsigned short) *data++);
+				pps_data = data;
 				GST_DEBUG_OBJECT(dec, "Size of PPS = 0x%x", dec->pps_size);
+			}
 
-				/* Copy the PPS data to the pps_buf and put Start Code in front */
-				dec->codec_data_pps_buf = gst_buffer_try_new_and_alloc(dec->pps_size + 4);
-				if (dec->codec_data_pps_buf == NULL) {
-					GST_DEBUG_OBJECT(dec, "codec_data_sps_buf allocation failed");
-				}
-				buffer_data = GST_BUFFER_DATA(dec->codec_data_pps_buf);
-				buffer_data[0] = 0x00;
-				buffer_data[1] = 0x00;
-				buffer_data[2] = 0x00;
-				buffer_data[3] = 0x01;
-				memcpy(GST_BUFFER_DATA(dec->codec_data_pps_buf) + 4, data, dec->pps_size);
+			dec->buffer = gst_buffer_try_new_and_alloc(dec->sps_size + dec->pps_size + 8);
+			if (dec->buffer == NULL) {
+				GST_DEBUG_OBJECT(dec, "dec_buffer allocation failed");
+			}
+			buffer_data = GST_BUFFER_DATA(dec->buffer);
+			GST_DEBUG_OBJECT(dec, "Saving SPS/PPS data into decode buffer");
+
+			/* Copy the SPS/PPS data to the data buffer and put Start Codes in front */
+			if (dec->num_sps > 0) {
+				*buffer_data++ = 0x00;
+				*buffer_data++ = 0x00;
+				*buffer_data++ = 0x00;
+				*buffer_data++ = 0x01;
+				memcpy(buffer_data, sps_data, dec->sps_size);
+				buffer_data += dec->sps_size;
+			}
+
+			if (dec->num_pps > 0) {
+				*buffer_data++ = 0x00;
+				*buffer_data++ = 0x00;
+				*buffer_data++ = 0x00;
+				*buffer_data++ = 0x01;
+				memcpy(buffer_data, pps_data, dec->pps_size);
 			}
 		}
 	} else {
@@ -570,74 +574,55 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	}
 
 	if ((dec->codec_data_present == TRUE) &&
-	    (dec->format == SHCodecs_Format_H264)) { //This is for mp4 file playback
-		gint orig_bsize;
+	    (dec->format == SHCodecs_Format_H264)) {
+		/* This is for mp4 file playback */
+		/* All NALs are preceded with a 4 byte size field, which we replace with start codes. */
+		/* Note that we might get more than one packet... */
 		gint bsize;
 		guint8 *bdata = GST_BUFFER_DATA(buffer);
 
-		GST_DEBUG_OBJECT(dec, "codec_data_present & AVC");
-		bsize = orig_bsize = GST_BUFFER_SIZE(buffer);
-		if (dec->codec_data_present_first == TRUE) {
-			if (*(bdata + 4) == 0x09) {	//an AUD NAL at the beginning
-				guint size = 0;
-				GST_DEBUG_OBJECT(dec, "AUD");
-				size = (*bdata++) << 24;
-				size += (*bdata++) << 16;
-				size += (*bdata++) << 8;
-				size += (*bdata++);
-				bdata += size;
-				bsize -= size;
-				if (*(bdata + 4) == 0x06) {	//an SEI NAL
-					GST_DEBUG_OBJECT(dec, "SEI");
-					size = 0;
-					size = (*bdata++) << 24;
-					size += (*bdata++) << 16;
-					size += (*bdata++) << 8;
-					size += (*bdata++);
-					bdata += size;
-					bsize -= size;
-				}
-				if (*(bdata + 4) == 0x67) {	//an SPS NAL
-					GST_DEBUG_OBJECT(dec, "SPS and PPS NAL already in data");
-					dec->codec_data_present_first = FALSE;	//SPS and PPS NAL already in data
-					buffer =
-						gst_buffer_create_sub(buffer, orig_bsize - bsize,
-								  bsize);
-				}
-			}
-		}
-		*bdata = 0x00;
-		*(bdata + 1) = 0x00;
-		*(bdata + 2) = 0x00;
-		*(bdata + 3) = 0x01;
+		GST_DEBUG_OBJECT(dec, "codec_data_present");
 
-		if (dec->codec_data_present_first == TRUE) {
-			GST_DEBUG_OBJECT(dec, "joining data");
-			dec->codec_data_present_first = FALSE;
-			dec->codec_data_sps_buf =
-				gst_buffer_join(dec->codec_data_sps_buf,
-						dec->codec_data_pps_buf);
-			buffer = gst_buffer_join(dec->codec_data_sps_buf, buffer);
+		/* Replace all 4 byte size fields with Start Codes */
+		used_bytes = 0;
+		while (used_bytes < GST_BUFFER_SIZE(buffer)) {
+			/* Extract the 4 byte size field */
+			bsize =  bdata[0] << 24;
+			bsize += bdata[1] << 16;
+			bsize += bdata[2] << 8;
+			bsize += bdata[3];
+			GST_DEBUG_OBJECT(dec, "NAL size = %d", bsize);
+			bsize += 4;
+
+			if ((GST_BUFFER_SIZE(buffer)-used_bytes) < bsize) {
+				GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
+				  ("Malformed input"), ("Buffer contains partial NAL"));
+				break;
+			}
+
+			/* Replace it with a Start Code */
+			bdata[0] = 0x00;
+			bdata[1] = 0x00;
+			bdata[2] = 0x00;
+			bdata[3] = 0x01;
+
+			/* Move to next packet */
+			bdata += bsize;
+			used_bytes += bsize;
 		}
+		buffer = gst_buffer_create_sub(buffer, 0, used_bytes);
 	}
 
-	/* Buffering */
-	if (!dec->buffer) {
-		GST_DEBUG_OBJECT(dec,
-				 "First frame in buffer. Size %d timestamp: %llu duration: %llu",
-				 GST_BUFFER_SIZE(buffer),
-				 GST_TIME_AS_MSECONDS(GST_BUFFER_TIMESTAMP (buffer)),
-				 GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (buffer)));
-	} else {
-		GST_LOG_OBJECT(dec,
-			       "Joining buffers. Size %d timestamp: %llu duration: %llu",
-			       GST_BUFFER_SIZE(buffer),
-			       GST_TIME_AS_MSECONDS(GST_BUFFER_TIMESTAMP (buffer)),
-			       GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (buffer)));
+	GST_DEBUG_OBJECT(
+		dec, "Got buffer. Size %d timestamp: %llu duration: %llu",
+		GST_BUFFER_SIZE(buffer),
+		GST_TIME_AS_MSECONDS(GST_BUFFER_TIMESTAMP (buffer)),
+		GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (buffer)));
 
+	/* Buffering */
+	if (dec->buffer) {
 		buffer = gst_buffer_join(dec->buffer,buffer);
-		GST_LOG_OBJECT(dec,"Buffer added. Now storing %d bytes",
-			       GST_BUFFER_SIZE(buffer));
+		GST_LOG_OBJECT(dec,"Buffer added. Now storing %d bytes", GST_BUFFER_SIZE(buffer));
 	}
 
 	dec->buffer = NULL;
