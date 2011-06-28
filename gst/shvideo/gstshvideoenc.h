@@ -56,6 +56,7 @@ struct _GstSHVideoEnc
 	gint height;
 	gint fps_numerator;
 	gint fps_denominator;
+	gboolean bytestream;
 
 	APPLI_INFO ainfo;
 	

@@ -11,6 +11,18 @@
  * The encoding settings are given as properties to the encoder or using a control
  * file. Examples of control files can be found from /cntl_file -folder.
  *
+ * h264 streams come in two flavours:
+ * 1) length prefixed, each NALU is prefixed by a 32bit length field
+ * 2) startcode delimmited, as described in Annex B of H.264 spec, NALUs are
+ * separated by 24 bit value 0x000001.
+ *
+ * MP4/3GP/MOV and MKV use the AVC1 encoding (length-prefix), while AVI, ES, and TS use
+ * the Annex B encoding (startcodes).
+ *
+ * Decoders can check the presence of the codec-data on the caps. If codec-data is given,
+ * stream is length prefixed (1), otherwise its startedcode delimited (where the SPS and
+ * PPS are in the stream and not in codec-data).
+ *
  * \section enc-examples Example launch lines
  * \subsection enc-examples-1 Encoding from a file to a file
  * \code
@@ -147,9 +159,7 @@ static GstStaticPadTemplate enc_src_factory =
 			"height = (int) [48, 720],"
 			"framerate = (fraction) [0, 30],"
 			"variant = (string) itu,"
-			"h264version = (string) h264,"
-			"stream-format = (string) byte-stream,"
-			"alignment = (string) au"
+			"h264version = (string) h264"
 			)
 		);
 
@@ -168,6 +178,8 @@ static GstElementClass *parent_class = NULL;
  * - "stream-type" (string). The type of the video stream ("h264"/"mpeg4").
  *   Default: None (An error message will display if the property is not set
  *   or can not be determined from the stream).
+ * - "byteStream" (boolean). The format of the H.264 video stream, TRUE means
+ *   Annex B start code delimited, FALSE means AVC1 length prefixed.
  * - "width" (long). The width of the video stream (48-1280px). Default: 0
  *   (An error message will display if the property is not set or can not
  *   be determined from the stream).
@@ -193,6 +205,7 @@ enum gst_sh_video_enc_properties
 	PROP_CNTL_FILE,
 	/* COMMON */
 	PROP_STREAM_TYPE,
+	PROP_BYTE_STREAM,
 	PROP_WIDTH,
 	PROP_HEIGHT,
 	PROP_FRAMERATE,
@@ -329,6 +342,7 @@ gst_sh_video_enc_change_state(GstElement *element, GstStateChange transition);
 static GstFlowReturn
 gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
 	GstCaps * caps, GstBuffer ** buf);
+static GstBuffer *gst_sh_video_enc_header_buf(GstSHVideoEnc *enc);
 static void gst_sh_video_enc_init_encoder(GstSHVideoEnc * enc);
 static void gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc);
 static void gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc);
@@ -446,6 +460,13 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 		g_param_spec_string("cntl-file",
 			"Control file location",
 			"Location of the file including encoding parameters",
+			NULL,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
+	g_object_class_install_property(g_object_class, PROP_BYTE_STREAM,
+		g_param_spec_string("byteStream",
+			"Annex B format (ie. start codes)",
+			"Annex B (start code delimited) or AVC (size prefixed) format",
 			NULL,
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
@@ -1189,6 +1210,7 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 
 	/* PROPERTIES */
 	/* common */
+	enc->bytestream = TRUE;
 	enc->bitrate = 0;
 	enc->i_vop_interval = DEFAULT_I_VOP_INTERVAL;
 	enc->mv_mode = DEFAULT_MV_MODE;
@@ -1311,6 +1333,13 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 				g_value_get_string(value));
 			break;
 		}
+
+		case PROP_BYTE_STREAM:
+		{
+			enc->bytestream = g_value_get_boolean(value);
+			break;
+		}
+
 	/* COMMON */
 		case PROP_STREAM_TYPE:
 		{
@@ -1845,6 +1874,13 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 			g_value_set_string(value, enc->ainfo.ctrl_file_name_buf);
 			break;
 		}
+
+		case PROP_BYTE_STREAM:
+		{
+			g_value_set_boolean(value, enc->bytestream);
+			break;
+		}
+
 		/* COMMON */
 		case PROP_STREAM_TYPE:
 		{
@@ -2493,24 +2529,39 @@ gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc)
 static gboolean
 gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc)
 {
+	GstBuffer *buf;
 	GstCaps* caps = NULL;
 	gboolean ret = TRUE;
 
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	if (enc->format == SHCodecs_Format_MPEG4) {
-		caps = gst_caps_new_simple("video/mpeg", "width", G_TYPE_INT,
-				enc->width, "height", G_TYPE_INT,
-				enc->height, "framerate",
-				GST_TYPE_FRACTION, enc->fps_numerator,
-				enc->fps_denominator, "mpegversion",
-				G_TYPE_INT, 4, NULL);
+		caps = gst_caps_new_simple(
+			"video/mpeg",
+			"width", G_TYPE_INT, enc->width,
+			"height", G_TYPE_INT, enc->height,
+			"framerate", GST_TYPE_FRACTION, enc->fps_numerator, enc->fps_denominator,
+			"mpegversion", G_TYPE_INT, 4,
+			NULL);
 	} else if (enc->format == SHCodecs_Format_H264) {
-		caps = gst_caps_new_simple("video/x-h264", "width", G_TYPE_INT,
-				enc->width, "height", G_TYPE_INT,
-				enc->height, "framerate",
-				GST_TYPE_FRACTION, enc->fps_numerator,
-				enc->fps_denominator, NULL);
+		GST_DEBUG_OBJECT(enc, "h264");
+		caps = gst_caps_new_simple(
+			"video/x-h264",
+			"width", G_TYPE_INT, enc->width,
+			"height", G_TYPE_INT, enc->height,
+			"framerate", GST_TYPE_FRACTION, enc->fps_numerator, enc->fps_denominator,
+			"stream-format", G_TYPE_STRING, "bytestream",
+			NULL);
+
+		if (!enc->bytestream) {
+			GST_DEBUG_OBJECT(enc, "avc");
+			buf = gst_sh_video_enc_header_buf(enc);
+			if (buf != NULL) {
+				gst_caps_set_simple (caps, "codec_data", GST_TYPE_BUFFER, buf, NULL);
+			}
+			gst_caps_set_simple(caps, "stream-format", G_TYPE_STRING, "avc", NULL);
+			gst_caps_set_simple(caps, "alignment", G_TYPE_STRING, "au", NULL);
+		}
 	} else {
 		GST_ELEMENT_ERROR((GstElement*)enc, CORE, NEGOTIATION,
 					("Format undefined."), (NULL));
@@ -2747,6 +2798,84 @@ gst_sh_video_enc_sink_buffer_alloc (GstPad *pad, guint64 offset, guint size,
 	return GST_FLOW_OK;
 }
 
+/*
+ * Returns: Buffer with the stream headers.
+ */
+static GstBuffer *
+gst_sh_video_enc_header_buf(GstSHVideoEnc *enc)
+{
+	GstBuffer *buf;
+	int header_return;
+	int i_size;
+	int nal_size;
+	guint8 *buffer, *sps;
+	gulong buffer_size;
+	gint sps_ni = 0, pps_ni = 1;
+	int nr_nals;
+	int *nal_sizes;
+	unsigned char **nal_data;
+
+	if (G_UNLIKELY (enc->encoder == NULL))
+		return NULL;
+
+	/* Create avcC header. */
+
+	header_return = shcodecs_encoder_get_h264_headers(enc->encoder, &nr_nals, &nal_sizes, &nal_data);
+	if (header_return < 0) {
+		GST_ELEMENT_ERROR (enc, STREAM, ENCODE, ("Encode h264 header failed."),
+				("shcodecs_encoder_get_h264_headers return code=%d", header_return));
+		return NULL;
+	}
+
+	/* h264 is expected to return an SPS and PPS */
+	if (nr_nals != 2 || nal_sizes[sps_ni] < 4 || nal_sizes[pps_ni] < 1) {
+		GST_ELEMENT_ERROR (enc, STREAM, ENCODE, (NULL), ("Unexpected h264 header."));
+		return NULL;
+	}
+
+	GST_MEMDUMP ("SPS", nal_data[sps_ni], nal_sizes[sps_ni]);
+	GST_MEMDUMP ("PPS", nal_data[pps_ni], nal_sizes[pps_ni]);
+
+	/* nal payloads with emulation_prevention_three_byte, and some header data */
+	buffer_size = (nal_sizes[sps_ni] + nal_sizes[pps_ni]) * 4 + 100;
+	buffer = g_malloc (buffer_size);
+
+	/* nal's are encapsulated, and have 4-byte size prefix */
+	sps = nal_data[sps_ni] + 4;
+	/* skip NAL unit type */
+	sps++;
+
+	buffer[0] = 1;                /* AVC Decoder Configuration Record ver. 1 */
+	buffer[1] = sps[0];           /* profile_idc                             */
+	buffer[2] = sps[1];           /* profile_compability                     */
+	buffer[3] = sps[2];           /* level_idc                               */
+	buffer[4] = 0xfc | (4 - 1);   /* nal_length_size_minus1                  */
+
+	i_size = 5;
+
+	buffer[i_size++] = 0xe0 | 1;	/* number of SPSs */
+
+	nal_size = nal_sizes[sps_ni] - 4;
+	memcpy (buffer + i_size + 2, nal_data[sps_ni] + 4, nal_size);
+	GST_WRITE_UINT16_BE (buffer + i_size, nal_size);
+	i_size += nal_size + 2;
+
+	buffer[i_size++] = 1;	/* number of PPSs */
+
+	nal_size = nal_sizes[pps_ni] - 4;
+	memcpy (buffer + i_size + 2, nal_data[pps_ni] + 4, nal_size);
+	GST_WRITE_UINT16_BE (buffer + i_size, nal_size);
+	i_size += nal_size + 2;
+
+	buf = gst_buffer_new_and_alloc (i_size);
+	memcpy (GST_BUFFER_DATA (buf), buffer, i_size);
+	g_free (buffer);
+
+	GST_MEMDUMP ("header", GST_BUFFER_DATA (buf), GST_BUFFER_SIZE (buf));
+
+	return buf;
+}
+
 /**
  * The encoder function and launches the thread if needed
  * @param pad Gstreamer sink pad
@@ -2933,8 +3062,22 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 	if (length <= 0)
 		return 0;
 
+	if (!enc->bytestream) {
+		/* ACV1 encoding - each NALU is prefixed by a 32bit length field */
+		/* Just replace the 4 byte start code */
+		if ((data[0] == 0) && (data[1] == 0) && (data[2] == 0) && (data[3] == 1)) {
+			length -= 4;
+			data[0] = (length >> 24) & 0xFF;
+			data[1] = (length >> 16) & 0xFF;
+			data[2] = (length >>  8) & 0xFF;
+			data[3] = length & 0xFF;
+			length += 4;
+		}
+	}
+
 	buf = gst_buffer_new();
 	gst_buffer_set_data(buf, data, length);
+
 
 	if (enc->buffered_output != NULL) {
 		buf = gst_buffer_join(enc->buffered_output, buf);
@@ -2949,7 +3092,7 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 		}
 		if (in_buf) {
 			GST_BUFFER_TIMESTAMP (buf) = GST_BUFFER_TIMESTAMP (in_buf);
-			GST_BUFFER_DURATION (buf) = GST_BUFFER_DURATION (in_buf);
+			GST_BUFFER_DURATION (buf) = 0;
 			gst_buffer_unref (in_buf);
 		} else {
 			GST_ELEMENT_ERROR (enc, STREAM, ENCODE, (NULL),
