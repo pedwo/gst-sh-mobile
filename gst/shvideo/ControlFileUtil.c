@@ -679,10 +679,10 @@ static int GetFromCtrlFtoOther_options_MPEG4(FILE * fp_in,
 	}
 
 	return_value =
-	    GetValueFromCtrlFile(fp_in, "video_packet_header_extention",
+	    GetValueFromCtrlFile(fp_in, "video_packet_header_extension",
 				 &status_flag);
 	if (status_flag == 1) {
-		shcodecs_encoder_set_mpeg4_video_packet_header_extention (encoder, return_value);
+		shcodecs_encoder_set_mpeg4_video_packet_header_extension (encoder, return_value);
 	}
 
 	return_value =
