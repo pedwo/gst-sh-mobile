@@ -230,7 +230,7 @@ static gboolean gst_sh_video_dec_sink_event (GstPad * pad, GstEvent * event);
  * Initialize the decoder sink pad
  * @param pad Gstreamer sink pad
  * @param caps The capabilities of the video to decode
- * @return returns true if the video capatilies are supported and the video can be decoded, else false
+ * @return returns true if the video capabilities are supported and the video can be decoded, else false
  */
 static gboolean gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * caps);
 
@@ -247,7 +247,7 @@ static GstFlowReturn gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
  * @param decoder SHCodecs Decoder, unused in the function
  * @param y_buf Userland address to the Y buffer
  * @param y_size Size of the Y buffer
- * @param c_buf Userland address to teh C buffer
+ * @param c_buf Userland address to the C buffer
  * @param c_size Size of the C buffer
  * @param user_data Contains GstSHVideoDec
  * @return The result of passing data to a pad
@@ -445,7 +445,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 			data++;
 			GST_DEBUG_OBJECT(dec, "Profile ICD = 0x%x", *data);
 			data++;
-			GST_DEBUG_OBJECT(dec, "Profile compatability = 0x%x",*data);
+			GST_DEBUG_OBJECT(dec, "Profile compatibility = 0x%x",*data);
 			data++;
 			GST_DEBUG_OBJECT(dec, "Level IDC = 0x%x", *data);
 			data++;
@@ -526,7 +526,7 @@ gst_sh_video_dec_setcaps (GstPad * pad, GstCaps * sink_caps)
 	if (dec->decoder == NULL) {
 		GST_ELEMENT_ERROR((GstElement*)dec,CORE,FAILED,
 				  ("Error on shcodecs_decoder_init."),
-				  ("Failed (Error on shdecodecs_decoder_init)"));
+				  ("Failed (Error on shcodecs_decoder_init)"));
 		return FALSE;
 	}
 

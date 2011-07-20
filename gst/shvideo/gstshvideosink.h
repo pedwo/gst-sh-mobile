@@ -55,7 +55,7 @@ typedef struct _GstSHVideoSinkClass GstSHVideoSinkClass;
  * \var caps_set indicates whether the caps of the sink elements have been set
  * \var dst_width Width of the output
  * \var dst_width Height of the output
- * \var dst_x X-ccordinate of the output
+ * \var dst_x X-coordinate of the output
  * \var dst_y Y-coordinate of the output
  * \var zoom_factor Zoom -setting. (See properties)
  * \var display Helper module for display on framebuffer

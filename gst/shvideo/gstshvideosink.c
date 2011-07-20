@@ -186,8 +186,8 @@ static void gst_sh_video_sink_init (GstSHVideoSink * sink, GstSHVideoSinkClass *
  * The function will set the properties of the sink
  * \param object The object where to get Gstreamer SH video Sink object
  * \param prop_id The property id
- * \param value The value of the prioperty
- * \param pspec not used in fuction
+ * \param value The value of the property
+ * \param pspec not used in function
  */
 static void gst_sh_video_sink_set_property (GObject *object,
 					  guint prop_id, const GValue *value,
@@ -198,7 +198,7 @@ static void gst_sh_video_sink_set_property (GObject *object,
  * \param object The object where to get Gstreamer SH video Sink object
  * \param prop_id The property id
  * \param value The value of the property
- * \param pspec not used in fuction
+ * \param pspec not used in function
  */
 static void gst_sh_video_sink_get_property (GObject * object, guint prop_id,
 					  GValue * value, GParamSpec * pspec);
@@ -220,7 +220,7 @@ static gboolean gst_sh_video_sink_start (GstBaseSink *bsink);
 static gboolean gst_sh_video_sink_stop (GstBaseSink *sink);
 
 /**
- * Returns the caps fron sink template.
+ * Returns the caps from sink template.
  * \param bsink GstBaseSink element
  * \return the caps
  */
@@ -230,7 +230,7 @@ static GstCaps* gst_sh_video_sink_getcaps (GstBaseSink * bsink);
  * Initialize the sink pad
  * \param bsink Gstreamer BaseSink object
  * \param caps The capabilities of the video to play
- * \return returns true if the video capatilies are supported and the video can be played
+ * \return returns true if the video capabilities are supported and the video can be played
  */
 static gboolean gst_sh_video_sink_setcaps (GstBaseSink * bsink, GstCaps * caps);
 
@@ -726,7 +726,7 @@ gst_sh_video_sink_buffer_alloc (GstBaseSink *bsink, guint64 offset, guint size,
 		return GST_FLOW_UNEXPECTED;
 	}
 
-	GST_LOG_OBJECT(sink,"Frame width: %d heigth: %d",width,height);
+	GST_LOG_OBJECT(sink,"Frame width: %d height: %d",width,height);
 
 	/* Using HW buffer */
 	user = uiomux_malloc(sink->uiomux, UIOMUX_SH_VEU, size, getpagesize());

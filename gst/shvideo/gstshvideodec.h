@@ -60,7 +60,7 @@ typedef struct _GstSHVideoDecClass GstSHVideoDecClass;
  * \var buffer Pointer to the cache buffer
  * \var push_buf Pointer to src buffer
  * \var push_thread Src thread for push buffer
- * \var dec_sem for the Src functiom
+ * \var dec_sem for the Src function
  * \var push_sem for the Src function
  */
 struct _GstSHVideoDec

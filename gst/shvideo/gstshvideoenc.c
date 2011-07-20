@@ -6,21 +6,21 @@
  * \section enc-description Description
  * This element is designed to use the HW video processing modules of the Renesas
  * SuperH chipset to encode mpeg4/h264 video streams. This element is not usable
- * in any other environments and it requires libshcodes HW codec to be installed.
+ * in any other environments and it requires libshcodecs HW codec to be installed.
  *
  * The encoding settings are given as properties to the encoder or using a control
  * file. Examples of control files can be found from /cntl_file -folder.
  *
- * h264 streams come in two flavours:
+ * h264 streams come in two flavors:
  * 1) length prefixed, each NALU is prefixed by a 32bit length field
- * 2) startcode delimmited, as described in Annex B of H.264 spec, NALUs are
+ * 2) startcode delimited, as described in Annex B of H.264 spec, NALUs are
  * separated by 24 bit value 0x000001.
  *
  * MP4/3GP/MOV and MKV use the AVC1 encoding (length-prefix), while AVI, ES, and TS use
  * the Annex B encoding (startcodes).
  *
  * Decoders can check the presence of the codec-data on the caps. If codec-data is given,
- * stream is length prefixed (1), otherwise its startedcode delimited (where the SPS and
+ * stream is length prefixed (1), otherwise its startcode delimited (where the SPS and
  * PPS are in the stream and not in codec-data).
  *
  * \section enc-examples Example launch lines
@@ -612,14 +612,14 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 
 	g_object_class_install_property(g_object_class, PROP_I_VOP_QUANT_INITIAL_VALUE,
 		g_param_spec_ulong("i-vop-quant-initial-value",
-			"I-VOP quantization intitial value",
+			"I-VOP quantization initial value",
 			"",
 			0, G_MAXULONG, DEFAULT_I_VOP_QUANT_INITIAL_VALUE_H264,
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_P_VOP_QUANT_INITIAL_VALUE,
 		g_param_spec_ulong("p-vop-quant-initial-value",
-			"P-VOP quantization intitial value",
+			"P-VOP quantization initial value",
 			"",
 			0, G_MAXULONG, DEFAULT_P_VOP_QUANT_INITIAL_VALUE_H264,
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
@@ -705,14 +705,14 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 
 	g_object_class_install_property(g_object_class, PROP_VOS_PROFILE_LEVEL_TYPE,
 		g_param_spec_ulong("vos-profile-level-type",
-			"VOS proile level type",
+			"VOS profile level type",
 			"",
 			0, G_MAXULONG, DEFAULT_VOS_PROFILE_LEVEL_TYPE,
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VOS_PROFILE_LEVEL_VALUE,
 		g_param_spec_ulong("vos-profile-level-value",
-			"VOS proile level value",
+			"VOS profile level value",
 			"",
 			0, G_MAXULONG, DEFAULT_VOS_PROFILE_LEVEL_VALUE,
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
@@ -788,8 +788,8 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_VIDEO_PACKET_HEADER_EXTENTION,
-		g_param_spec_ulong("video-packet-header-extention",
-			"Video packet header extention",
+		g_param_spec_ulong("video-packet-header-extension",
+			"Video packet header extension",
 			"",
 			0, G_MAXULONG, DEFAULT_VIDEO_PACKET_HEADER_EXTENTION,
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
@@ -1253,7 +1253,7 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 	enc->error_resilience_mode = DEFAULT_ERROR_RESILIENCE_MODE;
 	enc->video_packet_size_mb = DEFAULT_VIDEO_PACKET_SIZE_MB;
 	enc->video_packet_size_bit = DEFAULT_VIDEO_PACKET_SIZE_BIT;
-	enc->video_packet_header_extention = DEFAULT_VIDEO_PACKET_HEADER_EXTENTION;
+	enc->video_packet_header_extension = DEFAULT_VIDEO_PACKET_HEADER_EXTENTION;
 	enc->data_partitioned = DEFAULT_DATA_PARTITIONED;
 	enc->reversible_vlc = DEFAULT_REVERSIBLE_VLC;
 	enc->high_quality = DEFAULT_HIGH_QUALITY;
@@ -1579,7 +1579,7 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 		}
 		case PROP_VIDEO_PACKET_HEADER_EXTENTION:
 		{
-			enc->video_packet_header_extention = g_value_get_ulong(value);
+			enc->video_packet_header_extension = g_value_get_ulong(value);
 			break;
 		}
 		case PROP_DATA_PARTITIONED:
@@ -2127,7 +2127,7 @@ gst_sh_video_enc_get_property(GObject * object, guint prop_id,
 		}
 		case PROP_VIDEO_PACKET_HEADER_EXTENTION:
 		{
-			g_value_set_ulong(value, enc->video_packet_header_extention);
+			g_value_set_ulong(value, enc->video_packet_header_extension);
 			break;
 		}
 		case PROP_DATA_PARTITIONED:
@@ -2420,7 +2420,7 @@ gst_sh_video_enc_sink_event(GstPad * pad, GstEvent * event)
  * Initializes the encoder sink pad
  * @param pad Gstreamer sink pad
  * @param caps The capabilities of the data to encode
- * @return returns true if the video capatilies are supported and the video can
+ * @return returns true if the video capabilities are supported and the video can
  * be decoded, else false
  */
 static gboolean
@@ -2847,7 +2847,7 @@ gst_sh_video_enc_header_buf(GstSHVideoEnc *enc)
 
 	buffer[0] = 1;                /* AVC Decoder Configuration Record ver. 1 */
 	buffer[1] = sps[0];           /* profile_idc                             */
-	buffer[2] = sps[1];           /* profile_compability                     */
+	buffer[2] = sps[1];           /* profile_compatibility                   */
 	buffer[3] = sps[2];           /* level_idc                               */
 	buffer[4] = 0xfc | (4 - 1);   /* nal_length_size_minus1                  */
 
@@ -3063,7 +3063,7 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 		return 0;
 
 	if (!enc->bytestream) {
-		/* ACV1 encoding - each NALU is prefixed by a 32bit length field */
+		/* AVC1 encoding - each NALU is prefixed by a 32bit length field */
 		/* Just replace the 4 byte start code */
 		if ((data[0] == 0) && (data[1] == 0) && (data[2] == 0) && (data[3] == 1)) {
 			length -= 4;
@@ -3136,7 +3136,7 @@ static int gst_sh_video_enc_input_used (SHCodecs_Encoder * encoder,
 /**
  * Gstreamer source pad query
  * @param pad Gstreamer source pad
- * @param query Gsteamer query
+ * @param query Gstreamer query
  * @return Returns the value of gst_pad_query_default
  */
 static gboolean
@@ -3356,7 +3356,7 @@ gst_sh_video_enc_set_encoding_properties(GstSHVideoEnc *enc)
 			return FALSE;
 		if (shcodecs_encoder_set_mpeg4_video_packet_size_bit(enc->encoder, enc->video_packet_size_bit) == -1)
 			return FALSE;
-		if (shcodecs_encoder_set_mpeg4_video_packet_header_extention(enc->encoder, enc->video_packet_header_extention) == -1)
+		if (shcodecs_encoder_set_mpeg4_video_packet_header_extension(enc->encoder, enc->video_packet_header_extension) == -1)
 			return FALSE;
 		if (shcodecs_encoder_set_mpeg4_data_partitioned(enc->encoder, enc->data_partitioned) == -1)
 			return FALSE;

@@ -520,7 +520,7 @@ gst_sh_video_enc_src_event(GstPad * pad, GstEvent * event)
  * @param prop_id The property id
  * @param value In this case file name if prop_id is PROP_CNTL_FILE
  * @param value In this case file name if prop_id is PROP_PREVIEW
- * @param pspec not used in fuction
+ * @param pspec not used in function
  */
 static void
 gst_sh_video_enc_set_property(GObject * object, guint prop_id,
@@ -546,7 +546,7 @@ gst_sh_video_enc_set_property(GObject * object, guint prop_id,
 	@param object The object where to get Gstreamer SH video Encoder object
 	@param prop_id The property id
 	@param value In this case file name if prop_id is PROP_CNTL_FILE
-	@param pspec not used in fuction
+	@param pspec not used in function
 */
 static void
 gst_sh_video_enc_get_property(GObject * object, guint prop_id, GValue * value, GParamSpec * pspec)
@@ -651,14 +651,14 @@ static void *launch_camera_encoder_thread(void *data)
 	snprintf(enc->ainfo.input_file_name_buf, 256, "%s/%s",
 		 enc->ainfo.buf_input_yuv_file_with_path, enc->ainfo.buf_input_yuv_file);
 
-	/* UIOMux initialisation */
+	/* UIOMux initialization */
 	enc->uiomux = uiomux_open();
 	if (enc->uiomux == NULL) {
 		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
 				  ("Error opening uiomux"), (NULL));
 	}
 
-	/* VEU initialisation */
+	/* VEU initialization */
 	enc->veu = shveu_open_named("VEU");
 	if (enc->veu == NULL) {
 		GST_ELEMENT_ERROR((GstElement *) enc, CORE, FAILED,
@@ -985,7 +985,7 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 /**
  * Gstreamer source pad query
  * @param pad Gstreamer source pad
- * @param query Gsteamer query
+ * @param query Gstreamer query
  * @return Returns the value of gst_pad_query_default
  */
 static gboolean

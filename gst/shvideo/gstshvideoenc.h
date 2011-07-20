@@ -117,7 +117,7 @@ struct _GstSHVideoEnc
 	gulong error_resilience_mode;
 	gulong video_packet_size_mb;
 	gulong video_packet_size_bit;
-	gulong video_packet_header_extention;
+	gulong video_packet_header_extension;
 	gulong data_partitioned;
 	gulong reversible_vlc;
 	gulong high_quality;

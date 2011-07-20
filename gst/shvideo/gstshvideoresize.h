@@ -29,7 +29,7 @@
 
 G_BEGIN_DECLS
 
-/* Standard macros for maniuplating SHVidresize objects */
+/* Standard macros for manipulating SHVidresize objects */
 #define GST_TYPE_SHVIDRESIZE \
   (gst_shvidresize_get_type())
 #define GST_SHVIDRESIZE(obj) \
@@ -47,7 +47,7 @@ typedef struct _GstSHVidresizeClass GstSHVidresizeClass;
 /* _GstSHVidresize object */
 struct _GstSHVidresize
 {
-	/* gStreamer infrastructure */
+	/* GStreamer infrastructure */
 	GstBaseTransform  element;
 	GstPad            *sinkpad;
 	GstPad            *srcpad;
@@ -69,7 +69,7 @@ struct _GstSHVidresizeClass
 	GstBaseTransformClass parent_class;
 };
 
-/* External function enclarations */
+/* External function declarations */
 GType gst_shvidresize_get_type(void);
 
 G_END_DECLS
