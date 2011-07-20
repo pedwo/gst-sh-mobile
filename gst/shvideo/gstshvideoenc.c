@@ -3092,7 +3092,8 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 		}
 		if (in_buf) {
 			GST_BUFFER_TIMESTAMP (buf) = GST_BUFFER_TIMESTAMP (in_buf);
-			GST_BUFFER_DURATION (buf) = 0;
+			GST_BUFFER_OFFSET (buf)    = GST_BUFFER_OFFSET (in_buf);
+			GST_BUFFER_DURATION (buf)  = GST_BUFFER_DURATION (in_buf);
 			gst_buffer_unref (in_buf);
 		} else {
 			GST_ELEMENT_ERROR (enc, STREAM, ENCODE, (NULL),
