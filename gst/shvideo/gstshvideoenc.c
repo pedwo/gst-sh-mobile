@@ -3017,6 +3017,10 @@ gst_sh_video_enc_loop(GstSHVideoEnc *enc)
 	enc->offset += luma_size+chroma_size;
 
 	GST_LOG("Input buffer is not SH type (enc will copy data)");
+
+	/* remember the timestamp and duration */
+	g_queue_push_tail (enc->delay, buffer);
+
 	py = GST_BUFFER_DATA(buffer);
 	pc = py + luma_size;
 
