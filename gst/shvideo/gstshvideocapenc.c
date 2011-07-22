@@ -790,7 +790,7 @@ GType gst_shvideo_capenc_get_type(void)
 	return object_type;
 }
 
-/** 
+/**
  * Reads the capabilities of the peer element connected to the source pad
  *  @param shvideoenc encoder object
  */
@@ -822,7 +822,7 @@ gst_sh_video_enc_read_src_caps(GstSHVideoCapEnc * enc)
 }
 
 
-/** 
+/**
  * Sets the capabilities of the source pad
  * @param shvideoenc encoder object
  * @return TRUE if the capabilities could be set, otherwise FALSE
@@ -903,7 +903,7 @@ gboolean gst_shvideo_camera_enc_plugin_init(GstPlugin * plugin)
 	return TRUE;
 }
 
-/** 
+/**
  * Initializes the SH Hardware encoder
  * @param shvideoenc encoder object
  */
@@ -995,4 +995,3 @@ gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query)
 	GST_LOG_OBJECT(enc, "%s called", __func__);
 	return gst_pad_query_default(pad, query);
 }
-

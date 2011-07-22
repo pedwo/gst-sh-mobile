@@ -25,7 +25,7 @@
 
 static GstBufferClass *parent_class;
 
-/** 
+/**
  * Initialize the buffer
  * \param shbuffer GstSHVideoBuffer object
  * \param g_class GClass pointer
@@ -37,7 +37,7 @@ gst_sh_video_buffer_init (GstSHVideoBuffer *shbuffer, gpointer g_class)
 	shbuffer->allocated = 0;
 }
 
-/** 
+/**
  * Create a new SH buffer
  * \param width Width of frame
  * \param height Height of frame
@@ -77,7 +77,7 @@ GstBuffer *gst_sh_video_buffer_new(UIOMux *uiomux, gint width, gint height, int 
 }
 
 
-/** 
+/**
  * Finalize the buffer
  * \param shbuffer GstSHVideoBuffer object
  */
@@ -92,7 +92,7 @@ gst_sh_video_buffer_finalize (GstSHVideoBuffer *shbuffer)
 
 	/* Set malloc_data to NULL to prevent parent class finalize
 	* from trying to free allocated data. This buffer is used only in HW
-	* address space, where we don't allocate data but just map it. 
+	* address space, where we don't allocate data but just map it.
 	*/
 	GST_BUFFER_MALLOCDATA(shbuffer) = NULL;
 	GST_BUFFER_DATA(shbuffer) = NULL;
@@ -100,7 +100,7 @@ gst_sh_video_buffer_finalize (GstSHVideoBuffer *shbuffer)
 	GST_MINI_OBJECT_CLASS (parent_class)->finalize (GST_MINI_OBJECT (shbuffer));
 }
 
-/** 
+/**
  * Initialize the buffer class
  * \param g_class GClass pointer
  * \param class_data Optional data pointer
@@ -227,7 +227,7 @@ gboolean gst_caps_to_renesas_format (GstCaps *caps, ren_vid_format_t *ren_fmt)
 		return FALSE;
 	}
 
-	return TRUE; 
+	return TRUE;
 }
 
 int get_renesas_format (GstVideoFormat format)
@@ -253,4 +253,3 @@ void *get_c_addr (void *y, ren_vid_format_t ren_format, int width, int height)
 	}
 	return NULL;
 }
-

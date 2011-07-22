@@ -1,4 +1,4 @@
-/*
+/**
  * "gst-sh-mobile-resize" element. Resizes video frames using the VEU hardware resizer
  * (via libshveu).
  *

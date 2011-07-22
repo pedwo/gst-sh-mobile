@@ -1,4 +1,5 @@
-/* SH video mixer plugin.
+/**
+ * SH video mixer plugin.
  * Blends frames using the BEU hardware (via libshbeu)
  *
  * Based on the Generic video mixer plugin (gst-plugins-good)

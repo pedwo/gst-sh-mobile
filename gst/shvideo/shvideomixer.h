@@ -1,4 +1,5 @@
-/* SH video mixer plugin.
+/**
+ * SH video mixer plugin.
  * Blends frames using the BEU hardware (via libshbeu)
  *
  * Based on the Generic video mixer plugin (gst-plugins-good)
@@ -19,7 +20,7 @@
  * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
  * Boston, MA 02111-1307, USA.
  */
- 
+
 #ifndef __GST_SH_VIDEO_MIXER_H__
 #define __GST_SH_VIDEO_MIXER_H__
 
@@ -78,7 +79,7 @@ struct _GstSHVideoMixer
 
   gint fps_n;
   gint fps_d;
-  
+
   /* Next available sinkpad index */
   gint next_sinkpad;
 

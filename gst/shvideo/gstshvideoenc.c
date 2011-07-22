@@ -2464,7 +2464,7 @@ gst_sh_video_enc_set_caps(GstPad * pad, GstCaps * caps)
 	return ret;
 }
 
-/** 
+/**
  * Reads the capabilities of the peer element connected to the sink pad
  * @param shvideoenc encoder object
  */
@@ -2495,7 +2495,7 @@ gst_sh_video_enc_read_sink_caps(GstSHVideoEnc * enc)
 	}
 }
 
-/** 
+/**
  * Reads the capabilities of the peer element connected to the source pad
  *  @param shvideoenc encoder object
  */
@@ -2521,7 +2521,7 @@ gst_sh_video_enc_read_src_caps(GstSHVideoEnc * enc)
 	}
 }
 
-/** 
+/**
  * Sets the capabilities of the source pad
  * @param shvideoenc encoder object
  * @return TRUE if the capabilities could be set, otherwise FALSE
@@ -2581,7 +2581,7 @@ gst_sh_video_enc_set_src_caps(GstSHVideoEnc * enc)
 	return ret;
 }
 
-/** 
+/**
  * Initializes the SH Hardware encoder
  * @param shvideoenc encoder object
  */
@@ -3155,7 +3155,7 @@ gst_sh_video_enc_src_query(GstPad * pad, GstQuery * query)
 	return gst_pad_query_default(pad, query);
 }
 
-/** 
+/**
  * Sets the properties of the hardware encoder
  * @return TRUE if the properties could be set, otherwise FALSE
  */

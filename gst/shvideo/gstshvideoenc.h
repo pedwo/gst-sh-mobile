@@ -50,7 +50,7 @@ struct _GstSHVideoEnc
 
 	UIOMux *uiomux;
 	gint offset;
-	SHCodecs_Format format;  
+	SHCodecs_Format format;
 	SHCodecs_Encoder *encoder;
 	gint width;
 	gint height;
@@ -59,7 +59,7 @@ struct _GstSHVideoEnc
 	gboolean bytestream;
 
 	APPLI_INFO ainfo;
-	
+
 	GstCaps *out_caps;
 	gboolean caps_set;
 	glong frame_number;
@@ -160,7 +160,7 @@ struct _GstSHVideoEnc
 	gulong deblocking_mode;
 	gulong use_deblocking_filter_control;
 	glong deblocking_alpha_offset;
-	glong deblocking_beta_offset;	
+	glong deblocking_beta_offset;
 	gulong me_skip_mode;
 	gulong put_start_code;
 	gulong seq_param_set_id;
@@ -182,7 +182,7 @@ struct _GstSHVideoEncClass
 	GstElementClass parent;
 };
 
-/** 
+/**
  * Get gst-sh-mobile-enc object type
  * @return object type
  */

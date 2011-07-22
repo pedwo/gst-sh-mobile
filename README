@@ -53,7 +53,7 @@ Decode video portion of an AVI file and playback on the screen:
 $ gst-launch \
 	filesrc location=video_file.avi \
 	! avidemux name=demux \
-	demux.video_00 ! queue ! gst-sh-mobile-dec ! gst-sh-mobile-sink 
+	demux.video_00 ! queue ! gst-sh-mobile-dec ! gst-sh-mobile-sink
 
 
 License

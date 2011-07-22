@@ -77,9 +77,9 @@ static int ReadUntilKeyMatch(FILE * fp_in, const char *key_word, char *buf_value
 /*****************************************************************************
  * Function Name	: GetStringFromCtrlFile
  * Description		: コントロールファイルから、キーワードに対する文字列を読み込み、引数return_stringで返す
- *                   
+ *
  * Parameters		:
- * Called functions	:          
+ * Called functions	:
  * Global Data		:
  * Return Value		:
  *****************************************************************************/
@@ -108,11 +108,11 @@ static void GetStringFromCtrlFile(FILE * fp_in, const char *key_word,
 /*****************************************************************************
  * Function Name	: GetValueFromCtrlFile
  * Description		: コントロールファイルから、キーワードに対する数値を読み込み、戻り値で返す
- *					
- * Parameters		: 
- * Called functions	: 		  
- * Global Data		: 
- * Return Value		: 
+ *
+ * Parameters		:
+ * Called functions	:
+ * Global Data		:
+ * Return Value		:
  *****************************************************************************/
 static long GetValueFromCtrlFile(FILE * fp_in, const char *key_word,
 			  int *status_flag)
@@ -142,11 +142,11 @@ static long GetValueFromCtrlFile(FILE * fp_in, const char *key_word,
 /*****************************************************************************
  * Function Name	: GetFromCtrlFtoEncoding_property
  * Description		: コントロールファイルから、構造体avcbe_encoding_propertyのメンバ値を読み込み、引数に設定して返す
- *					
- * Parameters		: 
- * Called functions	: 		  
- * Global Data		: 
- * Return Value		: 
+ *
+ * Parameters		:
+ * Called functions	:
+ * Global Data		:
+ * Return Value		:
  *****************************************************************************/
 static int GetFromCtrlFtoEncoding_property(FILE * fp_in,
 				    SHCodecs_Encoder * encoder)
@@ -261,11 +261,11 @@ static int GetFromCtrlFtoEncoding_property(FILE * fp_in,
 /*****************************************************************************
  * Function Name	: GetFromCtrlFtoOther_options_H264
  * Description		: コントロールファイルから、構造体avcbe_other_options_h264のメンバ値を読み込み、引数に設定して返す
- *					
- * Parameters		: 
- * Called functions	: 		  
- * Global Data		: 
- * Return Value		: 
+ *
+ * Parameters		:
+ * Called functions	:
+ * Global Data		:
+ * Return Value		:
  *****************************************************************************/
 static int GetFromCtrlFtoOther_options_H264(FILE * fp_in,
 				     SHCodecs_Encoder * encoder)
@@ -556,11 +556,11 @@ static int GetFromCtrlFtoOther_options_H264(FILE * fp_in,
 /*****************************************************************************
  * Function Name	: GetFromCtrlFtoOther_options_MPEG4
  * Description		: コントロールファイルから、構造体avcbe_other_options_mpeg4のメンバ値を読み込み、引数に設定して返す
- *					
- * Parameters		: 
- * Called functions	: 		  
- * Global Data		: 
- * Return Value		: 
+ *
+ * Parameters		:
+ * Called functions	:
+ * Global Data		:
+ * Return Value		:
  *****************************************************************************/
 static int GetFromCtrlFtoOther_options_MPEG4(FILE * fp_in,
 					SHCodecs_Encoder * encoder)
@@ -846,8 +846,8 @@ static int GetFromCtrlFtoOther_options_MPEG4(FILE * fp_in,
  * Function Name	: GetFromCtrlFTop
  * Description		: コントロールファイルから、入力ファイル、出力先、ストリームタイプを得る
  * Parameters		: 省略
- * Called functions	: 		  
- * Global Data		: 
+ * Called functions	:
+ * Global Data		:
  * Return Value		: 1: 正常終了、-1: エラー
  *****************************************************************************/
 int GetFromCtrlFTop(const char *control_filepath,
@@ -906,8 +906,8 @@ int GetFromCtrlFTop(const char *control_filepath,
  * Description		: コントロールファイルから、構造体avcbe_encoding_property、avcbe_other_options_h264、
  *　　　　　　　　　 avcbe_other_options_mpeg4等のメンバ値を読み込み、設定して返す
  * Parameters		: 省略
- * Called functions	: 		  
- * Global Data		: 
+ * Called functions	:
+ * Global Data		:
  * Return Value		: 1: 正常終了、-1: エラー
  *****************************************************************************/
 int GetFromCtrlFtoEncParam(SHCodecs_Encoder * encoder,
@@ -950,4 +950,3 @@ int GetFromCtrlFtoEncParam(SHCodecs_Encoder * encoder,
 
 	return (1);		/* 正常終了 */
 }
-

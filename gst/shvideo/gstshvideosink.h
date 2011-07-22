@@ -90,7 +90,7 @@ struct _GstSHVideoSinkClass
 };
 
 
-/** 
+/**
 * Get gst-sh-mobile-sink object type
 * @return object type
 */

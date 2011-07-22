@@ -16,7 +16,7 @@
  * Optional elements:
  * - \subpage resize "gst-sh-mobile-resize - HW video resize/rotate"
  * - \subpage mixer "gst-sh-mobile-mixer - HW video blend/overlay"
- * 
+ *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
  * License as published by the Free Software Foundation; either

@@ -26,7 +26,7 @@
 #include <gst/gst.h>
 #include <gst/video/gstvideosink.h>
 #include <gst/gstelement.h>
-#include <semaphore.h> 
+#include <semaphore.h>
 
 G_BEGIN_DECLS
 #define GST_TYPE_SH_VIDEO_DEC \

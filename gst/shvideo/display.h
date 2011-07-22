@@ -83,4 +83,3 @@ int display_update(
 	struct ren_vid_surface *src);
 
 #endif
-

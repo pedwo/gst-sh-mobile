@@ -43,7 +43,7 @@ typedef struct _GstSHVideoBufferclass GstSHVideoBufferclass;
  * \brief SuperH HW buffer for YUV-data
  * \var buffer Parent buffer
  */
-struct _GstSHVideoBuffer 
+struct _GstSHVideoBuffer
 {
 	GstBuffer buffer;
 
@@ -62,7 +62,7 @@ struct _GstSHVideoBufferclass
 	GstBufferClass parent;
 };
 
-/** 
+/**
  * Get Gstshbuffer object type
  * @return object type
  */

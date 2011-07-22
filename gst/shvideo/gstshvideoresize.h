@@ -1,4 +1,4 @@
-/*
+/**
  * "SHVidResize" element. Resizes video frames using the VEU hardware resizer
  * (via libshveu).
  *
@@ -64,7 +64,7 @@ struct _GstSHVidresize
 };
 
 /* _GstSHVidresizeClass object */
-struct _GstSHVidresizeClass 
+struct _GstSHVidresizeClass
 {
 	GstBaseTransformClass parent_class;
 };
@@ -75,4 +75,3 @@ GType gst_shvidresize_get_type(void);
 G_END_DECLS
 
 #endif /* __GST_SHVIDRESIZE_H__ */
-
