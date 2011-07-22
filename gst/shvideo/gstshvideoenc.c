@@ -3090,10 +3090,14 @@ gst_sh_video_enc_write_output(SHCodecs_Encoder * encoder,
 	frm_delta = shcodecs_encoder_get_frame_num_delta(enc->encoder);
 
 	if (frm_delta > 0) {
-		/* Frame(s) have been encoded */
-		for (frame=0; frame<frm_delta; frame++) {
+		/* Handle skipped frames */
+		for (frame=0; frame<frm_delta-1; frame++) {
 			in_buf = g_queue_pop_head (enc->delay);
+			gst_buffer_unref (in_buf);
 		}
+		/* Frame(s) have been encoded */
+		in_buf = g_queue_pop_head (enc->delay);
+
 		if (in_buf) {
 			GST_BUFFER_TIMESTAMP (buf) = GST_BUFFER_TIMESTAMP (in_buf);
 			GST_BUFFER_OFFSET (buf)    = GST_BUFFER_OFFSET (in_buf);
