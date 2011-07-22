@@ -46,6 +46,7 @@
 #include "gstshvideoenc.h"
 #include "gstshvideodec.h"
 #include "gstshvideocapenc.h"
+#include "gstshv4l2src.h"
 #ifdef ENABLE_SCALE
 #include "gstshvideoresize.h"
 #endif
@@ -70,6 +71,10 @@ gst_sh_video_plugin_init (GstPlugin * plugin)
 
 	if (!gst_element_register (plugin, "gst-sh-mobile-camera-enc", GST_RANK_PRIMARY,
 		GST_TYPE_SH_VIDEO_CAPENC))
+	return FALSE;
+
+	if (!gst_element_register (plugin, "gst-sh-mobile-v4l2src", GST_RANK_PRIMARY,
+		GST_TYPE_SHV4L2SRC))
 	return FALSE;
 
 #ifdef ENABLE_SCALE
