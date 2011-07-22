@@ -32,6 +32,7 @@ struct DISPLAY {
 	struct fb_var_screeninfo fb_var;
 	unsigned char *back_buf;
 	unsigned char *iomem;
+	int fb_size;
 	int fb_index;
 	int lcd_w;
 	int lcd_h;
@@ -47,7 +48,6 @@ DISPLAY *display_open(void)
 {
 	const char *device;
 	DISPLAY *disp;
-	int size;
 
 	disp = calloc(1, sizeof(*disp));
 	if (!disp)
@@ -91,14 +91,14 @@ DISPLAY *display_open(void)
 	}
 
 	/* clear framebuffer and back buffer */
-	size = (RGB_BPP * disp->fb_var.xres * disp->fb_var.yres * disp->fb_var.bits_per_pixel) / 8;
-	disp->iomem = mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, disp->fb_handle, 0);
+	disp->fb_size = (RGB_BPP * disp->fb_var.xres * disp->fb_var.yres * disp->fb_var.bits_per_pixel) / 8;
+	disp->iomem = mmap(0, disp->fb_size, PROT_READ | PROT_WRITE, MAP_SHARED, disp->fb_handle, 0);
 	if (disp->iomem != MAP_FAILED) {
-		memset(disp->iomem, 0, size);
+		memset(disp->iomem, 0, disp->fb_size);
 	}
 
 	/* Register the framebuffer with UIOMux */
-	uiomux_register (disp->iomem, disp->fb_fix.smem_start, size);
+	uiomux_register (disp->iomem, disp->fb_fix.smem_start, disp->fb_size);
 
 	disp->lcd_w = disp->fb_var.xres;
 	disp->lcd_h = disp->fb_var.yres;
@@ -116,6 +116,9 @@ void display_close(DISPLAY *disp)
 {
 	disp->fb_var.xoffset = 0;
 	disp->fb_var.yoffset = 0;
+
+	uiomux_unregister(disp->iomem);
+	munmap(disp->iomem, disp->fb_size);
 
 	/* Restore the framebuffer to the front buffer */
 	ioctl(disp->fb_handle, FBIOPAN_DISPLAY, &disp->fb_var);
