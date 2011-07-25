@@ -583,6 +583,12 @@ static void *shv4l2src_thread(void *data)
 	shv4l2src->cap_w = capture_get_width(shv4l2src->ceu);
 	shv4l2src->cap_h = capture_get_height(shv4l2src->ceu);
 
+	if ((shv4l2src->cap_w != shv4l2src->width)
+	    || (shv4l2src->cap_h != shv4l2src->height)) {
+		GST_ELEMENT_ERROR((GstElement *) shv4l2src, CORE, FAILED,
+				  ("Camera capture size is not supported"), (NULL));
+	}
+
 	if (capture_get_pixel_format (shv4l2src->ceu) != V4L2_PIX_FMT_NV12) {
 		GST_ELEMENT_ERROR((GstElement *) shv4l2src, CORE, FAILED,
 				  ("Camera capture pixel format is not supported"), (NULL));
