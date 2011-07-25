@@ -59,12 +59,13 @@ gst-launch \
   demux.video_00 ! queue ! gst-sh-mobile-dec ! gst-sh-mobile-sink \
   demux.audio_00 ! queue ! decodebin ! audioconvert ! audioresample ! autoaudiosink
 
-# Encode VGA camera to file with LCD preview - note that the ceu capture size specified
-# in the cntl_file is used for capture, then scaled to the size specified here.
+# Encode VGA camera to file with LCD preview
 gst-launch \
-   gst-sh-mobile-camera-enc cntl_file=ctl/h264-video0-vga-stream.ctl preview=1 \
- ! video/x-h264, width=640, height=480, framerate=10/1 \
- ! filesink location=encoded_video.h264
+ gst-sh-mobile-v4l2src preview=1 \
+ ! 'video/x-raw-yuv, width=640, height=480, framerate=10/1' \
+ ! gst-sh-mobile-enc cntl-file=ctl/h264-video0-vga-stream.ctl \
+ ! 'video/x-h264' \
+ ! filesink location=encoded_video.264
 
 # Testsrc => resize => file
 gst-launch \
@@ -167,6 +168,13 @@ gst-launch -v -e \
  ! queue ! mp4mux \
  ! filesink location=tmp.mp4
 
+# camera => videorate => encoder => MP4 mux => file (Flash Player streamable)
+gst-launch -v -e \
+ v4l2src device=/dev/video0 ! "video/x-raw-yuv, format=(fourcc)NV12, width=1280, height=720, framerate=30/1" \
+ ! queue ! gst-sh-mobile-enc cntl_file=ctl/h264-video0-720p-stream.ctl byteStream=0 ! "video/x-h264" \
+ ! queue ! mp4mux streamable=true faststart=true faststart-file=/var/www/faststart.tmp fragment-duration=1000 dts-method=1 \
+ ! filesink location=tmp.mp4
+
 # file => decode => display
 gst-launch \
  filesrc location=qvga.264 ! "video/x-h264, width=320, height=240, framerate=15/1" \
@@ -211,4 +219,23 @@ gst-launch \
  gst-sh-mobile-mixer name=mix sink_1::alpha=0.8 sink_1::xpos=160 sink_1::ypos=120 sink_2::alpha=0.8 \
  ! gst-sh-mobile-sink
 
+# Stream video via RTP
+gst-launch \
+gstrtpbin name=rtpbin \
+gst-sh-mobile-v4l2src  ! 'video/x-raw-yuv,width=1280,height=720,framerate=30/1' \
+! gst-sh-mobile-enc cntl-file=ctl/h264-video0-720p-stream.ctl byteStream=0 \ 
+! rtph264pay \
+! rtpbin.send_rtp_sink_0 rtpbin.send_rtp_src_0 \
+! udpsink port=5000 host=$HOST ts-offset=0 name=vrtpsink rtpbin.send_rtcp_src_0 \
+! udpsink port=5001 host=$HOST sync=false async=false name=vrtcpsink udpsrc port=5005 name=vrtpsrc \
+! rtpbin.recv_rtcp_sink_0
+
+# Stream audio & video as MPEG4 TS
+gst-launch \
+gst-sh-mobile-v4l2src ! 'video/x-raw-yuv,width=1280,height=720,framerate=30/1' \
+ ! gst-sh-mobile-enc cntl-file=ctl/h264-video0-720p-stream.ctl byteStream=0 ! "video/x-h264" \
+ ! mpegts. audiotestsrc is-live=1 wave=5 ! audio/x-raw-int, "endianness=(int)1234, signed=(boolean)true, width=(int)16, depth=(int)16, rate=(int)22050, channels=(int)1" \
+ ! faac bitrate=24000 profile=2 outputformat=1 \
+ ! mpegts. mpegtsmux name=mpegts \
+ ! udpsink host=$HOST port=10000
 
