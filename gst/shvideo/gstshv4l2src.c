@@ -39,6 +39,8 @@
 
 #define CHROMA_ALIGNMENT 16
 
+#define DEFAULT_PROP_DEVICE   "/dev/video0"
+
 typedef enum {
 	PREVIEW_OFF,
 	PREVIEW_ON
@@ -51,6 +53,9 @@ typedef enum {
 struct _GstSHV4L2Src {
 	GstElement element;
 	GstPad *srcpad;
+
+	/* the video device */
+	char *videodev;
 
 	guint64 offset;
 	GstClockTime duration;       /* duration of one frame */
@@ -142,6 +147,7 @@ static void gst_shv4l2src_read_src_caps(GstSHV4L2Src * cam_cap);
 enum {
 	PROP_0,
 	PROP_PREVIEW,
+	PROP_DEVICE,
 	PROP_LAST
 };
 
@@ -310,6 +316,9 @@ static void gst_shv4l2src_dispose(GObject * object)
 
 	capture_close(shv4l2src->ceu);
 
+	if (shv4l2src->videodev)
+		g_free (shv4l2src->videodev);
+
 	G_OBJECT_CLASS(parent_class)->dispose(object);
 }
 
@@ -354,11 +363,18 @@ static void gst_shv4l2src_class_init(GstSHV4L2SrcClass * klass)
 				"gst-sh-mobile-v4l2src", 0, "Camera capturer for NV12 streams");
 
 	g_object_class_install_property(gobject_class, PROP_PREVIEW,
-					g_param_spec_enum("preview",
-							  "preview",
-							  "preview",
-							  GST_TYPE_SHV4L2SRC_PREVIEW,
-							  PREVIEW_OFF, G_PARAM_READWRITE));
+		g_param_spec_enum("preview",
+			"preview",
+			"preview",
+			GST_TYPE_SHV4L2SRC_PREVIEW,
+			PREVIEW_OFF, G_PARAM_READWRITE));
+
+	g_object_class_install_property (gobject_class, PROP_DEVICE,
+		g_param_spec_string ("device",
+			"Device",
+			"Device location",
+			DEFAULT_PROP_DEVICE,
+			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 }
 
 /** Initialize the internal data
@@ -394,6 +410,7 @@ static void gst_shv4l2src_init(GstSHV4L2Src * shv4l2src, GstSHV4L2SrcClass * gkl
 	shv4l2src->preview = PREVIEW_OFF;
 	shv4l2src->hold_output = TRUE;
 	shv4l2src->start_time_set = FALSE;
+	shv4l2src->videodev = g_strdup (DEFAULT_PROP_DEVICE);
 }
 
 
@@ -474,6 +491,10 @@ gst_shv4l2src_set_property(GObject * object, guint prop_id,
 	case PROP_PREVIEW:
 		shv4l2src->preview = g_value_get_enum(value);
 		break;
+	case PROP_DEVICE:
+		g_free (shv4l2src->videodev);
+		shv4l2src->videodev = g_value_dup_string (value);
+		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
 		break;
@@ -495,6 +516,9 @@ gst_shv4l2src_get_property(GObject * object, guint prop_id, GValue * value, GPar
 	switch (prop_id) {
 	case PROP_PREVIEW:
 		g_value_set_enum(value, shv4l2src->preview);
+		break;
+	case PROP_DEVICE:
+		g_value_set_string (value, shv4l2src->videodev);
 		break;
 	default:
 		G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -574,7 +598,7 @@ static void *shv4l2src_thread(void *data)
 	}
 
 	/* ceu open */
-	shv4l2src->ceu = capture_open_userio("/dev/video0",
+	shv4l2src->ceu = capture_open_userio(shv4l2src->videodev,
 					shv4l2src->width, shv4l2src->height);
 	if (shv4l2src->ceu == NULL) {
 		GST_ELEMENT_ERROR((GstElement *) shv4l2src, CORE, FAILED,
