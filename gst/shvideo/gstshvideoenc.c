@@ -464,10 +464,10 @@ gst_sh_video_enc_class_init(GstSHVideoEncClass * klass)
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_BYTE_STREAM,
-		g_param_spec_string("byteStream",
-			"Annex B format (ie. start codes)",
-			"Annex B (start code delimited) or AVC (size prefixed) format",
-			NULL,
+		g_param_spec_boolean("byteStream",
+			"Annex B or AVC format",
+			"Annex B (start code delimited, true) or AVC (size prefixed, false) format",
+			TRUE,
 			G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
 	g_object_class_install_property(g_object_class, PROP_STREAM_TYPE,
@@ -1210,7 +1210,6 @@ gst_sh_video_enc_init(GstSHVideoEnc * enc,
 
 	/* PROPERTIES */
 	/* common */
-	enc->bytestream = TRUE;
 	enc->bitrate = 0;
 	enc->i_vop_interval = DEFAULT_I_VOP_INTERVAL;
 	enc->mv_mode = DEFAULT_MV_MODE;
