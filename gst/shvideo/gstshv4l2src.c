@@ -58,7 +58,6 @@ struct _GstSHV4L2Src {
 	char *videodev;
 
 	guint64 offset;
-	GstClockTime duration;       /* duration of one frame */
 	gint width;
 	gint height;
 	gint fps_numerator;
@@ -71,8 +70,10 @@ struct _GstSHV4L2Src {
 	glong frame_number;
 
 	GstClock *clock;
-	gboolean start_time_set;
-	GstClockTime start_time;
+	GstClockTime last_frame_timestamp;
+	GstClockTime last_frame_duration;
+	GstClockTime duration;       /* duration of one frame in nanoseconds */
+	GstClockTime frame_duration; /* duration of one frame in microseconds */
 
 	pthread_t thread;
 
@@ -187,30 +188,11 @@ static void capture_image_cb(capture * ceu, const unsigned char *frame_data, siz
 	GstBuffer *buf = gst_buffer_new();
 	gst_buffer_set_data(buf, (unsigned char*)frame_data, length);
 
-	GstClockTime timestamp;
-
 	GST_BUFFER_OFFSET(buf) = shv4l2src->offset++;
 	GST_BUFFER_OFFSET_END(buf) = shv4l2src->offset;
 
-	if (G_LIKELY(shv4l2src->clock)) {
-		/* the time now is the time of the clock minus the base time */
-		timestamp = gst_clock_get_time(shv4l2src->clock) - GST_ELEMENT(shv4l2src)->base_time;
-		/* if we have a framerate adjust timestamp for frame latency */
-		if (GST_CLOCK_TIME_IS_VALID(shv4l2src->duration)) {
-			if (timestamp > shv4l2src->duration) {
-				timestamp -= shv4l2src->duration;
-			} else {
-				timestamp = 0;
-			}
-		}
-	} else {
-		GST_DEBUG_OBJECT(shv4l2src, "No have a valid clock to calculate the timestamp");
-		timestamp = 0;
-	}
-
-	/* FIXME: use the timestamp from the buffer itself! */
-	GST_BUFFER_TIMESTAMP(buf) = timestamp;
-	GST_BUFFER_DURATION(buf) = shv4l2src->duration;
+	GST_BUFFER_TIMESTAMP(buf) = shv4l2src->last_frame_timestamp;
+	GST_BUFFER_DURATION(buf) = shv4l2src->last_frame_duration;
 
 	int ret = gst_pad_push(shv4l2src->srcpad, buf);
 	if (GST_FLOW_OK != ret) {
@@ -236,32 +218,36 @@ static void capture_image_cb(capture * ceu, const unsigned char *frame_data, siz
 
 static void *capture_loop(void *data)
 {
-	GstSHV4L2Src *shv4l2src = (GstSHV4L2Src *) data;
-	guint64 time_diff, stamp_diff, sleep_time;
-	GstClockTime time_now;
+	GstSHV4L2Src *shv4l2src = (GstSHV4L2Src *)data;
+	guint64 time_diff;
+	GstClockTime sync_time, last_time = 0;
+
+	/* Every frame will be synchronized with this time */
+	sync_time = GST_TIME_AS_USECONDS(gst_clock_get_time(shv4l2src->clock));
+
+	shv4l2src->last_frame_timestamp = gst_clock_get_time(shv4l2src->clock);
 
 	while (!shv4l2src->stop_thread) {
 		/* Camera sensors cannot always be set to the required frame rate. The v4l
 		   camera driver attempts to set to the requested frame rate, but if not
 		   possible it attempts to set a higher frame rate, therefore we wait... */
-		time_now = gst_clock_get_time(shv4l2src->clock);
-		if (shv4l2src->start_time_set == FALSE) {
-			shv4l2src->start_time = time_now;
-			shv4l2src->start_time_set = TRUE;
-		}
-		time_diff = GST_TIME_AS_MSECONDS(GST_CLOCK_DIFF(shv4l2src->start_time, time_now));
-		stamp_diff = 1000 * shv4l2src->fps_denominator / shv4l2src->fps_numerator;
-		shv4l2src->start_time = time_now;
-
-		if (stamp_diff > time_diff) {
-			sleep_time = stamp_diff - time_diff;
-			GST_DEBUG_OBJECT(shv4l2src, "Waiting %lldms", sleep_time);
-			usleep(sleep_time * 1000);
-		} else {
-			GST_DEBUG_OBJECT(shv4l2src, "Late by %lldms", time_diff-stamp_diff);
-		}
 
 		capture_get_frame(shv4l2src->ceu, capture_image_cb, shv4l2src);
+
+		last_time = gst_clock_get_time(shv4l2src->clock);
+		shv4l2src->last_frame_duration = last_time - shv4l2src->last_frame_timestamp;
+		shv4l2src->last_frame_timestamp = last_time;
+		time_diff = GST_TIME_AS_USECONDS(last_time) - sync_time;
+
+		if (shv4l2src->frame_duration > time_diff) {
+			time_diff = shv4l2src->frame_duration - time_diff;
+			GST_DEBUG_OBJECT(shv4l2src, "Waiting %lldms", time_diff / 1000);
+			usleep(time_diff);
+		} else {
+			GST_DEBUG_OBJECT(shv4l2src, "Late by %lldms", (time_diff - shv4l2src->frame_duration) / 1000);
+		}
+
+		sync_time += shv4l2src->frame_duration;
 	}
 
 	return NULL;
@@ -409,7 +395,6 @@ static void gst_shv4l2src_init(GstSHV4L2Src * shv4l2src, GstSHV4L2SrcClass * gkl
 	shv4l2src->frame_number = 0;
 	shv4l2src->preview = PREVIEW_OFF;
 	shv4l2src->hold_output = TRUE;
-	shv4l2src->start_time_set = FALSE;
 	shv4l2src->videodev = g_strdup (DEFAULT_PROP_DEVICE);
 }
 
@@ -576,7 +561,10 @@ static void *shv4l2src_thread(void *data)
 			   shv4l2src->fps_numerator, shv4l2src->fps_denominator);
 	shv4l2src->duration = gst_util_uint64_scale_int(GST_SECOND,
 			   shv4l2src->fps_denominator, shv4l2src->fps_numerator);
-	GST_LOG_OBJECT(shv4l2src, "set duration to %llu\n", shv4l2src->duration);
+	GST_LOG_OBJECT(shv4l2src, "set duration to %lluns\n", shv4l2src->duration);
+
+	shv4l2src->frame_duration = 1000 * 1000 * shv4l2src->fps_denominator / shv4l2src->fps_numerator;
+	GST_LOG_OBJECT(shv4l2src, "set frame duration to %lluus", shv4l2src->frame_duration);
 
 	if (!shv4l2src->width) {
 		shv4l2src->width = 1280;
