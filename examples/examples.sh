@@ -34,18 +34,13 @@ gst-launch \
 # Encode microphone input as mp4 AAC file.
 gst-launch -e \
  alsasrc ! audio/x-raw-int, rate=16000, channels=2 \
- ! queue ! audioconvert ! faac outputformat=1 profile=LC bitrate=192000 \
- ! queue ! mux. \
-   mp4mux name=mux ! filesink location=./test.m4a
+ ! queue ! audioconvert ! faac profile=LC bitrate=192000 \
+ ! queue ! mp4mux ! filesink location=./test.mp4
 
 # mp4 AAC file playback
 gst-launch \
- filesrc location=./test.m4a \
- ! queue ! faad ! audioconvert ! audioresample ! autoaudiosink
-
-gst-launch \
- filesrc location=/sample_media/audio/RANewMovie1024_track2.aac \
- ! queue ! faad ! audioconvert ! audioresample ! autoaudiosink
+ filesrc location=./test.mp4 \
+ ! qtdemux ! queue ! faad ! audioconvert ! audioresample ! autoaudiosink
 
 # mp3 playback
 gst-launch \
