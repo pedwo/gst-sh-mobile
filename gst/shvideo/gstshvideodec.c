@@ -577,6 +577,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	    (dec->format == SHCodecs_Format_H264)) {
 		/* This is for mp4 file playback */
 		/* All NALs are preceded with a 4 byte size field, which we replace with start codes. */
+		GstBuffer* tmpbuffer = NULL;
 		/* Note that we might get more than one packet... */
 		gint bsize;
 		guint8 *bdata = GST_BUFFER_DATA(buffer);
@@ -610,7 +611,9 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 			bdata += bsize;
 			used_bytes += bsize;
 		}
-		buffer = gst_buffer_create_sub(buffer, 0, used_bytes);
+		tmpbuffer = gst_buffer_create_sub(buffer, 0, used_bytes);
+		gst_buffer_unref(buffer);
+		buffer = tmpbuffer;
 	}
 
 	GST_DEBUG_OBJECT(
