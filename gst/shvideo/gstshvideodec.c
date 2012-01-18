@@ -323,10 +323,17 @@ gst_sh_video_dec_dispose (GObject * object)
 {
 	GstSHVideoDec *dec = GST_SH_VIDEO_DEC (object);
 
-	if (dec->decoder != NULL) {
+	if (dec->decoder != NULL)
 		shcodecs_decoder_close (dec->decoder);
-	}
+	if (dec->buffer)
+		gst_buffer_unref(dec->buffer);
+
 	dec->end = TRUE;
+
+	if (dec->push_thread) {
+		sem_post(&dec->push_sem);
+		pthread_join(dec->push_thread, NULL);
+	}
 
 	G_OBJECT_CLASS (parent_class)->dispose (object);
 }
@@ -366,11 +373,11 @@ gst_sh_video_dec_init (GstSHVideoDec * dec, GstSHVideoDecClass * gklass)
 	dec->buffer = NULL;
 	dec->codec_data_present = FALSE;
 	dec->codec_data_present_first = TRUE;
+	dec->push_buf = NULL;
+	dec->end = FALSE;
 
 	sem_init(&dec->dec_sem, 0, 1);
 	sem_init(&dec->push_sem, 0, 0);
-
-	dec->end = FALSE;
 }
 
 static gboolean
@@ -567,7 +574,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	GstSHVideoDec *dec = (GstSHVideoDec *) (GST_OBJECT_PARENT (pad));
 	GstFlowReturn ret = GST_FLOW_OK;
 	gint used_bytes;
-	GstBuffer* buffer = GST_BUFFER(inbuffer);
+	GstBuffer* buffer = inbuffer;
 
 	if (!dec->push_thread) {
 		pthread_create( &dec->push_thread, NULL, gst_sh_video_dec_pad_push, dec);
@@ -577,8 +584,8 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	    (dec->format == SHCodecs_Format_H264)) {
 		/* This is for mp4 file playback */
 		/* All NALs are preceded with a 4 byte size field, which we replace with start codes. */
-		GstBuffer* tmpbuffer = NULL;
 		/* Note that we might get more than one packet... */
+		GstBuffer* tmpbuffer = NULL;
 		gint bsize;
 		guint8 *bdata = GST_BUFFER_DATA(buffer);
 
@@ -617,7 +624,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	}
 
 	GST_DEBUG_OBJECT(
-		dec, "Got buffer. Size %d timestamp: %llu duration: %llu",
+		dec, "Got new buffer. Size %d timestamp: %llu duration: %llu",
 		GST_BUFFER_SIZE(buffer),
 		GST_TIME_AS_MSECONDS(GST_BUFFER_TIMESTAMP (buffer)),
 		GST_TIME_AS_MSECONDS(GST_BUFFER_DURATION (buffer)));
@@ -625,7 +632,7 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 	/* Buffering */
 	if (dec->buffer) {
 		buffer = gst_buffer_join(dec->buffer,buffer);
-		GST_LOG_OBJECT(dec,"Buffer added. Now storing %d bytes", GST_BUFFER_SIZE(buffer));
+		GST_LOG_OBJECT(dec,"Added to unused data, now got %d bytes", GST_BUFFER_SIZE(buffer));
 	}
 
 	dec->buffer = NULL;
@@ -634,15 +641,17 @@ gst_sh_video_dec_chain (GstPad * pad, GstBuffer * inbuffer)
 			GST_BUFFER_DATA (buffer),
 			GST_BUFFER_SIZE (buffer));
 
-	GST_DEBUG_OBJECT(dec, "used_bytes. %d bytes", used_bytes);
+	GST_DEBUG_OBJECT(dec, "decoder used %d bytes", used_bytes);
 	if (used_bytes < 0) {
 		GST_ELEMENT_ERROR((GstElement *) dec, CORE, FAILED,
 				  ("Decode error"), ("Failed (Error on shcodecs_decode)"));
 		return GST_FLOW_ERROR;
 	}
 
-	// Preserve the data that was not used
+	/* Preserve the data that wasn't used */
 	if (GST_BUFFER_SIZE(buffer) != used_bytes) {
+		GST_DEBUG_OBJECT(dec, "Not all bytes processed, remaining %d bytes",
+				GST_BUFFER_SIZE(buffer) - used_bytes);
 		dec->buffer = gst_buffer_create_sub(buffer,
 						    used_bytes,
 						    GST_BUFFER_SIZE(buffer)-used_bytes);
@@ -699,22 +708,24 @@ static void *
 gst_sh_video_dec_pad_push (void *data)
 {
 	GstFlowReturn ret;
-
 	GstSHVideoDec *dec = (GstSHVideoDec *)data;
 
 	while(1)
 	{
 		sem_wait(&dec->push_sem);
-		GST_LOG_OBJECT(dec,"%s called", __func__);
+		if (dec->push_buf) {
+			GST_LOG_OBJECT(dec, "Pushing buffer of %d bytes", GST_BUFFER_SIZE(dec->push_buf));
+			ret = gst_pad_push (dec->srcpad, dec->push_buf);
+			dec->push_buf = NULL;
 
-		ret = gst_pad_push (dec->srcpad, dec->push_buf);
-
-		if (ret != GST_FLOW_OK) {
-			GST_DEBUG_OBJECT (dec, "pad_push failed: %s", gst_flow_get_name (ret));
+			if (ret != GST_FLOW_OK) {
+				GST_DEBUG_OBJECT (dec, "pad_push failed: %s", gst_flow_get_name (ret));
+			}
 		}
 
 		if (dec->end)
 			break;
+
 		sem_post(&dec->dec_sem);
 	}
 
