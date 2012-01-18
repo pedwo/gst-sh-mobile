@@ -270,10 +270,6 @@ static GstFlowReturn gst_sh_video_sink_buffer_alloc (GstBaseSink *bsink,
 							 guint64 offset, guint size,
 							 GstCaps *caps, GstBuffer **buf);
 
-
-
-
-
 GType
 gst_sh_video_sink_get_type (void)
 {

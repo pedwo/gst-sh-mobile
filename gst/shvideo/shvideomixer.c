@@ -138,9 +138,6 @@ gst_sh_videomixer_pad_class_init (GstSHVideoMixerPadClass * klass)
 	gobject_class->set_property = gst_sh_videomixer_pad_set_property;
 	gobject_class->get_property = gst_sh_videomixer_pad_get_property;
 
-	GST_DEBUG_CATEGORY_INIT(gst_sh_video_mixer_debug, "gst-sh-mobile-mixer",
-			0, "SH Video Mixer");
-
 	g_object_class_install_property (gobject_class, PROP_PAD_ZORDER,
 			g_param_spec_uint ("zorder", "Z-Order", "Z Order of the picture",
 					0, 10000, DEFAULT_PAD_ZORDER,
@@ -458,6 +455,9 @@ gst_sh_videomixer_class_init (GstSHVideoMixerClass * klass)
 
 	/* Register the pad class */
 	(void) (GST_TYPE_SH_VIDEO_MIXER_PAD);
+
+	GST_DEBUG_CATEGORY_INIT(gst_sh_video_mixer_debug, "gst-sh-mobile-mixer",
+			0, "SH Video Mixer");
 }
 
 static void

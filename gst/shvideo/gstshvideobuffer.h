@@ -32,11 +32,11 @@
 #define GST_TYPE_SH_VIDEO_BUFFER (gst_sh_video_buffer_get_type())
 #define GST_IS_SH_VIDEO_BUFFER(obj) (G_TYPE_CHECK_INSTANCE_TYPE ((obj), GST_TYPE_SH_VIDEO_BUFFER))
 #define GST_SH_VIDEO_BUFFER(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), GST_TYPE_SH_VIDEO_BUFFER, GstSHVideoBuffer))
-#define GST_SH_VIDEO_BUFFER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_SH_VIDEO_BUFFER, GstSHVideoBufferclass))
+#define GST_SH_VIDEO_BUFFER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), GST_SH_VIDEO_BUFFER, GstSHVideoBufferClass))
 #define GST_SH_VIDEO_BUFFER_CAST(obj)  ((GstSHVideoBuffer *)(obj))
 
 typedef struct _GstSHVideoBuffer GstSHVideoBuffer;
-typedef struct _GstSHVideoBufferclass GstSHVideoBufferclass;
+typedef struct _GstSHVideoBufferClass GstSHVideoBufferClass;
 
 /**
  * \struct _GstSHVideoBuffer
@@ -54,10 +54,10 @@ struct _GstSHVideoBuffer
 };
 
 /**
- * \struct _GstSHVideoBufferclass
+ * \struct _GstSHVideoBufferClass
  * \var parent Parent
  */
-struct _GstSHVideoBufferclass
+struct _GstSHVideoBufferClass
 {
 	GstBufferClass parent;
 };

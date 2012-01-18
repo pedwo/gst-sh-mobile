@@ -259,7 +259,6 @@ static void *capture_loop(void *data)
 */
 static void gst_shv4l2src_init_class(gpointer g_class, gpointer data)
 {
-	GST_LOG("%s called", __func__);
 	parent_class = g_type_class_peek_parent(g_class);
 	gst_shv4l2src_class_init((GstSHV4L2SrcClass *) g_class);
 }
@@ -276,7 +275,6 @@ static void gst_shv4l2src_base_init(gpointer klass)
 				"George A. Dorobantu <gdalex@gmail.com>");
 	GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
 
-	GST_LOG("%s called", __func__);
 	gst_element_class_add_pad_template(element_class,
 					   gst_static_pad_template_get(&src_factory));
 	gst_element_class_set_details(element_class, &plugin_details);
@@ -335,7 +333,6 @@ static void gst_shv4l2src_class_init(GstSHV4L2SrcClass * klass)
 	GObjectClass *gobject_class;
 	GstElementClass *gstelement_class;
 
-	GST_LOG("%s called", __func__);
 	gobject_class = (GObjectClass *) klass;
 	gstelement_class = (GstElementClass *) klass;
 

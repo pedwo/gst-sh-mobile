@@ -91,15 +91,6 @@ struct _GstSHVideoCapEnc {
 	gboolean stop_encode_thr;
 };
 
-
-/**
- * Define Gstreamer SH Video Encoder Class structure
- */
-struct _GstSHVideoCapEncClass {
-	GstElementClass parent;
-};
-
-
 /**
  * \var enc_src_factory
  * Name: src \n
@@ -301,7 +292,6 @@ gst_sh_video_enc_base_init(gpointer klass)
 				"Takashi Namiki <takashi.namiki@renesas.com>");
 	GstElementClass *element_class = GST_ELEMENT_CLASS(klass);
 
-	GST_LOG("%s called", __func__);
 	gst_element_class_add_pad_template(element_class,
 					   gst_static_pad_template_get(&enc_src_factory));
 	gst_element_class_set_details(element_class, &plugin_details);
@@ -406,8 +396,6 @@ static void
 gst_sh_video_enc_init(GstSHVideoCapEnc * enc, GstSHVideoCapEncClass * gklass)
 {
 	GstElementClass *klass = GST_ELEMENT_GET_CLASS(enc);
-
-	GST_LOG_OBJECT(enc, "%s called", __func__);
 
 	enc->srcpad = gst_pad_new_from_template(
 		gst_element_class_get_pad_template(klass, "src"), "src");

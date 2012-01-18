@@ -32,7 +32,7 @@ G_BEGIN_DECLS
 #define GST_SH_VIDEO_CAPENC(obj) \
   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_SH_VIDEO_CAPENC,GstSHVideoCapEnc))
 #define GST_SH_VIDEO_CAPENC_CLASS(klass) \
-  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_SH_VIDEO_CAPENC,GstSHVideoCapEnc))
+  (G_TYPE_CHECK_CLASS_CAST((klass),GST_TYPE_SH_VIDEO_CAPENC,GstSHVideoCapEncClass))
 #define GST_IS_SH_VIDEO_CAPENC(obj) \
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_SH_VIDEO_CAPENC))
 #define GST_IS_SH_VIDEO_CAPENC_CLASS(obj) \
@@ -40,7 +40,15 @@ G_BEGIN_DECLS
 typedef struct _GstSHVideoCapEnc GstSHVideoCapEnc;
 typedef struct _GstSHVideoCapEncClass GstSHVideoCapEncClass;
 
-
+/**
+ * GstSHVideoCapEncClass
+ * \struct _GstSHVideoCapEncClass
+ * \var parent Parent class
+ */
+struct _GstSHVideoCapEncClass
+{
+	GstElementClass parent;
+};
 
 /** Get gst-sh-mobile-camera-enc object type
     @return object type

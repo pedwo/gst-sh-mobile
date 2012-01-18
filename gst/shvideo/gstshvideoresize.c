@@ -431,6 +431,9 @@ static void gst_shvidresize_class_init(GstSHVidresizeClass *klass)
 	trans_class->prepare_output_buffer = GST_DEBUG_FUNCPTR(gst_shvidresize_prepare_output_buffer);
 	trans_class->passthrough_on_same_caps = TRUE;
 	parent_class = g_type_class_peek_parent (klass);
+
+	GST_DEBUG_CATEGORY_INIT(gst_shvidresize_debug,
+		"gst-sh-mobile-resize", 0, "SH Video Resize");
 }
 
 /*
@@ -438,13 +441,9 @@ static void gst_shvidresize_class_init(GstSHVidresizeClass *klass)
  */
 static void gst_shvidresize_init (GstSHVidresize *vidresize)
 {
-	GST_LOG("begin");
-
 	// TODO add fail checks
 	vidresize->uiomux = uiomux_open();
 	vidresize->veu = shveu_open_named("VEU");
-
-	GST_LOG("end");
 }
 
 /*
@@ -470,12 +469,6 @@ GType gst_shvidresize_get_type(void)
 
 		object_type = g_type_register_static(GST_TYPE_BASE_TRANSFORM,
 			"gst-sh-mobile-resize", &object_info, (GTypeFlags)0);
-
-		/* Initialize GST_LOG for this object */
-		GST_DEBUG_CATEGORY_INIT(gst_shvidresize_debug,
-			"gst-sh-mobile-resize", 0, "SH Video Resize");
-
-		GST_LOG("initialized get_type");
 	}
 
 	return object_type;
